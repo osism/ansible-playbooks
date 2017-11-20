@@ -1,0 +1,31 @@
+---
+- hosts: mirror
+
+  tasks:
+  - name: Include images file
+    include_vars:
+      file: "{{ docker_images_file }}"
+
+  - name: Include images file as images variable
+    include_vars:
+      file: "{{ docker_images_file }}"
+      name: images
+
+  - name: Prepare internal images
+    set_fact:
+      images_internal: "{{ images_internal|default({})|combine({ item.key: item.value }) }}"
+    with_dict: "{{ images }}"
+    vars:
+      docker_registry: "{{ docker_registry_internal }}"
+
+  - name: Prepare external images
+    set_fact:
+      images_external: "{{ images_external|default({})|combine({ item.key: item.value }) }}"
+    with_dict: "{{ images }}"
+    vars:
+      docker_registry: "{{ docker_registry_external }}"
+
+  - name: Include tasks to transfer images
+    include: tasks/infrastructure-mirror-image.yml image="{{ item.key }}" tag="{{ item.key|replace('_image', '_tag') }}"
+    when: "'_image' in item.key and '_image_tag' not in item.key"
+    with_dict: "{{ images_external }}"

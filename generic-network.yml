@@ -1,0 +1,8 @@
+---
+- name: Apply role osism.network-interfaces
+  hosts: all
+  become: true
+  serial: "{{ osism_serial['network-interfaces']|default('1') }}"
+
+  roles:
+  - role: osism.network-interfaces

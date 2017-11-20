@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.cobbler
+  hosts: cobbler
+  become: true
+
+  roles:
+  - role: osism.cobbler

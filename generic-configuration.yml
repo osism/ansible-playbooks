@@ -1,0 +1,6 @@
+---
+- name: Update configuration
+  hosts: manager
+
+  roles:
+  - role: osism.configuration

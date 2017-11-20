@@ -1,0 +1,6 @@
+---
+- name: Apply role osism.prometheus
+  hosts: prometheus
+
+  roles:
+  - role: osism.prometheus

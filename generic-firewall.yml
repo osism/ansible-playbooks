@@ -1,0 +1,10 @@
+---
+- hosts: all
+  tasks:
+    - include: tasks/firewall-groups.yml
+      with_items: "{{ firewall_rules_groups }}"
+      when: "item.src in group_names or item.src == 'all'"
+
+    - include: tasks/firewall-hosts.yml
+      with_items: "{{ firewall_rules_hosts }}"
+      when: "item.src in group_names or item.src == 'all'"

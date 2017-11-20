@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.mirror
+  hosts: mirror
+  become: true
+
+  roles:
+  - role: osism.mirror

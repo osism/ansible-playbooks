@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.helper
+  hosts: helper
+  become: true
+
+  roles:
+  - role: osism.helper

@@ -1,0 +1,79 @@
+---
+- hosts: mirror
+
+  tasks:
+  - name: Import gpg key
+    command: "docker exec -t aptly_aptly_1 bash -c 'wget -O - {{ aptly_gpg_key }} | gpg --no-default-keyring --keyring trustedkeys.gpg --import'"
+
+  - name: Add repository
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror create -architectures=amd64 node-{{ repository_version }} {{ aptly_repository }}'"
+
+  - name: Update repository
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror update -force=true node-{{ repository_version }}'"
+
+  - name: Create snapshot
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly snapshot create node-{{ repository_version }} from mirror node-{{ repository_version }}'"
+
+#  - name: Publish snapshot
+#    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish snapshot -batch=true node-{{ repository_version }} node-{{ repository-version }}'"
+
+  - name: Copy aptly.pub file
+    command: "docker exec -t aptly_aptly_1 bash -c 'cp /opt/aptly/aptly.pub /opt/aptly/public/aptly.pub'"
+
+#  - name: Add repository
+#    docker_container:
+#      name: aptly-add-external-repository
+#      image: "{{ aptly_image }}"
+#      cleanup: yes
+#      entrypoint: /usr/bin/aptly
+#      command: "mirror create -architectures=amd64 node-{{ repository_version }} {{ aptly_repository }}"
+#      volumes:
+#        - "{{ aptly_configuration_directory }}/aptly.conf:/etc/aptly.conf:ro"
+#        - "aptly_database:/opt/aptly/db"
+#        - "aptly_storage:/opt/aptly"
+
+#  - name: Update repository
+#    docker_container:
+#      name: aptly-update-external-repository
+#      image: "{{ aptly_image }}"
+#      cleanup: yes
+#      entrypoint: /usr/bin/aptly
+#      command: "mirror update -force=true node-{{ repository_version }}"
+#      volumes:
+#        - "{{ aptly_configuration_directory }}/aptly.conf:/etc/aptly.conf:ro"
+#        - "aptly_database:/opt/aptly/db"
+#        - "aptly_storage:/opt/aptly"
+
+#  - name: Create snapshot
+#    docker_container:
+#      name: aptly-create-snapshot
+#      image: "{{ aptly_image }}"
+#      cleanup: yes
+#      entrypoint: /usr/bin/aptly
+#      command: "snapshot create node-{{ repository_version }} from mirror node-{{ repository_version }}"
+#      volumes:
+#        - "{{ aptly_configuration_directory }}/aptly.conf:/etc/aptly.conf:ro"
+#        - "aptly_database:/opt/aptly/db"
+#        - "aptly_storage:/opt/aptly"
+
+#  - name: Publish snapshot
+#    docker_container:
+#      name: aptly-create-snapshot
+#      image: "{{ aptly_image }}"
+#      cleanup: yes
+#      entrypoint: /usr/bin/aptly
+#      command: "publish snapshot -batch=true node-{{ repository_version }} node-{{ repository-version }}"
+#      volumes:
+#        - "{{ aptly_configuration_directory }}/aptly.conf:/etc/aptly.conf:ro"
+#        - "aptly_database:/opt/aptly/db"
+#        - "aptly_storage:/opt/aptly"
+
+#  - name: Remove all containers
+#    docker_container:
+#      name: "{{ item }}"
+#      state: absent
+#    with_items:
+#      - aptly-add-external-repository
+#      - aptly-update-external-repository
+#      - aptly-create-snapshot
+#      - aptly-publish-snapshot

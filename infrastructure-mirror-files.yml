@@ -1,0 +1,14 @@
+---
+- hosts: mirror
+
+  tasks:
+  - name: Fetch files
+    get_url:
+      url: "{{ item.url }}"
+      dest: "{{ mirror_files_storage_directory|default('/var/lib/docker/volumes/nginx_storage/_data') }}/{{ item.dest }}"
+      owner: "{{ operator_user }}"
+      group: "{{ operator_group }}"
+      mode: 0644
+      checksum: "{{ item.checksum }}"
+    with_items: "{{ mirror_files_files }}"
+    become: true

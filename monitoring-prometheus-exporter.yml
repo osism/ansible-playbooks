@@ -1,0 +1,6 @@
+---
+- name: Apply role osism.prometheus-exporter
+  hosts: all
+
+  roles:
+  - role: osism.prometheus-exporter

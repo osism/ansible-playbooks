@@ -1,0 +1,6 @@
+---
+- name: Apply role osism.monitoring
+  hosts: monitoring
+
+  roles:
+  - role: osism.monitoring
