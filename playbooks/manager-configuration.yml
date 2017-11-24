@@ -1,0 +1,6 @@
+---
+- name: Apply role osism.configuration
+  hosts: manager
+
+  roles:
+  - role: osism.configuration

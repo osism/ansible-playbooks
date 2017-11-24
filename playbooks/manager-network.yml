@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.network-interfaces
+  hosts: manager
+  become: true
+
+  roles:
+  - role: osism.network-interfaces
