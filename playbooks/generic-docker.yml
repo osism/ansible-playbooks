@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.docker
+  docker: all
+  serial: "{{ osism_serial['docker']|default('30%') }}"
+
+  roles:
+  - role: osism.docker

@@ -1,0 +1,7 @@
+---
+- name: Apply role hardening
+  hardening: all
+  serial: "{{ osism_serial['hardening']|default('30%') }}"
+
+  roles:
+  - role: hardening
