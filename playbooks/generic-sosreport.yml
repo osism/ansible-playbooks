@@ -40,6 +40,7 @@
   # FIXME(berendt): Use file module
   - name: sosreport - create local required directories
     local_action: "shell mkdir -p {{ sosreport_archive_directory }}"
+    run_once: true
 
   - name: sosreport - generate report
     command: "sosreport --batch --tmp-dir {{ sosreport_tmpdir }} -o networking -z gzip --name {{ inventory_hostname_short }}"
