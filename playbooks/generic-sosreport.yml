@@ -13,7 +13,7 @@
     sosreport_archive_directory: /archive/sosreport
 
   tasks:
-  - name: prometheus - install required packages
+  - name: sosreport - install required packages
     package:
       name: "{{ item }}"
       state: present
