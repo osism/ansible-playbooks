@@ -1,0 +1,12 @@
+---
+- hosts: manager
+  gather_facts: false
+  become: false
+
+  vars:
+    openstack_glance_images_tmpdir: /tmp
+
+  tasks:
+  - name: Include tasks to upload image
+    include: tasks/openstack-glance-images.yml
+    with_items: "{{ openstack_glance_images }}"
