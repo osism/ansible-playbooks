@@ -4,6 +4,7 @@
 - hosts: all
   gather_facts: no
   vars:
+    sosreport_unarchive: no
     sosreport_tmpdir: /tmp/sosreport
     sosreport_cmd: sosreport
     required_packages_sosreport:
@@ -11,6 +12,34 @@
     sosreport_name: "{{ inventory_hostname_short }}-{{ ansible_date_time.date }}"
     sosreport_archive_filename: "{{ sosreport_name }}.tar.gz"
     sosreport_archive_directory: /archive/sosreport
+    sosreport_plugins:
+      - apt
+      - auditd
+      - block
+      - devices
+      - docker
+      - dpkg
+      - filesys
+      - general
+      - hardware
+      - kernel
+      - kvm
+      - last
+      - md
+      - memory
+      - networking
+      - pci
+      - process
+      - processor
+      - python
+      - services
+      - ssh
+      - system
+      - systemd
+      - ubuntu
+      - udev
+      - usb
+      - xfs
 
   tasks:
   - name: sosreport - install required packages
@@ -43,7 +72,7 @@
     run_once: true
 
   - name: sosreport - generate report
-    command: "sosreport --batch --tmp-dir {{ sosreport_tmpdir }} -o networking -z gzip --name {{ inventory_hostname_short }}"
+    command: "sosreport --batch --tmp-dir {{ sosreport_tmpdir }} -z gzip --name {{ inventory_hostname_short }} -o {{ sosreport_plugins|join(',') }}"
     become: true
 
   - name: sosreport - rename md5 file
@@ -69,18 +98,12 @@
   # FIXME(berendt): use file module
   - name: sosreport - create archive directory
     local_action: "shell mkdir {{ sosreport_archive_directory }}/{{ sosreport_name }}"
+    when: sosreport_unarchive
 
   # FIXME(berendt): use unarchive module
   - name: sosreport - unarchive archive
     local_action: "shell tar xvzf {{ sosreport_archive_directory }}/{{ sosreport_archive_filename }} -C {{ sosreport_archive_directory }}/{{ sosreport_name }} --strip-components=1"
-
-  # FIXME(berendt): use file module
-  - name: sosreport - remove archive
-    local_action: "shell rm -f {{ sosreport_archive_directory }}/{{ sosreport_archive_filename }}"
-
-  # FIXME(berendt): use md5 module
-  - name: sosreport - remove archive
-    local_action: "shell rm -f {{ sosreport_archive_directory }}/{{ sosreport_archive_filename }}.md5"
+    when: sosreport_unarchive
 
   - name: sosreport - remove temporary directory
     file:
