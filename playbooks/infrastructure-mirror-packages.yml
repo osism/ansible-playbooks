@@ -9,7 +9,7 @@
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror create -architectures=amd64 node-{{ repository_version }} {{ aptly_repository }}'"
 
   - name: Update repository
-    command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror update -force=true node-{{ repository_version }}'"
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror update -force=true -skip-existing-packages -max-tries=3 node-{{ repository_version }}'"
 
   - name: Create snapshot
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly snapshot create node-{{ repository_version }} from mirror node-{{ repository_version }}'"
