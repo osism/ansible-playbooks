@@ -1,0 +1,8 @@
+---
+- name: Apply role ANXS.timezone
+  hosts: all
+  serial: "{{ osism_serial['timezone']|default('30%') }}"
+  become: true
+
+  roles:
+  - role: ANXS.timezone

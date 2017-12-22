@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.resolvconf
+  hosts: all
+  serial: "{{ osism_serial['resolvconf']|default('30%') }}"
+
+  roles:
+  - role: osism.resolvconf

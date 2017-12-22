@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.common
+  hosts: all
+  serial: "{{ osism_serial['common']|default('30%') }}"
+
+  roles:
+  - role: osism.common
