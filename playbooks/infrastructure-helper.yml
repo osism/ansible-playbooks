@@ -1,6 +1,6 @@
 ---
 - name: Apply role osism.helper
-  hosts: helper
+  hosts: all
   become: true
 
   roles:
