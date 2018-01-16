@@ -1,6 +1,6 @@
 ---
 - name: Apply role hardening
-  hardening: all
+  hosts: all
   serial: "{{ osism_serial['hardening']|default('30%') }}"
 
   roles:
