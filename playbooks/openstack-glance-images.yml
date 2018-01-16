@@ -9,9 +9,12 @@
   tasks:
   - name: Install required packages
     package:
-      name: python-shade
+      name: "{{ item }}"
       state: present
     become: true
+    with_items:
+      - python-shade
+      - qemu-utils
 
   - name: Include tasks to upload image
     include: tasks/openstack-glance-images.yml
