@@ -4,6 +4,12 @@
   become: false
 
   tasks:
+  - name: Install required packages
+    package:
+      name: python-shade
+      state: present
+    become: true
+
   - name: Create aggregates
     os_nova_host_aggregate:
       name: "{{ item.name }}"
