@@ -29,7 +29,7 @@
 
   - name: Run innobackupex
     command: docker exec -t mariadb innobackupex /tmp
-    async: 60
+    async: 600
     poll: 5
 
   - name: Get latest backup directory
