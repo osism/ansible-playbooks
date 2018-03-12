@@ -6,12 +6,16 @@
   tasks:
     - name: Prune containers
       command: docker container prune --force
+      tags: containers
 
     - name: Prune volumes
       command: docker volume prune --force
+      tags: volumes
 
     - name: Prune networks
       command: docker network prune --force
+      tags: networks
 
     - name: Prune images
       command: docker image prune --all --force
+      tags: images
