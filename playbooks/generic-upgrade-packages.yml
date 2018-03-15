@@ -1,0 +1,27 @@
+# FIXME(berendt): use osism.common
+---
+- name: Upgrade packages
+  hosts: all
+  serial: "{{ osism_serial['upgrade_packages']|default('30%') }}"
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      become: true
+
+    - name: Upgrade packages
+      apt:
+        upgrade: dist
+      become: true
+
+    - name: Remove useless packages from the cache
+      apt:
+        autoclean: yes
+      become: true
+
+    - name: Remove dependencies that are no longer required
+      apt:
+        autoremove: yes
+      become: true
