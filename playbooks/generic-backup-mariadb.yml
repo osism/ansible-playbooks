@@ -4,7 +4,7 @@
   gather_facts: yes
 
   vars:
-    backup_directory: /opt/xtrabackup
+    mariadb_backup_directory: /opt/xtrabackup
 
   tasks:
   - name: Create required directories
@@ -16,7 +16,7 @@
       mode: 0750
     become: true
     with_items:
-      - "{{ backup_directory }}"
+      - "{{ mariadb_backup_directory }}"
 
   - name: Get status of mariadb container
     command: docker ps -a -f name=/mariadb -f status=running --format "{{ '{{' }}.ID{{ '}}' }}"
@@ -38,15 +38,15 @@
 
   - name: Set latest backup directory fact
     set_fact:
-      backup_directory_latest: "{{ result.stdout }}"
+      mariadb_backup_directory_latest: "{{ result.stdout }}"
 
-  - name: Ensure backup_directory_latest is not empty
+  - name: Ensure mariadb_backup_directory_latest is not empty
     fail:
-      msg: backup_directory_latest is empty
-    when: backup_directory_latest == ""
+      msg: mariadb_backup_directory_latest is empty
+    when: mariadb_backup_directory_latest == ""
 
   - name: Extract backup from the container
-    command: docker cp mariadb:{{ backup_directory_latest }} /opt/xtrabackup
+    command: "docker cp mariadb:{{ mariadb_backup_directory_latest }} {{ mariadb_backup_directory }}"
 
   - name: Remove backup from the container
-    command: docker exec -t mariadb rm -rf {{ backup_directory_latest }}
+    command: docker exec -t mariadb rm -rf {{ mariadb_backup_directory_latest }}
