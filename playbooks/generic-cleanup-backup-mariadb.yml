@@ -1,0 +1,21 @@
+---                                                        
+- name: Cleanup mariadb backup archives
+  hosts: mariadb
+
+  vars:
+    mariadb_backup_directory: /opt/xtrabackup
+    mariadb_backup_retention_time: 14d
+
+  tasks:
+    - name: Find old mariadb backup archives
+      find:
+        path: "{{ mariadb_backup_directory }}"
+        age: "{{ mariadb_backup_retention_time }}"
+        file_type: directory
+      register: mariadb_backup_old_directories
+
+    - name: Delete old mariadb backup archives
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ mariadb_backup_old_directories.files }}"
