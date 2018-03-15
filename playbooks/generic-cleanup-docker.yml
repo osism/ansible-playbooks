@@ -1,5 +1,5 @@
 ---
-- name: Docker cleanup
+- name: Cleanup docker
   hosts: all
   serial: "{{ osism_serial['docker_cleanup']|default('1') }}"
 
