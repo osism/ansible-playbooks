@@ -1,0 +1,8 @@
+---
+- name: Manage container
+  hosts: all
+  serial: "{{ osism_serial['manage_container']|default('30%') }}"
+
+  tasks:
+    - name: Manage container
+      command: "docker {{ container_action }} {{ container_name }}"
