@@ -3,4 +3,5 @@
   hosts: all
   gather_facts: false
   tasks:
-    - setup:
+    - name: Gather facts
+      setup:
