@@ -1,9 +1,10 @@
 ---
-- name: Gather facts for all hosts
+- name: Gather facts for manager hosts
   hosts: manager
   gather_facts: false
   tasks:
-    - setup:
+    - name: Gather facts
+      setup:
 
 - name: Prepare manager
   hosts: manager
