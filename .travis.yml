@@ -1,7 +1,17 @@
 ---
-language: generic
+sudo: false
+
+language: python
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+    - .tox
 
 script:
+  - tox -e lint
+
+after_sucess:
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then bash scripts/trigger-travis.sh --branch master osism docker-osism-ansible $TRAVIS_ACCESS_TOKEN "new commit in osism-ansible repository"; fi'
 
 notifications:

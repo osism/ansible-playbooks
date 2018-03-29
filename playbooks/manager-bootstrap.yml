@@ -9,16 +9,16 @@
   hosts: manager
 
   roles:
-  - role: osism.hostname
-  - role: osism.hosts
-  - role: osism.proxy
-  - role: osism.resolvconf
-  - role: osism.repository
-  - role: osism.common
-  - role: debops.grub
-  - role: ANXS.timezone
-    become: true
-  - role: ANXS.utilities
-  - role: osism.docker
-  - role: hardening
-    become: true
+    - role: osism.hostname
+    - role: osism.hosts
+    - role: osism.proxy
+    - role: osism.resolvconf
+    - role: osism.repository
+    - role: osism.common
+    - role: debops.grub
+    - role: ANXS.timezone
+      become: true
+    - role: ANXS.utilities
+    - role: osism.docker
+    - role: hardening
+      become: true

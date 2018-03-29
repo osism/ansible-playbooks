@@ -7,18 +7,18 @@
     ansible_ssh_pipelining: no
 
   tasks:
-  - name: Do not require tty for all users
-    replace:
-      # NOTE: parameter changes to path after 2.3
-      dest: /etc/sudoers
-      regexp: "^Defaults.*requiretty$"
-      replace: "Defaults !requiretty"
-    become: true
+    - name: Do not require tty for all users
+      replace:
+        # NOTE: parameter changes to path after 2.3
+        dest: /etc/sudoers
+        regexp: "^Defaults.*requiretty$"
+        replace: "Defaults !requiretty"
+      become: true
 
 - name: Apply role osism.operator
   hosts: all
   serial: "{{ osism_serial['operator']|default('30%') }}"
 
   roles:
-  - role: osism.operator
-    tags: operator
+    - role: osism.operator
+      tags: operator
