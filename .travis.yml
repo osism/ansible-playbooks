@@ -8,6 +8,9 @@ cache:
     - $HOME/.cache/pip
     - .tox
 
+install:
+  - pip install -r test-requirements.txt
+
 script:
   - tox -e lint
 
