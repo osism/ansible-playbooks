@@ -6,13 +6,12 @@ language: python
 cache:
   directories:
     - $HOME/.cache/pip
-    - .tox
 
 install:
   - pip install -r test-requirements.txt
 
 script:
-  - tox -e lint
+  - yamllint -c .yamllint.yml playbooks tasks
 
 after_sucess:
   - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then bash scripts/trigger-travis.sh --branch master osism docker-osism-ansible $TRAVIS_ACCESS_TOKEN "new commit in osism-ansible repository"; fi'
