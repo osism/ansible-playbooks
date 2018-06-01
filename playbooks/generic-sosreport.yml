@@ -1,7 +1,8 @@
 ---
 # NOTE(berendt): Transfer this into a osism.sosreport role
 
-- hosts: all
+- name: Collect sosreports
+  hosts: all
   gather_facts: false
   vars:
     sosreport_unarchive: no

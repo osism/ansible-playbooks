@@ -1,8 +1,9 @@
 ---
-- hosts: all
+- name: Install python environment
+  hosts: all
   gather_facts: false
 
   tasks:
-    - name: python - install required packages
+    - name: Install required packages
       raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
       become: true

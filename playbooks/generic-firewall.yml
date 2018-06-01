@@ -1,5 +1,6 @@
 ---
-- hosts: all
+- name: Check connectivity
+  hosts: all
   tasks:
     - include: tasks/firewall-groups.yml
       with_items: "{{ firewall_rules_groups }}"
