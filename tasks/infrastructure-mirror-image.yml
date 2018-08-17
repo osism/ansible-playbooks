@@ -9,20 +9,20 @@
     ceph_docker_registry_internal: "{{ docker_registry_internal }}/"
   when: "image == 'ceph_docker_image'"
 
-- name: Pull docker image from external registry
+- name: "Pull docker image {{ image }} from external registry"
   docker_image:
     name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image] }}"
     tag: "{{ images_external[tag] }}"
     state: present
 
-- name: Tag and push docker image to local registry
+- name: "Tag and push docker image {{ image }} to local registry"
   docker_image:
     name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image] }}"
     tag: "{{ images_external[tag] }}"
     repository: "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image] }}"
     push: yes
 
-- name: Remove local docker images
+- name: "Remove local docker image {{ image }}"
   docker_image:
     name: "{{ item_in_block|regex_replace('index.docker.io/') }}"
     tag: "{{ images_external[tag] }}"
@@ -33,3 +33,4 @@
   loop_control:
     loop_var: item_in_block
   ignore_errors: true
+  when: remove_local_docker_images|default(true)|bool
