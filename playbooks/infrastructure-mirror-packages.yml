@@ -32,7 +32,7 @@
       - "'already exists' not in result_create_snapshot.stdout and 'successfully created' not in result_create_snapshot.stdout"
 
   - name: Publish snapshot
-    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish snapshot -passphrase=$GPG_PASSWORD -batch=true {{ item.name }}-{{ ansible_date_time.date }} {{ item.name }}'"
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish snapshot -passphrase=$GPG_PASSWORD -batch=true -distribution={{ item.name }} {{ item.name }}-{{ ansible_date_time.date }} ubuntu'"
     with_items: "{{ aptly_repositories }}"
     register: result_publish_snapshot
     changed_when:
@@ -41,7 +41,7 @@
       - "'already used by another published repo' not in result_publish_snapshot.stdout and 'successfully published' not in result_publish_snapshot.stdout"
 
   - name: Switch published snapshot
-    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish switch -passphrase=$GPG_PASSWORD -batch=true {{ item.distribution }} {{ item.name }} {{ item.name }}-{{ ansible_date_time.date }}'"
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish switch -passphrase=$GPG_PASSWORD -batch=true {{ item.name }} ubuntu {{ item.name }}-{{ ansible_date_time.date }}'"
     with_items: "{{ aptly_repositories }}"
     register: result_switch_snapshot
 #    when: "'already used by another published repo' in result_publish_snapshot.stdout"
