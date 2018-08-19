@@ -22,15 +22,17 @@
     repository: "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image] }}"
     push: yes
 
-- name: "Remove local images {{ images_internal[image] }} and {{ images_external[image] }}"
+- name: "Remove tagged image {{ images_internal[image] }}"
   docker_image:
-    name: "{{ item_in_block|regex_replace('index.docker.io/') }}"
+    name: "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image]|regex_replace('index.docker.io/') }}"
+    tag: "{{ images_internal[tag] }}"
+    state: absent
+  ignore_errors: true
+
+- name: "Remove pulled image {{ images_external[image] }}"
+  docker_image:
+    name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image]|regex_replace('index.docker.io/') }}"
     tag: "{{ images_external[tag] }}"
     state: absent
-  with_items:
-    - "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image] }}"
-    - "{{ ceph_docker_registry_external|default('') }}{{ images_external[image] }}"
-  loop_control:
-    loop_var: item_in_block
   ignore_errors: true
   when: remove_local_docker_images|default(true)|bool
