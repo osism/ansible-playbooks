@@ -1,0 +1,8 @@
+---
+- name: Ping systems
+  hosts: all
+  serial: "{{ osism_serial['ping']|default('100%') }}"
+
+  tasks:
+    - name: Ping system
+      ping:
