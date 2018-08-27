@@ -5,6 +5,7 @@
   - name: Import gpg key
     command: "docker exec -t aptly_aptly_1 bash -c 'wget -q -O - {{ item }} | gpg --no-default-keyring --keyring trustedkeys.gpg --import'"
     with_items: "{{ aptly_repository_keys }}"
+    tags: import-gpg-key
 
   - name: Add repository
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror create -architectures={{ item.architecture }} {{ item.name }} {{ item.repository }}'"
@@ -14,6 +15,7 @@
       - "'successfully added' in result_add_repository.stdout"
     failed_when:
       - "'already exists' not in result_add_repository.stdout and 'successfully added' not in result_add_repository.stdout"
+    tags: add-repository
 
   - name: Update repository
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly mirror update -force=true -skip-existing-packages -max-tries=3 {{ item.name }}'"
@@ -21,6 +23,7 @@
     register: result_update_repository
     changed_when:
       - "'successfully updated' in result_update_repository.stdout and 'Download queue: 0 items (0 B)' not in result_update_repository.stdout"
+    tags: update-repository
 
   - name: Create snapshot
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly snapshot create {{ item.name }}-{{ ansible_date_time.date }} from mirror {{ item.name }}'"
@@ -30,6 +33,7 @@
       - "'successfully created' in result_create_snapshot.stdout"
     failed_when:
       - "'already exists' not in result_create_snapshot.stdout and 'successfully created' not in result_create_snapshot.stdout"
+    tags: create-snapshot
 
   - name: Publish snapshot
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish snapshot -passphrase=$GPG_PASSWORD -batch=true -distribution={{ item.name }} {{ item.name }}-{{ ansible_date_time.date }} ubuntu'"
@@ -39,6 +43,7 @@
       - "'successfully published' in result_publish_snapshot.stdout"
     failed_when:
       - "'already used by another published repo' not in result_publish_snapshot.stdout and 'successfully published' not in result_publish_snapshot.stdout"
+    tags: publich-snapshot
 
   - name: Switch published snapshot
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish switch -passphrase=$GPG_PASSWORD -batch=true {{ item.name }} ubuntu {{ item.name }}-{{ ansible_date_time.date }}'"
@@ -47,6 +52,7 @@
 #    when: "'already used by another published repo' in result_publish_snapshot.stdout"
     changed_when:
       - "'successfully switched' in result_switch_snapshot.stdout"
+    tags: publich-snapshot
 
   - name: Copy aptly.pub file
     command: "docker exec -t aptly_aptly_1 bash -c 'cp /opt/aptly/aptly.pub /opt/aptly/public/aptly.pub'"
