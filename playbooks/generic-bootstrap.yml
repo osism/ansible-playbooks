@@ -1,4 +1,10 @@
 ---
+- name: Gather facts for all hosts
+  hosts: manager
+  gather_facts: false
+  tasks:
+    - setup:
+
 - name: Apply role osism.hostname
   hosts: all
   serial: "{{ osism_serial['hostname']|default('30%') }}"
