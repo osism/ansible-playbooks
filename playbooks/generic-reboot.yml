@@ -19,7 +19,6 @@
            invoking the playbook"
       when: ireallymeanit != 'yes'
 
-  tasks:
     - name: Reboot system
       shell: sleep 2 && /sbin/shutdown -r now
       async: 1
