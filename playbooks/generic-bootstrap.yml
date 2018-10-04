@@ -10,48 +10,48 @@
   serial: "{{ osism_serial['hostname']|default('30%') }}"
 
   roles:
-  - role: osism.hostname
-    tags: hostname
+    - role: osism.hostname
+      tags: hostname
 
 - name: Apply role osism.hosts
   hosts: all
   serial: "{{ osism_serial['hosts']|default('30%') }}"
 
   roles:
-  - role: osism.hosts
-    tags: hosts
+    - role: osism.hosts
+      tags: hosts
 
 - name: Apply role osism.proxy
   hosts: all
   serial: "{{ osism_serial['proxy']|default('30%') }}"
 
   roles:
-  - role: osism.proxy
-    tags: proxy
+    - role: osism.proxy
+      tags: proxy
 
 - name: Apply role osism.resolvconf
   hosts: all
   serial: "{{ osism_serial['resolvconf']|default('30%') }}"
 
   roles:
-  - role: osism.resolvconf
-    tags: resolvconf
+    - role: osism.resolvconf
+      tags: resolvconf
 
 - name: Apply role osism.repository
   hosts: all
   serial: "{{ osism_serial['repository']|default('30%') }}"
 
   roles:
-  - role: osism.repository
-    tags: repository
+    - role: osism.repository
+      tags: repository
 
 - name: Apply role osism.common
   hosts: all
   serial: "{{ osism_serial['common']|default('30%') }}"
 
   roles:
-  - role: osism.common
-    tags: common
+    - role: osism.common
+      tags: common
 
 - name: Apply role debops.grub
   hosts: all
@@ -59,8 +59,8 @@
   become: true
 
   roles:
-  - role: debops.grub
-    tags: grub
+    - role: debops.grub
+      tags: grub
 
 - name: Apply role ANXS.timezone
   hosts: all
@@ -68,8 +68,8 @@
   become: true
 
   roles:
-  - role: ANXS.timezone
-    tags: timezone
+    - role: ANXS.timezone
+      tags: timezone
 
 - name: Apply role ANXS.utilities
   hosts: all
@@ -77,16 +77,16 @@
   become: true
 
   roles:
-  - role: ANXS.utilities
-    tags: utilities
+    - role: ANXS.utilities
+      tags: utilities
 
 - name: Apply role osism.docker
   hosts: all
   serial: "{{ osism_serial['docker']|default('1') }}"
 
   roles:
-  - role: osism.docker
-    tags: docker
+    - role: osism.docker
+      tags: docker
 
 - name: Apply role hardening
   hosts: all
@@ -94,5 +94,5 @@
   become: true
 
   roles:
-  - role: hardening
-    tags: hardening
+    - role: hardening
+      tags: hardening

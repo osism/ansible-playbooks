@@ -1,12 +1,13 @@
+---
 - name: Cleanup elasticsearch
   hosts: manager
 
   vars:
-    elasticsearch_retention_time: 60 
+    elasticsearch_retention_time: 60
 
   tasks:
-  - name: Remove elasticsearch index
-    uri:
-      url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  elasticsearch_retention_time) ) }}"
-      method: DELETE
-      return_content: yes
+    - name: Remove elasticsearch index
+      uri:
+        url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  elasticsearch_retention_time) ) }}"
+        method: DELETE
+        return_content: yes
