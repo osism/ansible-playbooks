@@ -1,0 +1,8 @@
+---
+- name: Apply role osism.cockpit
+  hosts: all
+  serial: "{{ osism_serial['cockpit']|default('30%') }}"
+  become: true
+
+  roles:
+  - role: osism.cockpit

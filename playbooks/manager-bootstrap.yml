@@ -20,5 +20,6 @@
       become: true
     - role: ANXS.utilities
     - role: osism.docker
+    - role: osism.cockpit
     - role: hardening
       become: true

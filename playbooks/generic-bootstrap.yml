@@ -88,6 +88,14 @@
     - role: osism.docker
       tags: docker
 
+- name: Apply role osism.cockpit
+  hosts: all
+  serial: "{{ osism_serial['cockpit']|default('1') }}"
+
+  roles:
+    - role: osism.cockpit
+      tags: cockpit
+
 - name: Apply role hardening
   hosts: all
   serial: "{{ osism_serial['hardening']|default('30%') }}"
