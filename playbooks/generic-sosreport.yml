@@ -21,7 +21,6 @@
       - docker
       - dpkg
       - filesys
-      - general
       - hardware
       - kernel
       - kvm
