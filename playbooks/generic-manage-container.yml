@@ -1,7 +1,7 @@
 ---
 - name: Manage container
   hosts: all
-  serial: "{{ osism_serial['manage_container']|default('30%') }}"
+  serial: "{{ osism_serial['manage_container']|default(osism_serial_default) }}"
 
   tasks:
     - name: Manage container

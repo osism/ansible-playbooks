@@ -1,7 +1,7 @@
 ---
 - name: Apply role ANXS.timezone
   hosts: all
-  serial: "{{ osism_serial['timezone']|default('30%') }}"
+  serial: "{{ osism_serial['timezone']|default(osism_serial_default) }}"
   become: true
 
   roles:

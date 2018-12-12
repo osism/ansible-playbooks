@@ -1,7 +1,7 @@
 ---
 - name: Ping systems
   hosts: all
-  serial: "{{ osism_serial['ping']|default('100%') }}"
+  serial: "{{ osism_serial['ping']|default(osism_serial_default) }}"
 
   tasks:
     - name: Ping system

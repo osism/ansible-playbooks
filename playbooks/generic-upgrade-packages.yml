@@ -2,7 +2,7 @@
 ---
 - name: Upgrade packages
   hosts: all
-  serial: "{{ osism_serial['upgrade_packages']|default('30%') }}"
+  serial: "{{ osism_serial['upgrade_packages']|default(osism_serial_default) }}"
 
   tasks:
     - name: Update package cache

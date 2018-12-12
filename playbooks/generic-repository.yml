@@ -1,7 +1,7 @@
 ---
 - name: Apply role osism.repository
   hosts: all
-  serial: "{{ osism_serial['repository']|default('30%') }}"
+  serial: "{{ osism_serial['repository']|default(osism_serial_default) }}"
 
   roles:
   - role: osism.repository

@@ -7,7 +7,7 @@
 
 - name: Apply role osism.hostname
   hosts: all
-  serial: "{{ osism_serial['hostname']|default('30%') }}"
+  serial: "{{ osism_serial['hostname']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.hostname
@@ -15,7 +15,7 @@
 
 - name: Apply role osism.hosts
   hosts: all
-  serial: "{{ osism_serial['hosts']|default('30%') }}"
+  serial: "{{ osism_serial['hosts']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.hosts
@@ -23,7 +23,7 @@
 
 - name: Apply role osism.proxy
   hosts: all
-  serial: "{{ osism_serial['proxy']|default('30%') }}"
+  serial: "{{ osism_serial['proxy']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.proxy
@@ -31,7 +31,7 @@
 
 - name: Apply role osism.resolvconf
   hosts: all
-  serial: "{{ osism_serial['resolvconf']|default('30%') }}"
+  serial: "{{ osism_serial['resolvconf']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.resolvconf
@@ -39,7 +39,7 @@
 
 - name: Apply role osism.repository
   hosts: all
-  serial: "{{ osism_serial['repository']|default('30%') }}"
+  serial: "{{ osism_serial['repository']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.repository
@@ -47,7 +47,7 @@
 
 - name: Apply role osism.common
   hosts: all
-  serial: "{{ osism_serial['common']|default('30%') }}"
+  serial: "{{ osism_serial['common']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.common
@@ -55,7 +55,7 @@
 
 - name: Apply role debops.grub
   hosts: all
-  serial: "{{ osism_serial['grub']|default('30%') }}"
+  serial: "{{ osism_serial['grub']|default(osism_serial_default) }}"
   become: true
 
   roles:
@@ -64,7 +64,7 @@
 
 - name: Apply role ANXS.timezone
   hosts: all
-  serial: "{{ osism_serial['timezone']|default('30%') }}"
+  serial: "{{ osism_serial['timezone']|default(osism_serial_default) }}"
   become: true
 
   roles:
@@ -73,7 +73,7 @@
 
 - name: Apply role ANXS.utilities
   hosts: all
-  serial: "{{ osism_serial['utilities']|default('30%') }}"
+  serial: "{{ osism_serial['utilities']|default(osism_serial_default) }}"
   become: true
 
   roles:
@@ -90,7 +90,7 @@
 
 - name: Apply role osism.cockpit
   hosts: all
-  serial: "{{ osism_serial['cockpit']|default('30%') }}"
+  serial: "{{ osism_serial['cockpit']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.cockpit
@@ -98,7 +98,7 @@
 
 - name: Apply role hardening
   hosts: all
-  serial: "{{ osism_serial['hardening']|default('30%') }}"
+  serial: "{{ osism_serial['hardening']|default(osism_serial_default) }}"
   become: true
 
   roles:

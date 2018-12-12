@@ -1,7 +1,7 @@
 ---
 - name: Apply role ANXS.utilities
   hosts: all
-  serial: "{{ osism_serial['utilities']|default('30%') }}"
+  serial: "{{ osism_serial['utilities']|default(osism_serial_default) }}"
   become: true
 
   roles:

@@ -1,7 +1,7 @@
 ---
 - name: Apply role osism.hostname
   hosts: all
-  serial: "{{ osism_serial['hostname']|default('30%') }}"
+  serial: "{{ osism_serial['hostname']|default(osism_serial_default) }}"
 
   roles:
   - role: osism.hostname

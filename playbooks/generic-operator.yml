@@ -1,7 +1,7 @@
 ---
 - name: Make ssh pipelining working
   hosts: all
-  serial: "{{ osism_serial['pipelining']|default('30%') }}"
+  serial: "{{ osism_serial['pipelining']|default(osism_serial_default) }}"
 
   vars:
     ansible_ssh_pipelining: no
@@ -17,7 +17,7 @@
 
 - name: Apply role osism.operator
   hosts: all
-  serial: "{{ osism_serial['operator']|default('30%') }}"
+  serial: "{{ osism_serial['operator']|default(osism_serial_default) }}"
 
   roles:
     - role: osism.operator
