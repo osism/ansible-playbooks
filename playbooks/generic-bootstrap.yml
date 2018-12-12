@@ -90,7 +90,7 @@
 
 - name: Apply role osism.cockpit
   hosts: all
-  serial: "{{ osism_serial['cockpit']|default('1') }}"
+  serial: "{{ osism_serial['cockpit']|default('30%') }}"
 
   roles:
     - role: osism.cockpit
