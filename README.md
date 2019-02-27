@@ -1,5 +1,7 @@
 # Ansible playbooks
 
+[![Build Status](https://travis-ci.org/osism/osism-ansible.svg?branch=master)](https://travis-ci.org/osism/osism-ansible)
+
 License
 -------
 
