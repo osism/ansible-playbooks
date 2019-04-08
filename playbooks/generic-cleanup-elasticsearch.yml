@@ -3,11 +3,14 @@
   hosts: manager
 
   vars:
+    elasticsearch_ip: 127.0.0.1
+    elasticsearch_port: 9200
+    elasticsearch_prefix: flog
     elasticsearch_retention_time: 60
 
   tasks:
     - name: Remove elasticsearch index
       uri:
-        url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  elasticsearch_retention_time) ) }}"
+        url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  elasticsearch_retention_time | int) ) }}"
         method: DELETE
         return_content: yes
