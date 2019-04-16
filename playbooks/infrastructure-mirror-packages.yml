@@ -43,7 +43,7 @@
       - "'successfully published' in result_publish_snapshot.stdout"
     failed_when:
       - "'already used by another published repo' not in result_publish_snapshot.stdout and 'successfully published' not in result_publish_snapshot.stdout"
-    tags: publich-snapshot
+    tags: publish-snapshot
 
   - name: Switch published snapshot
     command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish switch -passphrase=$GPG_PASSWORD -batch=true {{ item.name }} ubuntu {{ item.name }}-{{ ansible_date_time.date }}'"
@@ -52,7 +52,7 @@
     # when: "'already used by another published repo' in result_publish_snapshot.stdout"
     changed_when:
       - "'successfully switched' in result_switch_snapshot.stdout"
-    tags: publich-snapshot
+    tags: publish-snapshot
 
   - name: Copy aptly.pub file
     command: "docker exec -t aptly_aptly_1 bash -c 'cp /opt/aptly/aptly.pub /opt/aptly/public/aptly.pub'"
