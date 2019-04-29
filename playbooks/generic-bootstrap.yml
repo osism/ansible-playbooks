@@ -96,6 +96,15 @@
     - role: osism.cockpit
       tags: cockpit
 
+- name: Apply role osism.chrony
+  hosts: all
+  serial: "{{ osism_serial['chrony']|default(osism_serial_default) }}"
+  become: true
+
+  roles:
+    - role: osism.chrony
+      tags: chrony
+
 - name: Apply role hardening
   hosts: all
   serial: "{{ osism_serial['hardening']|default(osism_serial_default) }}"
