@@ -1,0 +1,219 @@
+---
+- name: Gather facts for all hosts
+  hosts: manager
+  gather_facts: false
+  tasks:
+    - setup:
+
+- name: Apply role osism.hostname
+  hosts: all
+  serial: "{{ osism_serial['hostname']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.hostname
+      tags: hostname
+
+- name: Apply role osism.hosts
+  hosts: all
+  serial: "{{ osism_serial['hosts']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.hosts
+      tags: hosts
+
+- name: Apply role osism.proxy
+  hosts: all
+  serial: "{{ osism_serial['proxy']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.proxy
+      tags: proxy
+
+- name: Apply role osism.resolvconf
+  hosts: all
+  serial: "{{ osism_serial['resolvconf']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.resolvconf
+      tags: resolvconf
+
+- name: Apply role osism.repository
+  hosts: all
+  serial: "{{ osism_serial['repository']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.repository
+      tags: repository
+
+- name: Apply role osism.common
+  hosts: all
+  serial: "{{ osism_serial['common']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.common
+      tags: common
+
+- name: Apply role debops.grub
+  hosts: all
+  serial: "{{ osism_serial['grub']|default(osism_serial_default) }}"
+  become: true
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: debops.grub
+      tags: grub
+
+- name: Apply role ANXS.timezone
+  hosts: all
+  serial: "{{ osism_serial['timezone']|default(osism_serial_default) }}"
+  become: true
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: ANXS.timezone
+      tags: timezone
+
+- name: Apply role ANXS.utilities
+  hosts: all
+  serial: "{{ osism_serial['utilities']|default(osism_serial_default) }}"
+  become: true
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: ANXS.utilities
+      tags: utilities
+
+- name: Apply role osism.docker
+  hosts: all
+  serial: "{{ osism_serial['docker']|default('1') }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.docker
+      tags: docker
+
+- name: Apply role osism.cockpit
+  hosts: all
+  serial: "{{ osism_serial['cockpit']|default(osism_serial_default) }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.cockpit
+      tags: cockpit
+
+- name: Apply role osism.chrony
+  hosts: all
+  serial: "{{ osism_serial['chrony']|default(osism_serial_default) }}"
+  become: true
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.chrony
+      tags: chrony
+
+- name: Apply role hardening
+  hosts: all
+  serial: "{{ osism_serial['hardening']|default(osism_serial_default) }}"
+  become: true
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: hardening
+      tags: hardening

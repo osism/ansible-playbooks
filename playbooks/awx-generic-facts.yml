@@ -1,0 +1,6 @@
+---
+- name: Gather facts for all hosts
+  hosts: all
+  gather_facts: false
+  tasks:
+    - setup:

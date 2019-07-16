@@ -1,0 +1,15 @@
+---
+- name: Apply role osism.chrony
+  hosts: all
+  serial: "{{ osism_serial['chrony']|default('1') }}"
+
+  vars_files:
+    - /opt/configuration/environments/configuration.yml
+    - /opt/configuration/environments/images.yml
+    - /opt/configuration/environments/secrets.yml
+    - /opt/configuration/environments/generic/configuration.yml
+    - /opt/configuration/environments/generic/images.yml
+    - /opt/configuration/environments/generic/secrets.yml
+
+  roles:
+    - role: osism.chrony
