@@ -6,3 +6,5 @@
   tasks:
     - name: Ping system
       ping:
+      retries: 10
+      delay: 5
