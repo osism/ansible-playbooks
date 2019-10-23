@@ -11,6 +11,7 @@ install:
   - pip install -r test-requirements.txt
 
 script:
+  - ansible-lint -x 204,301,302,303,305,306,504,602 playbooks/*
   - yamllint -c .yamllint.yml playbooks tasks
 
 notifications:

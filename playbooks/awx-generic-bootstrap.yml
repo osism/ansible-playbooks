@@ -3,7 +3,8 @@
   hosts: manager
   gather_facts: false
   tasks:
-    - setup:
+    - name: Gathers facts about remote hosts
+      setup:
 
 - name: Apply role osism.hostname
   hosts: all

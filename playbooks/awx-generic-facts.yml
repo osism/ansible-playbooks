@@ -3,4 +3,5 @@
   hosts: all
   gather_facts: false
   tasks:
-    - setup:
+    - name: Gathers facts about remote hosts
+      setup:
