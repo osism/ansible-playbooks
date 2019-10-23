@@ -4,7 +4,7 @@
   serial: "{{ osism_serial['pipelining']|default(osism_serial_default) }}"
 
   vars:
-    ansible_ssh_pipelining: no
+    ansible_ssh_pipelining: false
 
   tasks:
     - name: Do not require tty for all users

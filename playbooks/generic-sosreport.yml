@@ -4,8 +4,9 @@
 - name: Collect sosreports
   hosts: all
   gather_facts: false
+
   vars:
-    sosreport_unarchive: no
+    sosreport_unarchive: false
     sosreport_tmpdir: /tmp/sosreport
     sosreport_cmd: sosreport
     required_packages_sosreport:
@@ -85,14 +86,14 @@
       fetch:
         src: "{{ sosreport_tmpdir }}/{{ sosreport_archive_filename }}.md5"
         dest: "{{ sosreport_archive_directory }}/{{ sosreport_archive_filename }}.md5"
-        flat: yes
+        flat: true
       become: true
 
     - name: sosreport - fetch archive
       fetch:
         src: "{{ sosreport_tmpdir }}/{{ sosreport_archive_filename }}"
         dest: "{{ sosreport_archive_directory }}/{{ sosreport_archive_filename }}"
-        flat: yes
+        flat: true
       become: true
 
     # FIXME(berendt): use file module

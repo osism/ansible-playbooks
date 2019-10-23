@@ -7,7 +7,7 @@
     - name: ireallymeanit
       prompt: Are you sure you want to upgrade the packages?
       default: 'no'
-      private: no
+      private: false
 
   tasks:
     - name: Exit playbook, if user did not mean to upgrade the packages
@@ -20,7 +20,7 @@
 
     - name: Update package cache
       apt:
-        update_cache: yes
+        update_cache: true
         cache_valid_time: 3600
       become: true
 
@@ -31,10 +31,10 @@
 
     - name: Remove useless packages from the cache
       apt:
-        autoclean: yes
+        autoclean: true
       become: true
 
     - name: Remove dependencies that are no longer required
       apt:
-        autoremove: yes
+        autoremove: true
       become: true

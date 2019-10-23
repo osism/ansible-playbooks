@@ -8,7 +8,7 @@
     - name: ireallymeanit
       prompt: Are you sure you want to halt the systems?
       default: 'no'
-      private: no
+      private: false
 
   tasks:
     - name: Exit playbook, if user did not mean to halt systems

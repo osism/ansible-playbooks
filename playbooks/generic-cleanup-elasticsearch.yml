@@ -13,7 +13,7 @@
       uri:
         url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  elasticsearch_retention_time | int) ) }}"
         method: DELETE
-        return_content: yes
+        return_content: true
         status_code: [200, 404]
       register: result
       changed_when: result.status == 200
