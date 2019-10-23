@@ -2,5 +2,10 @@
 - name: Apply role osism.prometheus-exporter
   hosts: all
 
+  tasks:
+    - name: Deprecation notice
+      debug:
+        msg: This playbook and its role is deprecated and will be removed in a future release.
+
   roles:
-  - role: osism.prometheus-exporter
+    - role: osism.prometheus-exporter
