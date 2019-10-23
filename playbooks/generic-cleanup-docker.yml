@@ -3,7 +3,21 @@
   hosts: all
   serial: "{{ osism_serial['docker_cleanup']|default('1') }}"
 
+  vars_prompt:
+    - name: ireallymeanit
+      prompt: Are you sure you want to cleanup docker?
+      default: 'no'
+      private: no
+
   tasks:
+    - name: Exit playbook, if user did not mean to cleanup docker
+      fail:
+        msg: >
+          "To cleanup docker, either say 'yes' on the prompt or
+           use `-e ireallymeanit=yes` on the command line when
+           invoking the playbook"
+      when: ireallymeanit != 'yes'
+
     - name: Prune containers
       command: docker container prune --force
       tags: containers
