@@ -1,0 +1,8 @@
+---
+- name: Cleanup docker images
+  hosts: all
+  serial: "{{ osism_serial['docker_cleanup']|default('1') }}"
+
+  tasks:
+    - name: Prune images
+      command: docker image prune --all --force
