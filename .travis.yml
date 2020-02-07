@@ -3,10 +3,6 @@ sudo: false
 
 language: python
 
-cache:
-  directories:
-    - $HOME/.cache/pip
-
 install:
   - pip install -r test-requirements.txt
 
