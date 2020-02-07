@@ -10,6 +10,14 @@ script:
   - ansible-lint -x 204,301,302,303,305,306,504,602 playbooks/* tasks/*
   - yamllint -c .yamllint.yml playbooks tasks
 
+deploy:
+  - provider: script
+    script: bash scripts/trigger-travis.sh osism docker-osism-ansible $TRAVIS_ACCESS_TOKEN "triggered by $TRAVIS_REPO_SLUG ($TRAVIS_COMMIT)"
+    skip_cleanup: true
+    on:
+      branch: master
+      type: push
+
 notifications:
   irc:
     channels:
