@@ -21,7 +21,7 @@
     name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image] }}"
     tag: "{{ images_external[tag] }}"
     repository: "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image] }}"
-    push: yes
+    push: true
   ignore_errors: true
 
 - name: "Remove tagged image {{ images_internal[image] }}"
