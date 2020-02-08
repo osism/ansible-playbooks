@@ -1,0 +1,28 @@
+---
+- name: Cleanup databases
+  hosts: control[0]
+  gather_facts: false
+
+  tasks:
+    - name: Purge heat db entries older than 14 days
+      command: docker exec heat_api heat-manage purge_deleted -g days 14
+      async: 1200
+      poll: 10
+
+    - name: Clean dead heat engine records
+      command: docker exec heat_api heat-manage service clean
+      async: 60
+      poll: 5
+
+    - name: Move deleted rows from nova production tables to shadow tables
+      command: docker exec nova_api nova-manage db archive_deleted_rows --until-complete
+      register: result
+      changed_when: result.rc == 1
+      failed_when: result.rc > 1
+      async: 1200
+      poll: 10
+
+    - name: Delete nova database records where instance_uuid is NULL
+      command: docker exec nova_api nova-manage db null_instance_uuid_scan --delete
+      async: 60
+      poll: 5
