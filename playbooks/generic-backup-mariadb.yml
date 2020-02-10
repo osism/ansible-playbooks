@@ -28,7 +28,7 @@
       when: result.stdout == ""
 
     - name: Run innobackupex
-      command: docker exec -t mariadb innobackupex /tmp
+      command: docker exec -t mariadb innobackupex --galera-info /tmp
       async: 600
       poll: 5
 
