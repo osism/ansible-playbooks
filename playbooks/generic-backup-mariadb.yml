@@ -2,6 +2,7 @@
 - name: Backup mariadb
   hosts: mariadb
   gather_facts: true
+  serial: 1
 
   vars:
     mariadb_backup_directory: /opt/xtrabackup
