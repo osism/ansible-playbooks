@@ -3,9 +3,12 @@
   hosts: control[0]
   gather_facts: false
 
+  vars:
+    database_heat_retention_time: 30
+
   tasks:
-    - name: Purge heat db entries older than 14 days
-      command: docker exec heat_api heat-manage purge_deleted -g days 14
+    - name: "Purge heat db entries older than {{ database_heat_retention_time }} days"
+      command: "docker exec heat_api heat-manage purge_deleted -g days {{ database_heat_retention_time }}"
       async: 1200
       poll: 10
 
