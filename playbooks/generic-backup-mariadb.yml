@@ -45,6 +45,11 @@
         msg: mariadb_backup_directory_latest is empty
       when: mariadb_backup_directory_latest == ""
 
+    - name: Prepare backup
+      command: innobackupex --apply-log {{ mariadb_backup_directory_latest }}
+      async: 600
+      poll: 5
+
     - name: Extract backup from the container
       command: "docker cp mariadb:{{ mariadb_backup_directory_latest }} {{ mariadb_backup_directory }}"
 
