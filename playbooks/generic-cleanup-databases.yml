@@ -27,7 +27,7 @@
       when: database_heat_cleanup|bool
 
     - name: Delete expired panko events
-      command: docker exec -it panko_api panko-expirer
+      command: docker exec panko_api panko-expirer
       async: 1200
       poll: 10
       tags: panko
