@@ -17,6 +17,11 @@
       async: 60
       poll: 5
 
+    - name: Delete expired panko events
+      command: docker exec -it panko_api panko-expirer
+      async: 1200
+      poll: 10
+
     - name: Move deleted rows from nova production tables to shadow tables
       command: docker exec nova_api nova-manage db archive_deleted_rows --until-complete
       register: result
