@@ -6,21 +6,31 @@
   vars:
     database_heat_retention_time: 30
 
+    database_heat_cleanup: true
+    database_nova_cleanup: true
+    database_panko_cleanup: true
+
   tasks:
     - name: "Purge heat db entries older than {{ database_heat_retention_time }} days"
       command: "docker exec heat_api heat-manage purge_deleted -g days {{ database_heat_retention_time }}"
       async: 1200
       poll: 10
+      tags: heat
+      when: database_heat_cleanup|bool
 
     - name: Clean dead heat engine records
       command: docker exec heat_api heat-manage service clean
       async: 60
       poll: 5
+      tags: heat
+      when: database_heat_cleanup|bool
 
     - name: Delete expired panko events
       command: docker exec -it panko_api panko-expirer
       async: 1200
       poll: 10
+      tags: panko
+      when: database_panko_cleanup|bool
 
     - name: Move deleted rows from nova production tables to shadow tables
       command: docker exec nova_api nova-manage db archive_deleted_rows --until-complete
@@ -29,8 +39,12 @@
       failed_when: result.rc > 1
       async: 1200
       poll: 10
+      tags: nova
+      when: database_nova_cleanup|bool
 
     - name: Delete nova database records where instance_uuid is NULL
       command: docker exec nova_api nova-manage db null_instance_uuid_scan --delete
       async: 60
       poll: 5
+      tags: nova
+      when: database_nova_cleanup|bool
