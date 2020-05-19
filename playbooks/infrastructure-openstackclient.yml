@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.openstackclient
+  hosts: manager
+  become: true
+
+  roles:
+  - role: osism.openstackclient

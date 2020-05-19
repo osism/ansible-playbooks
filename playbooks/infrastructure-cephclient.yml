@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.cephclient
+  hosts: manager
+  become: true
+
+  roles:
+  - role: osism.cephclient
