@@ -1,7 +1,0 @@
----
-- name: Gather facts for all hosts
-  hosts: all
-  gather_facts: false
-  tasks:
-    - name: Gathers facts about remote hosts
-      setup:

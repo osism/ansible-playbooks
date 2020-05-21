@@ -33,3 +33,5 @@
     - name: Prune images
       command: docker image prune --all --force
       tags: images
+      async: 300
+      poll: 10

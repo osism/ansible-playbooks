@@ -20,3 +20,5 @@
 
     - name: Prune images
       command: docker image prune --all --force
+      async: 300
+      poll: 10
