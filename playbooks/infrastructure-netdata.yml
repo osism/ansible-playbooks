@@ -1,7 +1,7 @@
 ---
 - name: Apply role osism.netdata
   hosts: netdata
-  serial: "{{ osism_serial['netdata']|default(osism_serial_default) }}"
+  serial: "{{ osism_serial['netdata']|default(osism_serial_default)|default(0) }}"
 
   roles:
   - role: osism.netdata

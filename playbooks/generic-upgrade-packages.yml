@@ -1,7 +1,7 @@
 ---
 - name: Upgrade packages
   hosts: all
-  serial: "{{ osism_serial['upgrade_packages']|default(osism_serial_default) }}"
+  serial: "{{ osism_serial['upgrade_packages']|default(osism_serial_default)|default(0) }}"
 
   vars_prompt:
     - name: ireallymeanit

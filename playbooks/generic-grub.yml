@@ -1,7 +1,7 @@
 ---
 - name: Apply role debops.grub
   hosts: all
-  serial: "{{ osism_serial['grub']|default(osism_serial_default) }}"
+  serial: "{{ osism_serial['grub']|default(osism_serial_default)|default(0) }}"
   become: true
 
   roles:
