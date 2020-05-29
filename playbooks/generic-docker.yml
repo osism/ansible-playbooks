@@ -5,3 +5,10 @@
 
   roles:
   - role: osism.docker
+
+- name: Apply role osism.docker-compose
+  hosts: all
+  serial: "{{ osism_serial['docker-compose']|default('0') }}"
+
+  roles:
+  - role: osism.docker-compose
