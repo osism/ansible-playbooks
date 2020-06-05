@@ -4,5 +4,8 @@
   serial: "{{ osism_serial['grub']|default(osism_serial_default)|default(0) }}"
   become: true
 
+  collections:
+    - debops.roles02
+
   roles:
-  - role: debops.grub
+    - role: grub
