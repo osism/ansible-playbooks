@@ -1,0 +1,6 @@
+---
+- name: Apply role geerlingguy.dotfiles
+  hosts: all
+
+  roles:
+  - role: geerlingguy.dotfiles
