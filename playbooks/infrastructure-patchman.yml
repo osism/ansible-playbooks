@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.patchman
+  hosts: patchman
+  serial: "{{ osism_serial['patchman']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+  - role: osism.patchman
