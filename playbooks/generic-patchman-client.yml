@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.patchman-client
+  hosts: all
+  serial: "{{ osism_serial['patchman-client']|default('0') }}"
+
+  roles:
+  - role: osism.patchman-client
