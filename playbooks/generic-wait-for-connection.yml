@@ -1,0 +1,9 @@
+---
+- name: Wait until remote systems are reachable
+  hosts: all
+  serial: "{{ osism_serial['wait-for-connection']|default('1') }}"
+
+  tasks:
+    - name: Wait until remote system is reachable
+      wait_for_connection:
+        delay: 10
