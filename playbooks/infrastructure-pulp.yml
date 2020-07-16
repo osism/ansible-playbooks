@@ -1,0 +1,6 @@
+---
+- name: Apply role osism.pulp
+  hosts: pulp
+
+  roles:
+  - role: osism.pulp
