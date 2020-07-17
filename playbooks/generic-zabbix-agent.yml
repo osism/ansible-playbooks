@@ -1,6 +1,6 @@
 ---
 - name: Apply role osism.zabbix-agent
-  hosts: all
+  hosts: zabbix-agent
   serial: "{{ osism_serial['zabbix-agent']|default('0') }}"
 
   roles:
