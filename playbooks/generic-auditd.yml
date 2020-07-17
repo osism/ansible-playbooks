@@ -4,4 +4,4 @@
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
 
   roles:
-  - role: auditd
+  - role: osism.auditd
