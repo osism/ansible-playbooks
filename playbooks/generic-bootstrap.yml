@@ -117,3 +117,12 @@
   roles:
     - role: hardening
       tags: hardening
+
+- name: Apply role osism.auditd
+  hosts: all
+  serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
+  become: true
+
+  roles:
+    - role: osism.auditd
+      tags: auditd
