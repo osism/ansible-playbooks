@@ -1,0 +1,7 @@
+---
+- name: Apply role osism.sysdig
+  hosts: all
+  serial: "{{ osism_serial['sysdig']|default('0') }}"
+
+  roles:
+  - role: osism.sysdig
