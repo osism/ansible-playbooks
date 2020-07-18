@@ -1,0 +1,8 @@
+---
+- name: Apply role rsyslog
+  hosts: all
+  serial: "{{ osism_serial['rsyslog']|default(osism_serial_default)|default(0) }}"
+  become: true
+
+  roles:
+  - role: osism.rsyslog
