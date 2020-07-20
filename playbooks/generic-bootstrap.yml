@@ -46,6 +46,15 @@
     - role: osism.repository
       tags: repository
 
+- name: Apply role osism.rsyslog
+  hosts: all
+  serial: "{{ osism_serial['rsyslog']|default(osism_serial_default)|default(0) }}"
+  become: true
+
+  roles:
+    - role: osism.rsyslog
+      tags: rsyslog
+
 - name: Apply role osism.common
   hosts: all
   serial: "{{ osism_serial['common']|default(osism_serial_default)|default(0) }}"
