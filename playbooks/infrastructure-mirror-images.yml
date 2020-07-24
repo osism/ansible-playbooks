@@ -40,4 +40,4 @@
   - name: Include tasks to transfer a image
     include: tasks/infrastructure-mirror-image.yml image="{{ item.key }}" tag="{{ item.key|replace('_image', '_tag') }}"
     when: "'_image' in item.key and '_image_tag' not in item.key"
-    with_dict: "{{ images_external }}"
+    loop: "{{ images_external|dict2items }}"

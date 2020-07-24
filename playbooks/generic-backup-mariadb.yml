@@ -16,7 +16,7 @@
         group: "{{ operator_group }}"
         mode: 0750
       become: true
-      with_items:
+      loop:
         - "{{ mariadb_backup_directory }}"
 
     - name: Get status of mariadb container
