@@ -48,7 +48,7 @@
         name: "{{ item }}"
         state: present
       become: true
-      with_items: "{{ required_packages_sosreport }}"
+      loop: "{{ required_packages_sosreport }}"
 
     - name: sosreport - remove temporary directory
       file:
@@ -64,7 +64,7 @@
         group: "{{ operator_group }}"
         mode: 0755
       become: true
-      with_items:
+      loop:
         - "{{ sosreport_tmpdir }}"
 
     # FIXME(berendt): Use file module

@@ -18,4 +18,4 @@
       file:
         path: "{{ item.path }}"
         state: absent
-      with_items: "{{ sosreport_old_directories.files }}"
+      loop: "{{ sosreport_old_directories.files }}"
