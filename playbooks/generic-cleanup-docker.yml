@@ -20,22 +20,22 @@
 
     - name: Prune containers
       docker_prune:
-        containers: yes
+        containers: true
       tags: containers
 
     - name: Prune volumes
       docker_prune:
-        volumes: yes
+        volumes: true
       tags: volumes
 
     - name: Prune networks
       docker_prune:
-        networks: yes
+        networks: true
       tags: networks
 
     - name: Prune images
       docker_prune:
-        images: yes
+        images: true
         images_filters:
           dangling: true
       tags: images

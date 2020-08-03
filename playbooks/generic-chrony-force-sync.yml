@@ -12,8 +12,8 @@
     - name: Execute chronyc
       command: "/usr/bin/chronyc -a '{{ item }}'"  # noqa 301
       loop: "{{ chronyc_options }}"
-      become: yes
+      become: true
 
     - name: Sync hardware clock
       command: /sbin/hwclock --systohc --utc  # noqa 301
-      become: yes
+      become: true
