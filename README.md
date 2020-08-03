@@ -1,6 +1,7 @@
 # Ansible playbooks
 
-[![Build Status](https://travis-ci.org/osism/osism-ansible.svg?branch=master)](https://travis-ci.org/osism/osism-ansible)
+![Check ansible syntax](https://github.com/osism/osism-ansible/workflows/Check%20ansible%20syntax/badge.svg)
+![Check yaml syntax](https://github.com/osism/osism-ansible/workflows/Check%20yaml%20syntax/badge.svg)
 
 Author information
 ------------------

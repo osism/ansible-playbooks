@@ -1,13 +1,8 @@
 ---
-sudo: false
+language: generic
 
-language: python
-
-install:
-  - pip install -r test-requirements.txt
-
-script:
-  - ansible-lint -x 204,301,302,303,305,306,504,602 playbooks/* tasks/*
+# NOTE: Due to the conversion to GitHub workflows, Travis CI is currently only used for the deploy step.
+script: []
 
 deploy:
   - provider: script
