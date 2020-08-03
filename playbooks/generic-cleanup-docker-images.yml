@@ -20,7 +20,7 @@
 
     - name: Prune images
       docker_prune:
-        images: yes
+        images: true
         images_filters:
           dangling: true
       tags: images
