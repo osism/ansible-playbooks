@@ -19,6 +19,10 @@
       when: ireallymeanit != 'yes'
 
     - name: Prune images
-      command: docker image prune --all --force
-      async: 300
+      docker_prune:
+        images: yes
+        images_filters:
+          dangling: true
+      tags: images
+      async: 600
       poll: 10
