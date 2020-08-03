@@ -46,7 +46,7 @@
       when: database_nova_cleanup|bool
 
     - name: "Delete rows from nova shadow tables older than {{ database_nova_retention_time }} days"
-      command: "docker exec nova_api nova-manage db purge --before {{ '%Y-%m-%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  database_nova_retention_time | int) ) }}"
+      command: "docker exec nova_api nova-manage db purge --before {{ '%Y-%m-%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  database_nova_retention_time | int) ) }}"  # noqa 204
       register: result
       changed_when: result.rc == 0
       failed_when: result.rc > 0
