@@ -36,7 +36,7 @@
     tags: create-snapshot
 
   - name: Publish snapshot
-    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish snapshot -passphrase=$GPG_PASSWORD -batch=true -distribution={{ item.name }} {{ item.name }}-{{ ansible_date_time.date }} ubuntu'"
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish snapshot -passphrase=$GPG_PASSWORD -batch=true -distribution={{ item.name }} {{ item.name }}-{{ ansible_date_time.date }} ubuntu'"  # noqa 204
     loop: "{{ aptly_repositories }}"
     register: result_publish_snapshot
     changed_when:
@@ -46,7 +46,7 @@
     tags: publish-snapshot
 
   - name: Switch published snapshot
-    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish switch -passphrase=$GPG_PASSWORD -batch=true {{ item.name }} ubuntu {{ item.name }}-{{ ansible_date_time.date }}'"
+    command: "docker exec -t aptly_aptly_1 bash -c 'aptly publish switch -passphrase=$GPG_PASSWORD -batch=true {{ item.name }} ubuntu {{ item.name }}-{{ ansible_date_time.date }}'"  # noqa 204
     loop: "{{ aptly_repositories }}"
     register: result_switch_snapshot
     # when: "'already used by another published repo' in result_publish_snapshot.stdout"

@@ -103,7 +103,7 @@
 
     # FIXME(berendt): use unarchive module
     - name: sosreport - unarchive archive
-      local_action: "shell tar xvzf {{ sosreport_archive_directory }}/{{ sosreport_archive_filename }} -C {{ sosreport_archive_directory }}/{{ sosreport_name }} --strip-components=1"
+      local_action: "shell tar xvzf {{ sosreport_archive_directory }}/{{ sosreport_archive_filename }} -C {{ sosreport_archive_directory }}/{{ sosreport_name }} --strip-components=1"  # noqa 204
       when: sosreport_unarchive
 
     - name: sosreport - remove temporary directory
