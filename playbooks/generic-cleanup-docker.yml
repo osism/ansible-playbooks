@@ -19,19 +19,25 @@
       when: ireallymeanit != 'yes'
 
     - name: Prune containers
-      command: docker container prune --force
+      docker_prune:
+        containers: yes
       tags: containers
 
     - name: Prune volumes
-      command: docker volume prune --force
+      docker_prune:
+        volumes: yes
       tags: volumes
 
     - name: Prune networks
-      command: docker network prune --force
+      docker_prune:
+        networks: yes
       tags: networks
 
     - name: Prune images
-      command: docker image prune --all --force
+      docker_prune:
+        images: yes
+        images_filters:
+          dangling: true
       tags: images
-      async: 300
+      async: 600
       poll: 10
