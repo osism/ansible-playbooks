@@ -1,0 +1,68 @@
+---
+- name: Import inventory in NetBox
+  connection: local
+  hosts: localhost
+  gather_facts: false
+
+  collections:
+    - netbox.netbox
+
+  tasks:
+
+    - name: Add manager group
+      add_host:
+        name: localhost
+        groups:
+          - manager
+
+    - name: Create device
+      netbox_device:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          name: "{{ item }}"
+          device_role: "{{ hostvars[item]['netbox_inventory_device_role'] | default('generic') }}"
+          device_type: "{{ hostvars[item]['netbox_inventory_device_type'] | default('default-device-type') }}"
+          site: "{{ hostvars[item]['netbox_inventory_site'] | default('default-site') }}"
+          status: "{{ hostvars[item]['netbox_inventory_status'] | default('Staged') }}"
+          tags:
+            - generic
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: "item != 'localhost'"
+
+    - name: Create primary interface
+      netbox_device_interface:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          device: "{{ item }}"
+          name: "{{ hostvars[item]['netbox_inventory_primary_interface'] | default('primary') }}"
+          type: Virtual
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: "item != 'localhost'"
+
+    - name: Create primary IP address
+      netbox_ip_address:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          dns_name: "{{ item }}"
+          address: "{{ hostvars[item]['netbox_inventory_primary_address'] | default(hostvars[item]['internal_address']) }}"
+          interface:
+            name: "{{ hostvars[item]['netbox_inventory_primary_interface'] | default('primary') }}"
+            device: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+      when: "item != 'localhost'"
+
+    - name: Assign primary IP address
+      netbox_device:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          name: "{{ item }}"
+          primary_ip4: "{{ hostvars[item]['netbox_inventory_primary_address'] | default(hostvars[item]['internal_address']) }}"
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: "item != 'localhost'"
