@@ -1,0 +1,56 @@
+---
+##########################
+# debops
+
+# apt
+
+apt__enabled: no
+
+# grub
+
+grub_hidden_timeout: False
+
+# timezone
+
+timezone_zone: UTC
+
+##########################
+# ANXS.utilities
+
+utilities_base:
+  - ack-grep
+  - command-not-found
+  - curl
+  - debconf
+  - dmidecode
+  - ethtool
+  - htop
+  - iftop
+  - iotop
+  - iperf
+  - ltrace
+  - mosh
+  - mtr
+  - multitail
+  - ncdu
+  - netcat
+  - pciutils
+  - pstack
+  - pv
+  - socat
+  - sysstat
+  - tmux
+  - tree
+  - whois
+
+##########################
+# osism.network
+
+network_allow_service_restart: no
+network_restart_method: nothing
+
+##########################
+# playbooks
+
+osism_serial: []
+osism_serial_default: 30%
