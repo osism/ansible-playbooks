@@ -7,6 +7,16 @@
   collections:
     - netbox.netbox
 
+  vars:
+    inventory_roles:
+      - ceph-control
+      - ceph-resource
+      - compute
+      - control
+      - manager
+      - monitoring
+      - network
+
   tasks:
 
     - name: Add manager group
@@ -14,6 +24,15 @@
         name: localhost
         groups:
           - manager
+
+    - name: Build tags facts
+      set_fact: {"tags_{{ item.0|checksum }}": "{{ lookup('vars', 'tags_' + item.0|checksum, default=['generic']) + [item.1] }}"}
+      with_cartesian:
+        - "{{ groups['all'] }}"
+        - "{{ inventory_roles }}"
+      when:
+        - item.0 != 'localhost'
+        - item.0 in groups[item.1]
 
     - name: Create device
       netbox_device:
@@ -25,8 +44,7 @@
           device_type: "{{ hostvars[item]['netbox_inventory_device_type'] | default('default-device-type') }}"
           site: "{{ hostvars[item]['netbox_inventory_site'] | default('default-site') }}"
           status: "{{ hostvars[item]['netbox_inventory_status'] | default('Staged') }}"
-          tags:
-            - generic
+          tags: "{{ lookup('vars', 'tags_' + item|checksum) }}"
         state: present
       loop: "{{ groups['all'] }}"
       when: "item != 'localhost'"
