@@ -1,6 +1,6 @@
 ---
 exclude_paths:
-  - playbooks/manager-inventory.yml
+  - playbooks/manager-import-inventory.yml
 skip_list:
   - 301
   - 302
