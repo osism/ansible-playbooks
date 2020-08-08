@@ -2,7 +2,9 @@
 - name: Apply role falco
   hosts: all
   serial: "{{ osism_serial['falco']|default(osism_serial_default)|default(0) }}"
-  become: true
+
+  collections:
+    - osism.services
 
   roles:
-    - role: osism.services.rsyslog
+    - role: falco
