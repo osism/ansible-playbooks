@@ -3,5 +3,8 @@
   hosts: all
   serial: "{{ osism_serial['osquery']|default('0') }}"
 
+  collections:
+    - osism.services
+
   roles:
-  - role: osism.osquery
+    - role: osquery
