@@ -3,5 +3,8 @@
   hosts: all
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.services
+
   roles:
-  - role: osism.auditd
+    - role: auditd
