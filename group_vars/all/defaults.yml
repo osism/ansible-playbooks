@@ -59,3 +59,9 @@ osism_serial_default: 30%
 # osism.services.rsyslog
 
 fluentd_host: "{{ internal_address }}"
+
+##########################
+# osism.cockpit
+
+configure_cockpit: yes
+cockpit_ssh_interface: "{{ console_interface | default('lo') }}"
