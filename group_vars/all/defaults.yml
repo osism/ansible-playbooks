@@ -54,3 +54,8 @@ network_restart_method: nothing
 
 osism_serial: []
 osism_serial_default: 30%
+
+##########################
+# osism.services.rsyslog
+
+fluentd_host: "{{ internal_address }}"
