@@ -1,5 +1,5 @@
 ---
-- name: Apply role osism.osquery
+- name: Apply role osquery
   hosts: all
   serial: "{{ osism_serial['osquery']|default('0') }}"
 
