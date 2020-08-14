@@ -72,7 +72,7 @@ cockpit_ssh_interface: "{{ console_interface | default('lo') }}"
 ##########################
 # repositories
 
-repository_keys: {}
+repository_keys: []
 repository_key_ids: {}
 
 repositories:
