@@ -84,6 +84,7 @@ repositories:
 
 docker_configure_repository: yes
 falco_configure_repository: yes
+lynis_configure_repository: yes
 netdata_configure_repository: yes
 osquery_configure_repository: yes
 sysdig_configure_repository: yes
