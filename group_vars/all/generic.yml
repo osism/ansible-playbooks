@@ -44,7 +44,7 @@ utilities_base:
   - whois
 
 ##########################
-# osism.network
+# network
 
 network_allow_service_restart: no
 network_restart_method: nothing
@@ -56,18 +56,18 @@ osism_serial: []
 osism_serial_default: 30%
 
 ##########################
-# osism.services.rsyslog
+# rsyslog
 
 fluentd_host: "{{ internal_address }}"
 
 ##########################
-# osism.cockpit
+# cockpit
 
 configure_cockpit: yes
 cockpit_ssh_interface: "{{ console_interface | default('lo') }}"
 
 ##########################
-# osism.repository
+# repository
 
 repository_keys: []
 repository_key_ids: {}
@@ -92,7 +92,7 @@ trivy_configure_repository: yes
 zabbix_agent_configure_repository: yes
 
 ##########################
-# osism.chrony
+# chrony
 
 chrony_servers:
   - 1.de.pool.ntp.org
@@ -103,7 +103,7 @@ chrony_allowed_subnets:
   - 127.0.0.1/32
 
 ##########################
-# osism.operator
+# operator
 
 operator_user: dragon
 operator_group: dragon

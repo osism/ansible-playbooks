@@ -1,0 +1,33 @@
+---
+##########################
+# helper
+
+configure_adminer: no
+configure_phpmyadmin: yes
+configure_rally: no
+configure_sshconfig: yes
+
+##########################
+# cephclient
+
+cephclient_cluster_fsid: "{{ ceph_cluster_fsid | default('') }}"
+cephclient_groupname: cephclient
+cephclient_keyring: "{{ lookup('file', '{{ configuration_directory }}/environments/infrastructure/files/ceph/ceph.client.admin.keyring') | default('', true) }}"
+cephclient_keyring_name: client.admin
+
+##########################
+# openstackclient
+
+openstackclient_configuration_directory: "{{ configuration_directory }}/environments/openstack"
+opentstackclient_groupname: openstackclient
+
+##########################
+# phpmyadmin
+
+phpmyadmin_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interface]['ipv4']['address'] }}"
+phpmyadmin_database_host: "{{ kolla_internal_vip_address }}"
+
+##########################
+# patchman
+
+patchman_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interface]['ipv4']['address'] }}"
