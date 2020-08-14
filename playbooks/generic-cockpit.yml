@@ -2,7 +2,9 @@
 - name: Apply role osism.cockpit
   hosts: all
   serial: "{{ osism_serial['cockpit']|default(osism_serial_default)|default(0) }}"
-  become: true
+
+  collections:
+    - osism.services
 
   roles:
-  - role: osism.cockpit
+    - role: osism.cockpit
