@@ -4,7 +4,7 @@
   serial: "{{ osism_serial['sysdig']|default('0') }}"
 
   collections:
-    - osism.services
+    - osism.commons
 
   roles:
     - role: sysdig
