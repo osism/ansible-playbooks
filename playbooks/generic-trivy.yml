@@ -1,0 +1,10 @@
+---
+- name: Apply role trivy
+  hosts: all
+  serial: "{{ osism_serial['trivy']|default('0') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: trivy
