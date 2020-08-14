@@ -1,5 +1,5 @@
 ---
-- name: Apply role osism.auditd
+- name: Apply role auditd
   hosts: all
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
 

@@ -1,5 +1,5 @@
 ---
-- name: Apply role osism.lynis
+- name: Apply role lynis
   hosts: all
   serial: "{{ osism_serial['lynis']|default('0') }}"
 
