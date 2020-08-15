@@ -6,7 +6,7 @@
     - name: Gathers facts about remote hosts
       setup:
 
-- name: Apply role osism.hostname
+- name: Apply role hostname
   hosts: all
   serial: "{{ osism_serial['hostname']|default(osism_serial_default)|default(0) }}"
 
@@ -14,7 +14,7 @@
     - role: osism.hostname
       tags: hostname
 
-- name: Apply role osism.hosts
+- name: Apply role hosts
   hosts: all
   serial: "{{ osism_serial['hosts']|default(osism_serial_default)|default(0) }}"
 
@@ -22,7 +22,7 @@
     - role: osism.hosts
       tags: hosts
 
-- name: Apply role osism.proxy
+- name: Apply role proxy
   hosts: all
   serial: "{{ osism_serial['proxy']|default(osism_serial_default)|default(0) }}"
 
@@ -30,7 +30,7 @@
     - role: osism.proxy
       tags: proxy
 
-- name: Apply role osism.resolvconf
+- name: Apply role resolvconf
   hosts: all
   serial: "{{ osism_serial['resolvconf']|default(osism_serial_default)|default(0) }}"
 
@@ -38,7 +38,7 @@
     - role: osism.resolvconf
       tags: resolvconf
 
-- name: Apply role osism.repository
+- name: Apply role repository
   hosts: all
   serial: "{{ osism_serial['repository']|default(osism_serial_default)|default(0) }}"
 
@@ -46,16 +46,18 @@
     - role: osism.repository
       tags: repository
 
-- name: Apply role osism.rsyslog
+- name: Apply role rsyslog
   hosts: all
   serial: "{{ osism_serial['rsyslog']|default(osism_serial_default)|default(0) }}"
-  become: true
+
+  collections:
+    - osism.services
 
   roles:
-    - role: osism.rsyslog
+    - role: rsyslog
       tags: rsyslog
 
-- name: Apply role osism.common
+- name: Apply role common
   hosts: all
   serial: "{{ osism_serial['common']|default(osism_serial_default)|default(0) }}"
 
@@ -101,18 +103,20 @@
     - role: osism.docker
       tags: docker
 
-- name: Apply role osism.cockpit
+- name: Apply role cockpit
   hosts: all
   serial: "{{ osism_serial['cockpit']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.services
+
   roles:
-    - role: osism.cockpit
+    - role: cockpit
       tags: cockpit
 
-- name: Apply role osism.chrony
+- name: Apply role chrony
   hosts: all
   serial: "{{ osism_serial['chrony']|default(osism_serial_default)|default(0) }}"
-  become: true
 
   roles:
     - role: osism.chrony
@@ -127,11 +131,13 @@
     - role: hardening
       tags: hardening
 
-- name: Apply role osism.auditd
+- name: Apply role auditd
   hosts: all
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
-  become: true
+
+  collections:
+    - osism.services
 
   roles:
-    - role: osism.auditd
+    - role: auditd
       tags: auditd
