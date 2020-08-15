@@ -1,0 +1,10 @@
+---
+- name: Apply role hddtemp
+  hosts: hddtemp
+  serial: "{{ osism_serial['hddtemp']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: hddtemp
