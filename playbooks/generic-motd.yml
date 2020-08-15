@@ -1,0 +1,10 @@
+---
+- name: Apply role motd
+  hosts: all
+  serial: "{{ osism_serial['motd']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: motd
