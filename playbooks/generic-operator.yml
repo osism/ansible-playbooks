@@ -13,6 +13,7 @@
         dest: /etc/sudoers
         regexp: "^Defaults.*requiretty$"
         replace: "Defaults !requiretty"
+        mode: 0440
       become: true
 
 - name: Apply role osism.operator
