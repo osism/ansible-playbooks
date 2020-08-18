@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.chrony
+- name: Apply role chrony
   hosts: all
   serial: "{{ osism_serial['chrony']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.services
+
   roles:
-  - role: osism.chrony
+    - role: chrony
