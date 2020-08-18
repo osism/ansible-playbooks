@@ -11,6 +11,7 @@
         dest: /etc/sudoers
         regexp: "^Defaults.*requiretty$"
         replace: "Defaults !requiretty"
+        mode: 0440
       become: true
       ignore_errors: true
 
