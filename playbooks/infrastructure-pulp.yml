@@ -1,6 +1,9 @@
 ---
-- name: Apply role osism.pulp
+- name: Apply role pulp
   hosts: pulp
 
+  collections:
+    - osism.services
+
   roles:
-  - role: osism.pulp
+    - role: pulp

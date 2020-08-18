@@ -1,7 +1,8 @@
 ---
-- name: Apply role osism.mirror
-  hosts: mirror
-  become: true
+- name: Roll has been split up
+  hosts: all
 
-  roles:
-  - role: osism.mirror
+  tasks:
+    - name: Roll has been split up
+      fail:
+        msg: Please use new roles from osism.services.

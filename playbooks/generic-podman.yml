@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.podman
+- name: Apply role podman
   hosts: podman
   serial: "{{ osism_serial['podman']|default('1') }}"
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.podman
+    - role: podman
