@@ -1,6 +1,8 @@
 ---
 - name: Roll has been split up
-  hosts: all
+  hosts: localhost
+  connection: local
+  gather_facts: false
 
   tasks:
     - name: Roll has been split up
