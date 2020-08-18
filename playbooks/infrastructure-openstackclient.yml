@@ -1,6 +1,9 @@
 ---
-- name: Apply role osism.openstackclient
+- name: Apply role openstackclient
   hosts: openstackclient
 
+  collections:
+    - osism.services
+
   roles:
-  - role: osism.openstackclient
+    - role: openstackclient

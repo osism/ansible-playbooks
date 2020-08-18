@@ -1,6 +1,9 @@
 ---
-- name: Apply role osism.cephclient
+- name: Apply role cephclient
   hosts: cephclient
 
+  collections:
+    - osism.services
+
   roles:
-  - role: osism.cephclient
+    - role: cephclient
