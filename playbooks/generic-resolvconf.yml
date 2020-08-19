@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.resolvconf
+- name: Apply role resolvconf
   hosts: all
   serial: "{{ osism_serial['resolvconf']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.resolvconf
+    - role: resolvconf

@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.repository
+- name: Apply role repository
   hosts: all
   serial: "{{ osism_serial['repository']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.repository
+    - role: repository

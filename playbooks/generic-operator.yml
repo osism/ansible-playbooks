@@ -16,10 +16,12 @@
         mode: 0440
       become: true
 
-- name: Apply role osism.operator
+- name: Apply role operator
   hosts: all
   serial: "{{ osism_serial['operator']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.commons
+
   roles:
-    - role: osism.operator
-      tags: operator
+    - role: operator

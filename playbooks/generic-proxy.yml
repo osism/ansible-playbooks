@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.proxy
+- name: Apply role proxy
   hosts: all
   serial: "{{ osism_serial['proxy']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.proxy
+    - role: proxy

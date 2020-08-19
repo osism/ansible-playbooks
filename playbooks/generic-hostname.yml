@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.hostname
+- name: Apply role hostname
   hosts: all
   serial: "{{ osism_serial['hostname']|default(osism_serial_default)|default(0) }}"
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.hostname
+    - role: hostname
