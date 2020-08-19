@@ -1,0 +1,10 @@
+---
+- name: Apply role packages
+  hosts: all
+  serial: "{{ osism_serial['packages']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: packages

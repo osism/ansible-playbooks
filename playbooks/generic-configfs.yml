@@ -1,0 +1,10 @@
+---
+- name: Apply role configfs
+  hosts: all
+  serial: "{{ osism_serial['configs']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: configs

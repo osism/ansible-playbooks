@@ -1,0 +1,10 @@
+---
+- name: Apply role microcode
+  hosts: all
+  serial: "{{ osism_serial['microcode']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: microcode
