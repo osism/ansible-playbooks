@@ -1,4 +1,14 @@
 ---
+- name: Apply role facts
+  hosts: all
+  serial: "{{ osism_serial['facts']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: facts
+
 - name: Gather facts for all hosts
   hosts: all
   gather_facts: false
