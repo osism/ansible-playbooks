@@ -4,7 +4,7 @@
   serial: "{{ osism_serial['hddtemp']|default(osism_serial_default)|default(0) }}"
 
   collections:
-    - osism.commons
+    - osism.services
 
   roles:
     - role: hddtemp
