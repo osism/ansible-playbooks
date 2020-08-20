@@ -31,3 +31,8 @@ phpmyadmin_database_host: "{{ kolla_internal_vip_address }}"
 # patchman
 
 patchman_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interface]['ipv4']['address'] }}"
+
+##########################
+# keycloak
+
+keycloak_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interface]['ipv4']['address'] }}"
