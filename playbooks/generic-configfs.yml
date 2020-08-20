@@ -7,4 +7,4 @@
     - osism.commons
 
   roles:
-    - role: configs
+    - role: configfs
