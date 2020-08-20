@@ -1,0 +1,10 @@
+---
+- name: Apply role keycload
+  hosts: keycloak
+  serial: "{{ osism_serial['keycloak']|default('0') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: keycloak
