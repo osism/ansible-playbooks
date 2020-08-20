@@ -1,14 +1,17 @@
 ---
-- name: Apply role osism.docker
-  hosts: all
+- name: Apply role docker
+  hosts: docker
   serial: "{{ osism_serial['docker']|default('1') }}"
 
   roles:
-  - role: osism.docker
+    - role: docker
 
-- name: Apply role osism.docker-compose
-  hosts: all
-  serial: "{{ osism_serial['docker-compose']|default('0') }}"
+- name: Apply role docker_compose
+  hosts: docker
+  serial: "{{ osism_serial['docker_compose']|default('0') }}"
+
+  collections:
+    - osism.commons
 
   roles:
-  - role: osism.docker-compose
+    - role: docker_compose
