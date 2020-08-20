@@ -6,56 +6,17 @@
     - name: Gathers facts about remote hosts
       setup:
 
-- name: Apply role hostname
-  hosts: all
-  serial: "{{ osism_serial['hostname']|default(osism_serial_default)|default(0) }}"
+- import_playbook: generic-hostname.yml
 
-  roles:
-    - role: osism.hostname
-      tags: hostname
+- import_playbook: generic-hosts.yml
 
-- name: Apply role hosts
-  hosts: all
-  serial: "{{ osism_serial['hosts']|default(osism_serial_default)|default(0) }}"
+- import_playbook: generic-proxy.yml
 
-  roles:
-    - role: osism.hosts
-      tags: hosts
+- import_playbook: generic-resolvconf.yml
 
-- name: Apply role proxy
-  hosts: all
-  serial: "{{ osism_serial['proxy']|default(osism_serial_default)|default(0) }}"
+- import_playbook: generic-repository.yml
 
-  roles:
-    - role: osism.proxy
-      tags: proxy
-
-- name: Apply role resolvconf
-  hosts: all
-  serial: "{{ osism_serial['resolvconf']|default(osism_serial_default)|default(0) }}"
-
-  roles:
-    - role: osism.resolvconf
-      tags: resolvconf
-
-- name: Apply role repository
-  hosts: all
-  serial: "{{ osism_serial['repository']|default(osism_serial_default)|default(0) }}"
-
-  roles:
-    - role: osism.repository
-      tags: repository
-
-- name: Apply role rsyslog
-  hosts: all
-  serial: "{{ osism_serial['rsyslog']|default(osism_serial_default)|default(0) }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: rsyslog
-      tags: rsyslog
+- import_playbook: generic-rsyslog.yml
 
 - name: Apply role common
   hosts: all
@@ -65,82 +26,18 @@
     - role: osism.common
       tags: common
 
-- name: Apply role debops.grub
-  hosts: all
-  serial: "{{ osism_serial['grub']|default(osism_serial_default)|default(0) }}"
-  become: true
+- import_playbook: generic-grub.yml
 
-  collections:
-    - debops.roles02
+- import_playbook: generic-timezone.yml
 
-  roles:
-    - role: grub
-      tags: grub
+- import_playbook: generic-utilities.yml
 
-- name: Apply role ANXS.timezone
-  hosts: all
-  serial: "{{ osism_serial['timezone']|default(osism_serial_default)|default(0) }}"
-  become: true
+- import_playbook: generic-docker.yml
 
-  roles:
-    - role: ANXS.timezone
-      tags: timezone
+- import_playbook: generic-cockpit.yml
 
-- name: Apply role ANXS.utilities
-  hosts: all
-  serial: "{{ osism_serial['utilities']|default(osism_serial_default)|default(0) }}"
-  become: true
+- import_playbook: generic-chrony.yml
 
-  roles:
-    - role: ANXS.utilities
-      tags: utilities
+- import_playbook: generic-hardening.yml
 
-- name: Apply role osism.docker
-  hosts: all
-  serial: "{{ osism_serial['docker']|default('1') }}"
-
-  roles:
-    - role: osism.docker
-      tags: docker
-
-- name: Apply role cockpit
-  hosts: all
-  serial: "{{ osism_serial['cockpit']|default(osism_serial_default)|default(0) }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: cockpit
-      tags: cockpit
-
-- name: Apply role chrony
-  hosts: all
-  serial: "{{ osism_serial['chrony']|default(osism_serial_default)|default(0) }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: chrony
-      tags: chrony
-
-- name: Apply role hardening
-  hosts: all
-  serial: "{{ osism_serial['hardening']|default(osism_serial_default)|default(0) }}"
-  become: true
-
-  roles:
-    - role: hardening
-      tags: hardening
-
-- name: Apply role auditd
-  hosts: all
-  serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: auditd
-      tags: auditd
+- import_playbook: generic-auditd.yml
