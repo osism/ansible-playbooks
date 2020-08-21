@@ -2,5 +2,8 @@
 - name: Update configuration
   hosts: manager
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.configuration
+    - role: configuration
