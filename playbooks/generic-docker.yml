@@ -4,7 +4,7 @@
   serial: "{{ osism_serial['docker']|default('1') }}"
 
   roles:
-    - role: docker
+    - role: osism.docker
 
 - name: Apply role docker_compose
   hosts: docker
