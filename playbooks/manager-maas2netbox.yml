@@ -1,0 +1,90 @@
+i---
+- name: Import machines from maas in NetBox
+  connection: local
+  hosts: localhost
+  gather_facts: false
+
+  collections:
+    - netbox.netbox
+
+  tasks:
+    - name: login to MAAS
+      command: >
+               maas login -p {{ maas_login_profile }} {{ maas_login_url }} --apikey {{ maas_api_key }}
+      become: false
+      changed_when: false
+      tags:
+        - maas_machines
+
+    - name: Capturing MAAS Machines
+      shell: /bin/echo -e "tmpl = \"{0.hostname}\"\nfor machine in client.machines.list():\n print(tmpl.format(machine))"|/usr/local/bin/maas shell
+      register: "item"
+      become: false
+      changed_when: false
+      tags:
+        - maas_machines
+
+    - name: capturing machines interfaces
+      shell: '/bin/echo -e "tmpl = \"{0.hostname}: {1.name}\"\nfor machine in client.machines.list():\n for interface in machine.interfaces:\n        print(tmpl.format(machine, interface))"|/usr/local/bin/maas shell'
+      register: "interfaces"
+      become: false
+      changed_when: false
+      tags:
+        - maas_machines
+
+    - name: capturing machines ip address
+      shell: '/bin/echo -e "tmpl = \"{0.hostname}: {0.boot_interface.name}: {1}\"\nfor machine in client.machines.list():\n    for interface in machine.interfaces:\n       for interface in machine.ip_addresses:\n         print(tmpl.format(machine, interface))"|/usr/local/bin/maas shell'
+      register: "interfaceaddress"
+      become: false
+      changed_when: false
+      tags:
+        - maas_machines
+
+    - name: Create device
+      netbox_device:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          name: "{{ item }}"
+          device_role: "{{ hostvars[item]['netbox_inventory_device_role'] | default('generic') }}"
+          device_type: "{{ hostvars[item]['netbox_inventory_device_type'] | default('default-device-type') }}"
+          site: "{{ hostvars[item]['netbox_inventory_site'] | default('default-site') }}"
+          status: "{{ hostvars[item]['netbox_inventory_status'] | default('Staged') }}"
+        state: present
+      loop: "{{ item.stdout_lines }}"
+      when: "item != 'localhost'"
+
+    - name: Create interfaces
+      netbox_device_interface:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          device: "{{ item.split(': ')[0] }}"
+          name: "{{ item.split(': ')[1] }}"
+          type: Virtual
+        state: present
+      with_items: "{{ interfaces.stdout_lines }}"
+
+    - name: Create primary IP address
+      netbox_ip_address:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          address: "{{ item.split(': ')[2] }}"
+          family: "4"
+          interface:
+            name: "{{ item.split(': ')[1] }}"
+            device: "{{ item.split(': ')[0] }}"
+        state: present
+      with_items: "{{ interfaceaddress.stdout_lines }}"
+
+    - name: Assign primary IP address
+      netbox_device:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        data:
+          name: "{{ item.split(': ')[0] }}"
+          primary_ip4: "{{ item.split(': ')[2] }}"
+        state: present
+      with_items: "{{ interfaceaddress.stdout_lines }}"
+
