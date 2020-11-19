@@ -131,7 +131,7 @@
        server_url: "{{ zabbix_server_url }}"
        login_user: "{{ zabbix_login_user }}"
        login_password: "{{ zabbix_login_password }}"
-       template_json: "{{ lookup('file', 'library/scs_templates.json') }}"
+       template_json: "{{ lookup('file', '/ansible/library/scs_templates.json') }}"
        state: present
      delegate_to: localhost
    - name: Link templates to Ceph nodes
