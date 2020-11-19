@@ -4,87 +4,87 @@
   hosts: localhost
   gather_facts: false
   vars:
-     ceph_template:
-        - "SCS_Template App OpenStack Ceph Cluster"
-        - "SCS_Template App OpenStack Ceph"
-        - "SCS_Template App OpenStack Ceph OSD"
-        - "SCS_Template App SSH Service"
-        - "SCS_Template OS Linux by Zabbix agent"
-        - "SCS_Template_Ceph_docker"
+    ceph_template:
+      - "SCS_Template App OpenStack Ceph Cluster"
+      - "SCS_Template App OpenStack Ceph"
+      - "SCS_Template App OpenStack Ceph OSD"
+      - "SCS_Template App SSH Service"
+      - "SCS_Template OS Linux by Zabbix agent"
+      - "SCS_Template_Ceph_docker"
       # Control
-     control_template:
-        - "SCS_Template App OpenStack Neutron Server"
-        - "SCS_Template App Memcached"
-        - "SCS_Template App OpenStack Ceph"
-        - "SCS_Template App OpenStack Ceph MON"
-        - "SCS_Template App OpenStack Cinder API"
-        - "SCS_Template App OpenStack Cinder Scheduler"
-        - "SCS_Template App OpenStack Cinder Volume"
-        - "SCS_Template App OpenStack Glance API"
-        - "SCS_Template App OpenStack Horizon"
-        - "SCS_Template App OpenStack Nova API"
-        - "SCS_Template App OpenStack Nova API OSAPI"
-        - "SCS_Template App OpenStack Nova Conductor"
-        - "SCS_Template App OpenStack Nova novncproxy"
-        - "SCS_Template App OpenStack Nova Scheduler"
-        - "SCS_Template App SSH Service"
-        - "SCS_Template DB MySQL"
-        - "SCS_Template Module ICMP Ping"
-        - "SCS_Template OS Linux by Zabbix agent"
-        - "SCS_Template_Controller_docker"
+    control_template:
+      - "SCS_Template App OpenStack Neutron Server"
+      - "SCS_Template App Memcached"
+      - "SCS_Template App OpenStack Ceph"
+      - "SCS_Template App OpenStack Ceph MON"
+      - "SCS_Template App OpenStack Cinder API"
+      - "SCS_Template App OpenStack Cinder Scheduler"
+      - "SCS_Template App OpenStack Cinder Volume"
+      - "SCS_Template App OpenStack Glance API"
+      - "SCS_Template App OpenStack Horizon"
+      - "SCS_Template App OpenStack Nova API"
+      - "SCS_Template App OpenStack Nova API OSAPI"
+      - "SCS_Template App OpenStack Nova Conductor"
+      - "SCS_Template App OpenStack Nova novncproxy"
+      - "SCS_Template App OpenStack Nova Scheduler"
+      - "SCS_Template App SSH Service"
+      - "SCS_Template DB MySQL"
+      - "SCS_Template Module ICMP Ping"
+      - "SCS_Template OS Linux by Zabbix agent"
+      - "SCS_Template_Controller_docker"
       # Network
-     network_template:
-        - "SCS_Template App OpenStack Neutron L3 Agent"
-        - "SCS_Template App OpenStack Neutron DHCP Agent"
-        - "SCS_Template App OpenStack Neutron Metadata Agent"
-        - "SCS_Template App OpenStack Neutron OVS Agent"
-        - "SCS_Template App OpenStack Open vSwitch"
-        - "SCS_Template App SSH Service"
-        - "SCS_Template Module ICMP Ping"
-        - "SCS_Template_Network_docker"
-        - "SCS_Template OS Linux by Zabbix agent"
+    network_template:
+      - "SCS_Template App OpenStack Neutron L3 Agent"
+      - "SCS_Template App OpenStack Neutron DHCP Agent"
+      - "SCS_Template App OpenStack Neutron Metadata Agent"
+      - "SCS_Template App OpenStack Neutron OVS Agent"
+      - "SCS_Template App OpenStack Open vSwitch"
+      - "SCS_Template App SSH Service"
+      - "SCS_Template Module ICMP Ping"
+      - "SCS_Template_Network_docker"
+      - "SCS_Template OS Linux by Zabbix agent"
       # Manager
-     manager_template:
-        - "SCS_Template App SSH Service"
-        - "SCS_Template App Zabbix Server"
-        - "SCS_Template OS Linux by Zabbix agent"
-        - "SCS_Template_Manager_docker"
+    manager_template:
+      - "SCS_Template App SSH Service"
+      - "SCS_Template App Zabbix Server"
+      - "SCS_Template OS Linux by Zabbix agent"
+      - "SCS_Template_Manager_docker"
       # Compute
-     compute_template:
-        - "SCS_Template App OpenStack Libvirt"
-        - "SCS_Template App OpenStack Neutron OVS Agent"
-        - "SCS_Template App OpenStack Nova Compute"
-        - "SCS_Template App OpenStack Open vSwitch"
-        - "SCS_Template App SSH Service"
-        - "SCS_Template OS Linux by Zabbix agent"
-        - "SCS_Template_Compute_docker"
+    compute_template:
+      - "SCS_Template App OpenStack Libvirt"
+      - "SCS_Template App OpenStack Neutron OVS Agent"
+      - "SCS_Template App OpenStack Nova Compute"
+      - "SCS_Template App OpenStack Open vSwitch"
+      - "SCS_Template App SSH Service"
+      - "SCS_Template OS Linux by Zabbix agent"
+      - "SCS_Template_Compute_docker"
       # HA Proxy int
-     haproxy_int_template:
-        - "SCS_Template App OpenStack Glance API"
-        - "SCS_Template App OpenStack Cinder API"
-        - "SCS_Template App Elasticsearch Cluster by HTTP"
-        - "SCS_Template App HAProxy"
-        - "SCS_Template App OpenStack HA RabbitMQ"
-        - "SCS_Template App OpenStack Horizon"
-        - "SCS_Template App OpenStack Keystone"
-        - "SCS_Template App OpenStack Neutron Server"
-        - "SCS_Template App OpenStack Nova API"
-        - "SCS_Template App OpenStack Nova API OSAPI"
-        - "SCS_Template App OpenStack Nova novncproxy"
+    haproxy_int_template:
+      - "SCS_Template App OpenStack Glance API"
+      - "SCS_Template App OpenStack Cinder API"
+      - "SCS_Template App Elasticsearch Cluster by HTTP"
+      - "SCS_Template App HAProxy"
+      - "SCS_Template App OpenStack HA RabbitMQ"
+      - "SCS_Template App OpenStack Horizon"
+      - "SCS_Template App OpenStack Keystone"
+      - "SCS_Template App OpenStack Neutron Server"
+      - "SCS_Template App OpenStack Nova API"
+      - "SCS_Template App OpenStack Nova API OSAPI"
+      - "SCS_Template App OpenStack Nova novncproxy"
 
       # HA Proxy ext
-     haproxy_ext_template:
-        - "SCS_Template App OpenStack Cinder API"
-        - "SCS_Template App OpenStack Glance API"
-        - "SCS_Template App OpenStack Horizon"
-        - "SCS_Template App OpenStack Keystone"
-        - "SCS_Template App OpenStack Neutron Server"
-        - "SCS_Template App OpenStack Nova API"
-        - "SCS_Template App OpenStack Nova novncproxy"
-        - "SCS_Template App OpenStack Cinder API"
+    haproxy_ext_template:
+      - "SCS_Template App OpenStack Cinder API"
+      - "SCS_Template App OpenStack Glance API"
+      - "SCS_Template App OpenStack Horizon"
+      - "SCS_Template App OpenStack Keystone"
+      - "SCS_Template App OpenStack Neutron Server"
+      - "SCS_Template App OpenStack Nova API"
+      - "SCS_Template App OpenStack Nova novncproxy"
+      - "SCS_Template App OpenStack Cinder API"
   tasks:
-   - name: Create Host Groups in Zabbix
-     zabbix_group:
+    - name: Create Host Groups in Zabbix
+      zabbix_group:
       server_url: "{{ zabbix_server_url }}"
       login_user: "{{ zabbix_login_user }}"
       login_password: "{{ zabbix_login_password }}"
@@ -103,137 +103,137 @@
         - Templates/Operating systems
         - Linux servers
       state: present
-     delegate_to: localhost
-   - name: Create Hosts in Zabbix
-     zabbix_host:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name: "{{ item }}"
-       visible_name: "{{ item }}"
-       host_groups:
-         - Linux servers
-       status: enabled
-       state: present
-       inventory_mode: automatic
-       interfaces:
-         - type: "1"
-           main: "1"
-           dns: "{{ item }}"
-           port: "10050"
-       link_templates:
-         - Linux by Zabbix agent
-     with_items:
-       - "{{ groups['generic'] }}"
-     delegate_to: localhost
-   - name: Import Zabbix templates from XML
-     zabbix_template:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       template_json: "{{ lookup('file', 'library/scs_templates.json') }}"
-       state: present
-     delegate_to: localhost
-   - name: Link templates to Ceph nodes
-     zabbix_host:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name: "{{ item }}"
-       host_groups:
-         - storage
-         - Ceph Cluster
-         - Linux servers
-       link_templates: '{{ ceph_template }}'
-       loop: "{{ groups ['ceph-resource'] }}"
-       delegate_to: localhost
-   - name: Link templates to Compute nodes
-     zabbix_host:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name:  "{{ item }}"
-       host_groups:
-        - compute
-        - Linux servers
-       link_templates: "{{ compute_template }}"
-       loop: "{{ groups [ 'compute'] }}"
-       delegate_to: localhost
-   - name: Link templates to Controller nodes
-     zabbix_host:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name:  "{{ item }}"
-       host_groups:
-        - Linux servers
-        - control
-       link_templates: "{{ control_template }}"
-       loop: "{{ groups [ 'control' ] }}"
-       delegate_to: localhost
-   - name: Link templates to Network nodes
-     zabbix_host:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name: "{{ item }}"
-       host_groups:
-        - Linux servers
-        - network
-       link_templates: "{{ network_template }}"
-       loop: "{{ groups [ 'network' ] }}"
-       delegate_to: localhost
-   - name: Link templates to Manager node
-     zabbix_host:
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name:  "{{ item }}"
-       host_groups:
-        - manage
-        - Linux servers
-       link_templates: "{{ manager_template }}"
-       loop: "{{ groups [ 'manager' ] }}"
-       delegate_to: localhost
-   - name: configure IP_MANAGEMENT macro
-     local_action:
-       module: community.zabbix.zabbix_hostmacro
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name: "{{ item }}"
-       macro_name: "{$IP_MANAGEMENT}"
-       macro_value: "{{ hostvars[item]['network_interfaces'] | json_query(zbxquery) | first }}"
-       state: present
-       vars:
-         zbxquery: "[?device=='{{ mgmt_vlan }}'].address"
-       loop: "{{ groups [ 'generic'] }}"
-       delegate_to: localhost
-   - name: configure MEMCACHED.CONN.URI macro
-     local_action:
-       module: community.zabbix.zabbix_hostmacro
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name: "{{ item }}"
-       macro_name: "{$MEMCACHED.CONN.URI}"
-       macro_value: "tcp://{{ hostvars[item]['network_interfaces'] | json_query(zbxquery) | first }}:11211"
-       state: present
-       vars:
-        zbxquery: "[?device=='{{ mgmt_vlan }}'].address"
-       loop: "{{ groups [ 'control'] }}"
-       delegate_to: localhost
-   - name: configure MYSQL.DSN macro
-     local_action:
-       module: community.zabbix.zabbix_hostmacro
-       server_url: "{{ zabbix_server_url }}"
-       login_user: "{{ zabbix_login_user }}"
-       login_password: "{{ zabbix_login_password }}"
-       host_name: "{{ item }}"
-       macro_name: "{$MYSQL.DSN}"
-       macro_value: "tcp://{{ hostvars[item]['network_interfaces'] | json_query(zbxquery) | first }}:3306"
-       state: present
-       vars:
-         zbxquery: "[?device=='{{ mgmt_vlan }}'].address"
-       loop: "{{ groups [ 'control'] }}"
-       delegate_to: localhost
+      delegate_to: localhost
+    - name: Create Hosts in Zabbix
+      zabbix_host:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        visible_name: "{{ item }}"
+        host_groups:
+          - Linux servers
+        status: enabled
+        state: present
+        inventory_mode: automatic
+        interfaces:
+          - type: "1"
+            main: "1"
+            dns: "{{ item }}"
+            port: "10050"
+        link_templates:
+          - Linux by Zabbix agent
+      with_items:
+        - "{{ groups['generic'] }}"
+      delegate_to: localhost
+    - name: Import Zabbix templates from XML
+      zabbix_template:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        template_json: "{{ lookup('file', '/ansible/library/scs_templates.json') }}"
+        state: present
+      delegate_to: localhost
+    - name: Link templates to Ceph nodes
+      zabbix_host:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        host_groups:
+          - storage
+          - Ceph Cluster
+          - Linux servers
+        link_templates: '{{ ceph_template }}'
+      loop: "{{ groups ['ceph-resource'] }}"
+      delegate_to: localhost
+    - name: Link templates to Compute nodes
+      zabbix_host:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        host_groups:
+          - compute
+          - Linux servers
+        link_templates: "{{ compute_template }}"
+      loop: "{{ groups [ 'compute'] }}"
+      delegate_to: localhost
+    - name: Link templates to Controller nodes
+      zabbix_host:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        host_groups:
+          - Linux servers
+          - control
+        link_templates: "{{ control_template }}"
+      loop: "{{ groups [ 'control' ] }}"
+      delegate_to: localhost
+    - name: Link templates to Network nodes
+      zabbix_host:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        host_groups:
+          - Linux servers
+          - network
+        link_templates: "{{ network_template }}"
+      loop: "{{ groups [ 'network' ] }}"
+      delegate_to: localhost
+    - name: Link templates to Manager node
+      zabbix_host:
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        host_groups:
+          - manage
+          - Linux servers
+        link_templates: "{{ manager_template }}"
+      loop: "{{ groups [ 'manager' ] }}"
+      delegate_to: localhost
+    - name: configure IP_MANAGEMENT macro
+      local_action:
+        module: community.zabbix.zabbix_hostmacro
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        macro_name: "{$IP_MANAGEMENT}"
+        macro_value: "{{ hostvars[item]['network_interfaces'] | json_query(zbxquery) | first }}"
+        state: present
+        vars:
+          zbxquery: "[?device=='{{ mgmt_vlan }}'].address"
+      loop: "{{ groups [ 'generic'] }}"
+      delegate_to: localhost
+    - name: configure MEMCACHED.CONN.URI macro
+      local_action:
+        module: community.zabbix.zabbix_hostmacro
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        macro_name: "{$MEMCACHED.CONN.URI}"
+        macro_value: "tcp://{{ hostvars[item]['network_interfaces'] | json_query(zbxquery) | first }}:11211"
+        state: present
+        vars:
+          zbxquery: "[?device=='{{ mgmt_vlan }}'].address"
+      loop: "{{ groups [ 'control'] }}"
+      delegate_to: localhost
+    - name: configure MYSQL.DSN macro
+      local_action:
+        module: community.zabbix.zabbix_hostmacro
+        server_url: "{{ zabbix_server_url }}"
+        login_user: "{{ zabbix_login_user }}"
+        login_password: "{{ zabbix_login_password }}"
+        host_name: "{{ item }}"
+        macro_name: "{$MYSQL.DSN}"
+        macro_value: "tcp://{{ hostvars[item]['network_interfaces'] | json_query(zbxquery) | first }}:3306"
+        state: present
+        vars:
+          zbxquery: "[?device=='{{ mgmt_vlan }}'].address"
+      loop: "{{ groups [ 'control'] }}"
+      delegate_to: localhost
