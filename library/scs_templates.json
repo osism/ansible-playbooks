@@ -1,0 +1,1480 @@
+{
+    "zabbix_export": {
+        "version": "5.2",
+        "date": "2020-11-19T15:01:05Z",
+        "groups": [
+            {
+                "name": "Ceph Cluster"
+            },
+            {
+                "name": "Templates"
+            }
+        ],
+        "templates": [
+            {
+                "template": "SCS_Template App OpenStack Ceph",
+                "name": "SCS_Template App OpenStack Ceph",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Ceph"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Ceph health is OK",
+                        "key": "ceph.health",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ],
+                        "preprocessing": [
+                            {
+                                "type": "BOOL_TO_DECIMAL",
+                                "parameters": [
+                                    ""
+                                ]
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Ceph health is not OK from {HOST.NAME}",
+                                "priority": "DISASTER"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Ceph Cluster",
+                "name": "SCS_Template App OpenStack Ceph Cluster",
+                "groups": [
+                    {
+                        "name": "Ceph Cluster"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Ceph"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Ceph monitor_count",
+                        "type": "TRAP",
+                        "key": "monitor_count",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph objects_count",
+                        "type": "TRAP",
+                        "key": "objects_count",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph osd_count_down",
+                        "type": "TRAP",
+                        "key": "osd_count_down",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph osd_count_in",
+                        "type": "TRAP",
+                        "key": "osd_count_in",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph osd_count_out",
+                        "type": "TRAP",
+                        "key": "osd_count_out",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph osd_count_up",
+                        "type": "TRAP",
+                        "key": "osd_count_up",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_bytes_free",
+                        "type": "TRAP",
+                        "key": "pg_bytes_free",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_bytes_total",
+                        "type": "TRAP",
+                        "key": "pg_bytes_total",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_bytes_used",
+                        "type": "TRAP",
+                        "key": "pg_bytes_used",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_count",
+                        "type": "TRAP",
+                        "key": "pg_count",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_data_bytes",
+                        "type": "TRAP",
+                        "key": "pg_data_bytes",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_active",
+                        "type": "TRAP",
+                        "key": "pg_state_count_active",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_backfill",
+                        "type": "TRAP",
+                        "key": "pg_state_count_backfill",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_backfilltoofull",
+                        "type": "TRAP",
+                        "key": "pg_state_count_backfilltoofull",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_clean",
+                        "type": "TRAP",
+                        "key": "pg_state_count_clean",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_creating",
+                        "type": "TRAP",
+                        "key": "pg_state_count_creating",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_degraded",
+                        "type": "TRAP",
+                        "key": "pg_state_count_degraded",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_down",
+                        "type": "TRAP",
+                        "key": "pg_state_count_down",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_incomplete",
+                        "type": "TRAP",
+                        "key": "pg_state_count_incomplete",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_inconsistent",
+                        "type": "TRAP",
+                        "key": "pg_state_count_inconsistent",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_peered",
+                        "type": "TRAP",
+                        "key": "pg_state_count_peered",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_peering",
+                        "type": "TRAP",
+                        "key": "pg_state_count_peering",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_recovering",
+                        "type": "TRAP",
+                        "key": "pg_state_count_recovering",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_remapped",
+                        "type": "TRAP",
+                        "key": "pg_state_count_remapped",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_repair",
+                        "type": "TRAP",
+                        "key": "pg_state_count_repair",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_replay",
+                        "type": "TRAP",
+                        "key": "pg_state_count_replay",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_scrubbing",
+                        "type": "TRAP",
+                        "key": "pg_state_count_scrubbing",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_splitting",
+                        "type": "TRAP",
+                        "key": "pg_state_count_splitting",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_stale",
+                        "type": "TRAP",
+                        "key": "pg_state_count_stale",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_undersized",
+                        "type": "TRAP",
+                        "key": "pg_state_count_undersized",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pg_state_count_waitbackfill",
+                        "type": "TRAP",
+                        "key": "pg_state_count_waitbackfill",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pool_count",
+                        "type": "TRAP",
+                        "key": "pool_count",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pool_total_bytes_free",
+                        "type": "TRAP",
+                        "key": "pool_total_bytes_free",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pool_total_bytes_total",
+                        "type": "TRAP",
+                        "key": "pool_total_bytes_total",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pool_total_bytes_used",
+                        "type": "TRAP",
+                        "key": "pool_total_bytes_used",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pool_total_percent_free",
+                        "type": "TRAP",
+                        "key": "pool_total_percent_free",
+                        "delay": "0",
+                        "value_type": "FLOAT",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last()}<20",
+                                "name": "Ceph free capacity is low (< 20%)",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph pool_total_percent_used",
+                        "type": "TRAP",
+                        "key": "pool_total_percent_used",
+                        "delay": "0",
+                        "value_type": "FLOAT",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Probe ceph metrics",
+                        "key": "probe.ceph",
+                        "delay": "30",
+                        "history": "15d",
+                        "trends": "100d",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last()}<>0",
+                                "name": "Cannot retrieve Ceph metrics form {HOST.NAME1} node",
+                                "priority": "HIGH",
+                                "description": "Cannot trigger Ceph metric, check logs /var/log/zabbix/sender.log"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Ceph quorum_count",
+                        "type": "TRAP",
+                        "key": "quorum_count",
+                        "delay": "0",
+                        "applications": [
+                            {
+                                "name": "Ceph"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Ceph MON",
+                "name": "SCS_Template App OpenStack Ceph MON",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Ceph MON"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Number of ceph-mon processes",
+                        "key": "proc.num[,,,/usr/bin/ceph-mon]",
+                        "delay": "60",
+                        "history": "7d",
+                        "applications": [
+                            {
+                                "name": "Ceph MON"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Ceph MON is not running on {HOSTNAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Ceph OSD",
+                "name": "SCS_Template App OpenStack Ceph OSD",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Ceph OSD"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Number of running Ceph OSD processes",
+                        "key": "proc.num[,,,/usr/bin/ceph-osd]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Ceph OSD"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Ceph OSD process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Cinder API",
+                "name": "SCS_Template App OpenStack Cinder API",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Cinder API"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Cinder API Server is listening on port",
+                        "type": "SIMPLE",
+                        "key": "net.tcp.service[http,{$IP_MANAGEMENT},8776]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Cinder API"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Cinder API Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Cinder Scheduler",
+                "name": "SCS_Template App OpenStack Cinder Scheduler",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Cinder Scheduler"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Cinder Scheduler Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/cinder-scheduler]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Cinder Scheduler"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Cinder Scheduler process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Cinder Volume",
+                "name": "SCS_Template App OpenStack Cinder Volume",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Cinder Volume"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Cinder Volume process is running",
+                        "key": "proc.num[,,,bin/python.*bin/cinder-volume]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Cinder Volume"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Cinder Volume process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Glance API",
+                "name": "SCS_Template App OpenStack Glance API",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Glance API"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Glance API Server is listening on port",
+                        "key": "net.tcp.service[http,{$IP_MANAGEMENT},9292]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Glance API"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Glance API Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Glance API Server process is running",
+                        "key": "proc.num[python,,,glance-api]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Glance API"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Glance API Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Horizon",
+                "name": "SCS_Template App OpenStack Horizon",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Horizon"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Horizon HTTP Server is listening on port",
+                        "key": "net.tcp.service[http,10.70.52.10,80]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Horizon"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Horizon HTTP Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Horizon HTTPS Server is listening on port",
+                        "type": "SIMPLE",
+                        "key": "net.tcp.service[https,{$IP_MANAGEMENT},443]",
+                        "delay": "60",
+                        "status": "DISABLED",
+                        "applications": [
+                            {
+                                "name": "Horizon"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Horizon HTTPS Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Horizon HTTP Server process is running",
+                        "key": "proc.num[,,,apache2]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Horizon"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Horizon HTTP Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Keystone",
+                "name": "SCS_Template App OpenStack Keystone",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Keystone"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Keystone API Server is listening on port",
+                        "key": "net.tcp.service[http,{$IP_MANAGEMENT},5000]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Keystone"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Keystone API Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Keystone Admin API Server is listening on port",
+                        "key": "net.tcp.service[http,{$IP_MANAGEMENT},35357]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Keystone"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Keystone Admin API Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Keystone Admin Server process is running",
+                        "key": "proc.num[,,,keystone-ad]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Keystone"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Keystone Admin Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Keystone Main Server process is running",
+                        "key": "proc.num[,,,keystone-main]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Keystone"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Keystone Main Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Libvirt",
+                "name": "SCS_Template App OpenStack Libvirt",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Libvirt"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Libvirtd process is running",
+                        "key": "proc.num[libvirtd,root,,]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Libvirt"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Libvirtd process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Neutron Server",
+                "name": "SCS_Template App OpenStack Neutron Server",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Neutron Server"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Neutron Server is listening on port",
+                        "key": "net.tcp.service[http,{$IP_MANAGEMENT},9696]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Neutron Server"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Neutron Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Neutron Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/neutron-server]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Neutron Server"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Neutron Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Nova API",
+                "name": "SCS_Template App OpenStack Nova API",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Nova API"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Nova API Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/nova-api]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Nova API"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Nova API process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Nova API OSAPI",
+                "name": "SCS_Template App OpenStack Nova API OSAPI",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Nova API OSAPI"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Nova API OSAPI Compute Server is listening on port",
+                        "type": "SIMPLE",
+                        "key": "net.tcp.service[http,{$IP_MANAGEMENT},8774]",
+                        "delay": "60",
+                        "applications": [
+                            {
+                                "name": "Nova API OSAPI"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Nova API OSAPI Compute Server service is down on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Nova Compute",
+                "name": "SCS_Template App OpenStack Nova Compute",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Nova Compute"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Nova Compute Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/nova-compute]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Nova Compute"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Nova Compute process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Nova Conductor",
+                "name": "SCS_Template App OpenStack Nova Conductor",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Nova Conductor"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Nova Conductor Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/nova-conductor]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Nova Conductor"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Nova Conductor process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Nova novncproxy",
+                "name": "SCS_Template App OpenStack Nova novncproxy",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Nova novncproxy"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Nova novncproxy Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/nova-novncproxy]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Nova novncproxy"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Nova novncproxy process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Nova Scheduler",
+                "name": "SCS_Template App OpenStack Nova Scheduler",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Nova Scheduler"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Nova Scheduler Server process is running",
+                        "key": "proc.num[,,,bin/python.*bin/nova-scheduler]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Nova Scheduler"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Nova Scheduler process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "template": "SCS_Template App OpenStack Open vSwitch",
+                "name": "SCS_Template App OpenStack Open vSwitch",
+                "groups": [
+                    {
+                        "name": "Templates"
+                    }
+                ],
+                "applications": [
+                    {
+                        "name": "Open vSwitch"
+                    }
+                ],
+                "items": [
+                    {
+                        "name": "Open vSwitch Server process is running",
+                        "key": "proc.num[,root,,ovs-vswitchd]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Open vSwitch"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Open vSwitch Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Open vSwitch DB Server server process is running",
+                        "key": "proc.num[,root,,ovsdb-server]",
+                        "delay": "30",
+                        "applications": [
+                            {
+                                "name": "Open vSwitch"
+                            }
+                        ],
+                        "triggers": [
+                            {
+                                "expression": "{last(0)}=0",
+                                "name": "Open vSwitch DB Server process is not running on {HOST.NAME}",
+                                "priority": "HIGH"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "graphs": [
+            {
+                "name": "OSD breakdown by state",
+                "graph_items": [
+                    {
+                        "color": "00C800",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "osd_count_down"
+                        }
+                    },
+                    {
+                        "sortorder": "1",
+                        "color": "C80000",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "osd_count_in"
+                        }
+                    },
+                    {
+                        "sortorder": "2",
+                        "color": "0000C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "osd_count_out"
+                        }
+                    },
+                    {
+                        "sortorder": "3",
+                        "color": "C800C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "osd_count_up"
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "PG breakdown by state",
+                "graph_items": [
+                    {
+                        "color": "00C800",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_count"
+                        }
+                    },
+                    {
+                        "sortorder": "1",
+                        "color": "C80000",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_active"
+                        }
+                    },
+                    {
+                        "sortorder": "2",
+                        "color": "0000C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_backfill"
+                        }
+                    },
+                    {
+                        "sortorder": "3",
+                        "color": "C800C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_backfilltoofull"
+                        }
+                    },
+                    {
+                        "sortorder": "4",
+                        "color": "00C8C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_clean"
+                        }
+                    },
+                    {
+                        "sortorder": "5",
+                        "color": "C8C800",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_creating"
+                        }
+                    },
+                    {
+                        "sortorder": "6",
+                        "color": "C8C8C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_degraded"
+                        }
+                    },
+                    {
+                        "sortorder": "7",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_down"
+                        }
+                    },
+                    {
+                        "sortorder": "8",
+                        "color": "960000",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_incomplete"
+                        }
+                    },
+                    {
+                        "sortorder": "9",
+                        "color": "000096",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_inconsistent"
+                        }
+                    },
+                    {
+                        "sortorder": "10",
+                        "color": "960096",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_peered"
+                        }
+                    },
+                    {
+                        "sortorder": "11",
+                        "color": "009696",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_peering"
+                        }
+                    },
+                    {
+                        "sortorder": "12",
+                        "color": "969600",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_recovering"
+                        }
+                    },
+                    {
+                        "sortorder": "13",
+                        "color": "969696",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_remapped"
+                        }
+                    },
+                    {
+                        "sortorder": "14",
+                        "color": "00FF00",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_repair"
+                        }
+                    },
+                    {
+                        "sortorder": "15",
+                        "color": "FF0000",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_replay"
+                        }
+                    },
+                    {
+                        "sortorder": "16",
+                        "color": "0000FF",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_scrubbing"
+                        }
+                    },
+                    {
+                        "sortorder": "17",
+                        "color": "FF00FF",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_splitting"
+                        }
+                    },
+                    {
+                        "sortorder": "18",
+                        "color": "00FFFF",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_stale"
+                        }
+                    },
+                    {
+                        "sortorder": "19",
+                        "color": "FFFF00",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_undersized"
+                        }
+                    },
+                    {
+                        "sortorder": "20",
+                        "color": "FFFFFF",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pg_state_count_waitbackfill"
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "PG number vs Object number",
+                "graph_items": [
+                    {
+                        "color": "00C800",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "objects_count"
+                        }
+                    },
+                    {
+                        "sortorder": "1",
+                        "color": "C80000",
+                        "yaxisside": "RIGHT",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pool_count"
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "Storage capacity",
+                "graph_items": [
+                    {
+                        "color": "00C800",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pool_total_bytes_free"
+                        }
+                    },
+                    {
+                        "sortorder": "1",
+                        "color": "C80000",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pool_total_bytes_total"
+                        }
+                    },
+                    {
+                        "sortorder": "2",
+                        "color": "0000C8",
+                        "item": {
+                            "host": "SCS_Template App OpenStack Ceph Cluster",
+                            "key": "pool_total_bytes_used"
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
