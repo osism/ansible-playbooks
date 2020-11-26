@@ -17,7 +17,10 @@
         - maas_machines
 
     - name: Capturing MAAS Machines
-      shell: /bin/echo -e "tmpl = \"{0.hostname}\"\nfor machine in client.machines.list():\n print(tmpl.format(machine))"|/usr/local/bin/maas shell
+      shell: |
+        /bin/echo "tmpl = \"{0.hostname}\"
+        for machine in client.machines.list():
+         print(tmpl.format(machine))"|/usr/local/bin/maas shell
       register: "item"
       become: false
       changed_when: false
@@ -25,7 +28,11 @@
         - maas_machines
 
     - name: capturing machines interfaces
-      shell: '/bin/echo -e "tmpl = \"{0.hostname}: {1.name}\"\nfor machine in client.machines.list():\n for interface in machine.interfaces:\n        print(tmpl.format(machine, interface))"|/usr/local/bin/maas shell'
+      shell: |
+        /bin/echo "tmpl = \"{0.hostname}: {1.name}\"
+        for machine in client.machines.list():
+         for interface in machine.interfaces:
+                print(tmpl.format(machine, interface))"|/usr/local/bin/maas shell
       register: "interfaces"
       become: false
       changed_when: false
@@ -33,7 +40,12 @@
         - maas_machines
 
     - name: capturing machines ip address
-      shell: '/bin/echo -e "tmpl = \"{0.hostname}: {0.boot_interface.name}: {1}\"\nfor machine in client.machines.list():\n    for interface in machine.interfaces:\n       for interface in machine.ip_addresses:\n         print(tmpl.format(machine, interface))"|/usr/local/bin/maas shell'
+      shell: |
+        /bin/echo -e "tmpl = \"{0.hostname}: {0.boot_interface.name}: {1}\"
+        for machine in client.machines.list():
+            for interface in machine.interfaces:
+               for interface in machine.ip_addresses:
+                 print(tmpl.format(machine, interface))"|/usr/local/bin/maas shell
       register: "interfaceaddress"
       become: false
       changed_when: false
