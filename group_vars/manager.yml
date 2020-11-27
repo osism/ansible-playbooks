@@ -7,3 +7,6 @@ vault_host: "{{ hostvars[inventory_hostname]['ansible_' + console_interface]['ip
 
 netbox_url: http://netbox-nginx:8080/
 netbox_token: 11111111-1111-1111-1111-111111111111
+maas_login_profile: 'admin'
+maas_login_url: 'http://<FIXME>:5240/MAAS/'
+maas_api_key: '<FIXME>'
