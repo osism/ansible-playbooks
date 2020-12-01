@@ -2,6 +2,7 @@
 - name: Apply role docker_compose
   hosts: docker
   serial: "{{ osism_serial['docker_compose']|default('0') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   collections:
     - osism.commons

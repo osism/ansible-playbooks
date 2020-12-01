@@ -3,6 +3,7 @@
   hosts: all
   become: true
   serial: "{{ osism_serial['reboot']|default('1') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   vars_prompt:
     - name: ireallymeanit

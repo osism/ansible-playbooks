@@ -4,6 +4,7 @@
 - name: Collect sosreports
   hosts: all
   gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   vars:
     sosreport_unarchive: false
