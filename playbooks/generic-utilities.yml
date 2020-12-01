@@ -2,6 +2,7 @@
 - name: Apply role ANXS.utilities
   hosts: all
   serial: "{{ osism_serial['utilities']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
   become: true
 
   roles:

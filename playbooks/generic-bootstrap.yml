@@ -2,6 +2,8 @@
 - name: Gather facts for all hosts
   hosts: manager
   gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
+
   tasks:
     - name: Gathers facts about remote hosts
       setup:

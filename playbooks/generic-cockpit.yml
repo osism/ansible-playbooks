@@ -2,6 +2,7 @@
 - name: Apply role cockpit
   hosts: all
   serial: "{{ osism_serial['cockpit']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   collections:
     - osism.services

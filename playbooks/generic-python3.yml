@@ -2,6 +2,7 @@
 - name: Install python3 environment
   hosts: all
   gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
     - name: Install required packages

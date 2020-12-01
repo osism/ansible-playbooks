@@ -1,6 +1,7 @@
 ---
 - name: Check if system reboot is required
   hosts: all
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
   - name: Check if /var/run/reboot-required exist

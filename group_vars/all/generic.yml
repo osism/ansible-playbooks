@@ -54,6 +54,7 @@ network_restart_method: nothing
 
 osism_serial: []
 osism_serial_default: 30%
+osism_strategy: linear
 
 ##########################
 # rsyslog

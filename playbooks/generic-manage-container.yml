@@ -2,6 +2,7 @@
 - name: Manage container
   hosts: all
   serial: "{{ osism_serial['manage_container']|default(1) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
     - name: Manage container

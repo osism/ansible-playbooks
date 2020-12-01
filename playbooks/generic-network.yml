@@ -3,6 +3,7 @@
   hosts: all
   become: true
   serial: "{{ osism_serial['network']|default('1') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
 
   roles:
   - role: osism.network
