@@ -4,8 +4,11 @@
   serial: "{{ osism_serial['docker']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
+  collections:
+    - osism.services
+
   roles:
-    - role: osism.docker
+    - role: docker
 
 - name: Apply role docker_compose
   hosts: docker
