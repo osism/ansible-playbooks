@@ -4,11 +4,11 @@
 
 # apt
 
-apt__enabled: no
+apt__enabled: false
 
 # grub
 
-grub_hidden_timeout: False
+grub_hidden_timeout: false
 
 # timezone
 
@@ -46,7 +46,7 @@ utilities_base:
 ##########################
 # network
 
-network_allow_service_restart: no
+network_allow_service_restart: false
 network_restart_method: nothing
 
 ##########################
@@ -64,7 +64,7 @@ fluentd_host: "{{ internal_address }}"
 ##########################
 # cockpit
 
-configure_cockpit: yes
+configure_cockpit: true
 cockpit_ssh_interface: "{{ console_interface | default('lo') }}"
 
 ##########################
@@ -83,14 +83,14 @@ repositories:
   - name: "{{ ansible_distribution_release }}-updates"
     repository: "deb [arch=amd64] http://de.archive.ubuntu.com/ubuntu/ {{ ansible_distribution_release }}-updates main restricted universe multiverse"
 
-docker_configure_repository: yes
-falco_configure_repository: yes
-lynis_configure_repository: yes
-netdata_configure_repository: yes
-osquery_configure_repository: yes
-sysdig_configure_repository: yes
-trivy_configure_repository: yes
-zabbix_agent_configure_repository: yes
+docker_configure_repository: true
+falco_configure_repository: true
+lynis_configure_repository: true
+netdata_configure_repository: true
+osquery_configure_repository: true
+sysdig_configure_repository: true
+trivy_configure_repository: true
+zabbix_agent_configure_repository: true
 
 ##########################
 # chrony
@@ -115,13 +115,13 @@ operator_group: dragon
 stig_version: rhel7
 
 # NOTE: osism.chrony is used instead of this integration
-security_rhel7_enable_chrony: no
+security_rhel7_enable_chrony: false
 
 # NOTE: http://docs.openstack.org/developer/kolla-ansible/security.html#selinux
-security_rhel7_enable_linux_security_module: no
+security_rhel7_enable_linux_security_module: false
 
-security_rhel7_remove_shosts_files: yes
-security_package_clean_on_remove: yes
+security_rhel7_remove_shosts_files: true
+security_package_clean_on_remove: true
 
 security_rhel7_session_timeout: 3600
 
