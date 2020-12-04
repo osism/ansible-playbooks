@@ -2,10 +2,10 @@
 ##########################
 # helper
 
-configure_adminer: no
-configure_phpmyadmin: yes
-configure_rally: no
-configure_sshconfig: yes
+configure_adminer: false
+configure_phpmyadmin: true
+configure_rally: false
+configure_sshconfig: true
 
 ##########################
 # cephclient
