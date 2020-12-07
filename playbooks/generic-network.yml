@@ -1,9 +1,12 @@
 ---
-- name: Apply role osism.network
+- name: Apply role network
   hosts: all
   become: true
   serial: "{{ osism_serial['network']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.network
+    - role: network
