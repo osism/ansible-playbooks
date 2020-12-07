@@ -103,7 +103,6 @@
         - Templates/Operating systems
         - Linux servers
       state: present
-<<<<<<< HEAD
       delegate_to: localhost
     - name: Create Hosts in Zabbix
       zabbix_host:
