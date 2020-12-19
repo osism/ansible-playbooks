@@ -1,9 +1,11 @@
 ---
-- name: Apply role ANXS.utilities
+- name: Apply role packages
   hosts: all
-  serial: "{{ osism_serial['utilities']|default(osism_serial_default)|default(0) }}"
+  serial: "{{ osism_serial['packages']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
-  become: true
+
+  collections:
+    - osism.commons
 
   roles:
-  - role: ANXS.utilities
+    - role: packages
