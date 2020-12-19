@@ -1,9 +1,11 @@
 ---
-- name: Apply role ANXS.timezone
+- name: Apply role timezone
   hosts: all
   serial: "{{ osism_serial['timezone']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
-  become: true
+
+  collections:
+    - osism.commons
 
   roles:
-  - role: ANXS.timezone
+    - role: timezone
