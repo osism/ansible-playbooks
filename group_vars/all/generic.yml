@@ -15,19 +15,22 @@ grub_hidden_timeout: false
 timezone_zone: UTC
 
 ##########################
-# ANXS.utilities
+# packages
 
-utilities_base:
+required_packages_default:
   - ack-grep
   - command-not-found
   - curl
   - debconf
+  - debsums
   - dmidecode
+  - ethtool
   - ethtool
   - htop
   - iftop
   - iotop
   - iperf
+  - jq
   - ltrace
   - mosh
   - mtr
@@ -37,7 +40,10 @@ utilities_base:
   - pciutils
   - pstack
   - pv
+  - rsyslog
+  - selinux-utils
   - socat
+  - ssh
   - sysstat
   - tmux
   - tree
