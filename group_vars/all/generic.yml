@@ -1,5 +1,16 @@
 ---
 ##########################
+# docker registries
+
+docker_registry: index.docker.io
+
+docker_registry_ansible: quay.io
+docker_registry_service: index.docker.io
+
+docker_registry_cephclient: quay.io
+docker_registry_openstackclient: quay.io
+
+##########################
 # debops
 
 # apt
@@ -10,9 +21,10 @@ apt__enabled: false
 
 grub_hidden_timeout: false
 
+##########################
 # timezone
 
-timezone_zone: UTC
+timezone_name: UTC
 
 ##########################
 # packages
