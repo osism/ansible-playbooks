@@ -1,0 +1,611 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  collections:
+    - awx.awx
+
+  environment:
+    TOWER_HOST: http://awx-web:8052
+    TOWER_PASSWORD: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+    TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+
+  vars:
+    operator_user: dragon
+
+    applications:
+      - prometheus
+
+    ceph_roles:
+      - clients
+      - dashboard
+      - facts
+      - fetch-keys
+      - iscsigws
+      - mdss
+      - mgrs
+      - mons
+      - nfss
+      - osds
+      - rbd-mirrors
+      - restapis
+      - rgws
+      - rolling_update
+
+    generic_roles:
+      - auditd
+      - chrony
+      - cleanup
+      - cockpit
+      - configfs
+      - configuration
+      - docker
+      - docker-compose
+      - dotfiles
+      - facts
+      - falco
+      - firewall
+      - grub
+      - hardening
+      - hddtemp
+      - hostname
+      - hosts
+      - kernel-modules
+      - lynis
+      - microcode
+      - motd
+      - network
+      - operator
+      - osquery
+      - packages
+      - patchman-client
+      - ping
+      - podman
+      - proxy
+      - python
+      - python3
+      - repository
+      - resolvconf
+      - rng
+      - rsyslog
+      - services
+      - smartd
+      - sosreport
+      - sysctl
+      - sysdig
+      - systohc
+      - timezone
+      - trivy
+      - upgrade-packages
+      - utilities
+
+    infrastructure_roles:
+      - adminer
+      - cephclient
+      - helper
+      - keycloak
+      - netbox
+      - openstackclient
+      - patchman
+      - phpmyadmin
+      - pulp
+      - ucs
+
+    monitoring_roles:
+      - netdata
+      - openstack-health-monitor
+      - zabbix
+      - zabbix-agent
+
+    kolla_roles:
+      - aodh
+      - barbican
+      - bifrost
+      - ceilometer
+      - cinder
+      - common
+      - designate
+      - elasticsearch
+      - etcd
+      - facts
+      - glance
+      - gnocchi
+      - grafana
+      - haproxy
+      - heat
+      - horizon
+      - influxdb
+      - iscsi
+      - keystone
+      - kibana
+      - kuryr
+      - magnum
+      - manila
+      - mariadb
+      - memcached
+      - mistral
+      - multipathd
+      - neutron
+      - nova
+      - octavia
+      - openvswitch
+      - panko
+      - placement
+      - rabbitmq
+      - redis
+      - skydive
+      - watcher
+      - zun
+
+  tasks:
+    - name: Wait for AWX API availability
+      uri:
+        url: http://awx-web:8052/api/v2/ping/
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 10
+
+    - name: Wait for AWX API usability
+      uri:
+        url: http://awx-web:8052/api/v2/instances/
+        user: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+        password: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+        force_basic_auth: true
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 10
+      no_log: true
+
+    - name: Create default organization
+      tower_organization:
+        name: default
+
+    - name: Create default inventory
+      tower_inventory:
+        name: default
+        organization: default
+
+    - name: Create local inventory project
+      tower_project:
+        name: local-inventory
+        organization: default
+        scm_type: git
+        scm_url: file:///inventory
+        custom_virtualenv: /var/lib/awx/venv/osism
+
+    - name: Add source to default inventory
+      tower_inventory_source:
+        inventory: default
+        name: local-inventory
+        overwrite: true
+        overwrite_vars: true
+        source: scm
+        source_project: local-inventory
+        source_path: inventory
+        update_on_launch: false
+
+    - name: Create projects
+      tower_project:
+        name: "{{ item.name }}"
+        organization: default
+        scm_type: manual
+        local_path: "{{ item.name }}"
+        custom_virtualenv: "/var/lib/awx/venv/{{ item.virtualenv }}"
+      with_items:
+        - name: custom
+          virtualenv: osism
+        - name: generic
+          virtualenv: osism
+        - name: infrastructure
+          virtualenv: osism
+        - name: kolla
+          virtualenv: kolla
+        - name: monitoring
+          virtualenv: osism
+        - name: openstack
+          virtualenv: osism
+
+    - name: Create optional projects
+      tower_project:
+        name: "{{ item.name }}"
+        organization: default
+        scm_type: manual
+        local_path: "{{ item.name }}"
+        custom_virtualenv: "/var/lib/awx/venv/{{ item.virtualenv }}"
+      with_items:
+        - name: ceph
+          virtualenv: ceph
+      when: ceph|bool
+
+    # NOTE: it is not possible to set the used username with the tower_credential module
+    #
+    #       https://github.com/ansible/tower-cli/issues/452
+    - name: Set username/key for ssh credential
+      shell: |
+        cat <<EOF > /tmp/cred.yaml
+        ---
+        become_method: sudo
+        username: {{ operator_user }}
+        ssh_key_data: |
+        $(awk '{printf "      %s\n", $0}' < /ansible/secrets/id_rsa.operator)
+        EOF
+        awx credential create --name="operator" --credential_type="Machine" --organization="default" --inputs=@/tmp/cred.yaml
+        rm -f /tmp/cred.yaml
+
+    - name: Create generic job templates - type run
+      tower_job_template:
+        name: "{{ item.name|upper }}"
+        project: "{{ item.project }}"
+        inventory: default
+        job_type: run
+        playbook: awx.yml
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
+        ask_extra_vars: true
+      with_items:
+        - name: custom
+          project: custom
+          survey: playbook
+        - name: generic
+          project: generic
+          survey: playbook
+        - name: infrastructure
+          project: infrastructure
+          survey: playbook
+        - name: kolla
+          project: kolla
+          survey: kolla
+        - name: monitoring
+          project: monitoring
+          survey: playbook
+        - name: openstack
+          project: openstack
+          survey: playbook
+
+    - name: Create optional generic job templates - type run
+      tower_job_template:
+        name: "{{ item.name|upper }}"
+        project: "{{ item.project }}"
+        inventory: default
+        job_type: run
+        playbook: awx.yml
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
+        ask_extra_vars: true
+      with_items:
+        - name: ceph
+          project: ceph
+          survey: playbook
+      when: ceph|bool
+
+    - name: Create generic job templates - type check
+      tower_job_template:
+        name: "{{ item.name|upper }} - check"
+        project: "{{ item.project }}"
+        inventory: default
+        job_type: check
+        playbook: awx.yml
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
+        ask_extra_vars: true
+      with_items:
+        - name: custom
+          project: custom
+          survey: playbook
+        - name: generic
+          project: generic
+          survey: playbook
+        - name: infrastructure
+          project: infrastructure
+          survey: playbook
+        - name: kolla
+          project: kolla
+          survey: kolla
+        - name: monitoring
+          project: monitoring
+          survey: playbook
+        - name: openstack
+          project: openstack
+          survey: playbook
+
+    - name: Create optional generic job templates - type check
+      tower_job_template:
+        name: "{{ item.name|upper }} - check"
+        project: "{{ item.project }}"
+        inventory: default
+        job_type: check
+        playbook: awx.yml
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
+        ask_extra_vars: true
+      with_items:
+        - name: ceph
+          project: ceph
+          survey: playbook
+      when: ceph|bool
+
+    - name: Create ceph job templates - type run
+      tower_job_template:
+        name: "ceph - {{ item }}"
+        project: ceph
+        inventory: default
+        job_type: run
+        playbook: "ceph-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ ceph_roles }}"
+      when: ceph|bool
+
+    - name: Create ceph job templates - type check
+      tower_job_template:
+        name: "ceph - {{ item }} - check"
+        project: ceph
+        inventory: default
+        job_type: check
+        playbook: "ceph-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ ceph_roles }}"
+      when: ceph|bool
+
+    - name: Create generic job templates - type run
+      tower_job_template:
+        name: "generic - {{ item }}"
+        project: generic
+        inventory: default
+        job_type: run
+        playbook: "generic-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ generic_roles }}"
+
+    - name: Create generic job templates - type check
+      tower_job_template:
+        name: "generic - {{ item }} - check"
+        project: generic
+        inventory: default
+        job_type: check
+        playbook: "generic-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ generic_roles }}"
+
+    - name: Create infrastructure job templates - type run
+      tower_job_template:
+        name: "infrastructure - {{ item }}"
+        project: infrastructure
+        inventory: default
+        job_type: run
+        playbook: "infrastructure-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ infrastructure_roles }}"
+
+    - name: Create infrastructure job templates - type check
+      tower_job_template:
+        name: "infrastructure - {{ item }} - check"
+        project: infrastructure
+        inventory: default
+        job_type: check
+        playbook: "infrastructure-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ infrastructure_roles }}"
+
+    - name: Create monitoring job templates - type run
+      tower_job_template:
+        name: "monitoring - {{ item }}"
+        project: monitoring
+        inventory: default
+        job_type: run
+        playbook: "monitoring-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ monitoring_roles }}"
+
+    - name: Create monitoring job templates - type check
+      tower_job_template:
+        name: "monitoring - {{ item }} - check"
+        project: monitoring
+        inventory: default
+        job_type: check
+        playbook: "monitoring-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+      loop: "{{ monitoring_roles }}"
+
+    - name: Create kolla job templates - type run
+      tower_job_template:
+        name: "kolla - {{ item }}"
+        project: kolla
+        inventory: default
+        job_type: run
+        playbook: "kolla-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
+        ask_extra_vars: true
+      loop: "{{ kolla_roles }}"
+
+    - name: Create kolla job templates - type check
+      tower_job_template:
+        name: "kolla - {{ item }} - check"
+        project: kolla
+        inventory: default
+        job_type: check
+        playbook: "kolla-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
+        ask_extra_vars: true
+      loop: "{{ kolla_roles }}"
+
+    - name: Create 'Gather facts' schedule
+      tower_schedule:
+        name: "Gather facts"
+        state: present
+        unified_job_template: "generic - facts"
+        rrule: "{{ query('awx.awx.tower_schedule_rrule', 'hour', timezone='UTC', every=3) }}"
+
+    - name: Create applications
+      shell: "awx application create --name {{ item }} --client_type public --authorization_grant_type password --organization default"
+      loop: "{{ applications }}"
+      register: result
+      failed_when: result.rc >= 2
+      changed_when: result.rc == 0
+
+    - name: Create 'NetBox API Token' credential type
+      tower_credential_type:
+        name: "NetBox API Token"
+        description: Credential type for NetBox API token
+        kind: cloud
+        inputs: |
+          {
+             "fields":[
+                {
+                   "id":"token",
+                   "label":"NetBox API Token",
+                   "secret": true,
+                   "type":"string"
+                }
+             ]
+          }
+        injectors: !unsafe |
+          {
+             "env": {
+               "NETBOX_TOKEN": "{{ token }}"
+             }
+          }
+        state: present
+        validate_certs: false
+
+    - name: Create 'AWX API Token' credential type
+      tower_credential_type:
+        name: "AWX API Token"
+        description: Credential type for AWX API token
+        kind: cloud
+        inputs: |
+          {
+             "fields":[
+                {
+                   "id":"token",
+                   "label":"AWX API Token",
+                   "secret": true,
+                   "type":"string"
+                },
+                {
+                   "id":"refresh_token",
+                   "label":"AWX API Refresh Token",
+                   "secret": true,
+                   "type":"string"
+                }
+             ]
+          }
+        injectors: !unsafe |
+          {
+             "extra_vars":{
+                "awx_token":"{{ token }}",
+                "awx_refresh_token":"{{ refresh_token }}"
+             }
+          }
+        state: present
+        validate_certs: false
+
+    # NOTE: This is a workaround because tokens are always regenerated and
+    #       cannot be checked if they already exist. If the credential
+    #       already exists then the token it contains also exists
+
+    - name: Get status of 'Prometheus Access Token' credential
+      command: awx credential get 'Prometheus Access Token'
+      changed_when: false
+      failed_when: result.rc != 0 and result.rc != 2
+      register: result
+
+    - name: Create 'Prometheus Access' token
+      tower_token:
+        application: prometheus
+        description: Prometheus Access Token
+        scope: "read"
+        state: present
+      when: result.rc == 2
+
+    - name: Create 'Prometheus Access Token' credential
+      tower_credential:
+        name: Prometheus Access Token
+        organization: default
+        state: present
+        credential_type: AWX API Token
+        inputs:
+          token: "{{ tower_token.token }}"
+          refresh_token: "{{ tower_token.refresh_token }}"
+      when: result.rc == 2
+
+    # NOTE: Own definition for the prometheus role because the Prometheus Access
+    #       Token credential is needed.
+
+    - name: Create kolla job template 'prometheus' - type run
+      tower_job_template:
+        name: "kolla - prometheus"
+        project: kolla
+        inventory: default
+        job_type: run
+        playbook: "kolla-prometheus.yml"
+        credentials:
+          - operator
+          - Prometheus Access Token
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
+        ask_extra_vars: true
+
+    - name: Create kolla job templates 'prometheus' - type check
+      tower_job_template:
+        name: "kolla - prometheus - check"
+        project: kolla
+        inventory: default
+        job_type: check
+        playbook: "kolla-prometheus.yml"
+        credentials:
+          - operator
+          - Prometheus Access Token
+        fact_caching_enabled: true
+        survey_enabled: true
+        survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
+        ask_extra_vars: true
