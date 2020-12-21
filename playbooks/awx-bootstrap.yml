@@ -260,6 +260,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       with_items:
         - name: custom
           project: custom
@@ -293,6 +295,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       with_items:
         - name: ceph
           project: ceph
@@ -312,6 +316,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       with_items:
         - name: custom
           project: custom
@@ -345,6 +351,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/' + item.survey + '.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       with_items:
         - name: ceph
           project: ceph
@@ -362,6 +370,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ ceph_roles }}"
       when: ceph|bool
 
@@ -376,6 +386,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ ceph_roles }}"
       when: ceph|bool
 
@@ -390,6 +402,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ generic_roles }}"
 
     - name: Create generic job templates - type check
@@ -403,6 +417,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ generic_roles }}"
 
     - name: Create infrastructure job templates - type run
@@ -416,6 +432,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ infrastructure_roles }}"
 
     - name: Create infrastructure job templates - type check
@@ -429,6 +447,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ infrastructure_roles }}"
 
     - name: Create monitoring job templates - type run
@@ -442,6 +462,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ monitoring_roles }}"
 
     - name: Create monitoring job templates - type check
@@ -455,6 +477,8 @@
           - operator
         fact_caching_enabled: true
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ monitoring_roles }}"
 
     - name: Create kolla job templates - type run
@@ -470,6 +494,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ kolla_roles }}"
 
     - name: Create kolla job templates - type check
@@ -485,6 +511,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
       loop: "{{ kolla_roles }}"
 
     - name: Create 'Gather facts' schedule
@@ -604,6 +632,8 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
 
     - name: Create kolla job templates 'prometheus' - type check
       tower_job_template:
@@ -619,3 +649,5 @@
         survey_enabled: true
         survey_spec: "{{ lookup('file', '/var/lib/awx/surveys/kolla-action.json') }}"
         ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
