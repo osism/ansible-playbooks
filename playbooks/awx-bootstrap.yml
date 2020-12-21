@@ -47,6 +47,9 @@
     manager_roles:
       - configuration
 
+    states:
+      - status-bootstrap
+
     generic_roles:
       - auditd
       - chrony
@@ -83,6 +86,7 @@
       - services
       - smartd
       - sosreport
+      - state
       - sysctl
       - sysdig
       - systohc
@@ -268,6 +272,22 @@
         EOF
         awx credential create --name="operator" --credential_type="Machine" --organization="default" --inputs=@/tmp/cred.yaml
         rm -f /tmp/cred.yaml
+
+    - name: Create state job templates
+      tower_job_template:
+        name: "state - {{ item }}"
+        project: generic
+        inventory: generic
+        job_type: run
+        playbook: "state-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        forks: "{{ forks }}"
+      loop: "{{ states }}"
 
     - name: Create generic job templates - type run
       tower_job_template:
