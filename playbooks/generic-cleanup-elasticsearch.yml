@@ -1,6 +1,6 @@
 ---
 - name: Cleanup elasticsearch
-  hosts: manager
+  hosts: "{{ hosts_manager|default('manager') }}"
 
   vars:
     elasticsearch_ip: 127.0.0.1

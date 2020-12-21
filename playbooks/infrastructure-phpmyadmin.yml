@@ -1,6 +1,6 @@
 ---
 - name: Apply role phpmyadmin
-  hosts: phpmyadmin
+  hosts: "{{ hosts_phpmyadmin|default('phpmyadmin') }}"
   serial: "{{ osism_serial['phpmyadmin']|default('0') }}"
 
   collections:

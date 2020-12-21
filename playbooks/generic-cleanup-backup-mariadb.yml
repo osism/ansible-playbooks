@@ -1,6 +1,6 @@
 ---
 - name: Cleanup mariadb backup archives
-  hosts: mariadb
+  hosts: "{{ hosts_mariadb|default('mariadb') }}"
 
   vars:
     mariadb_backup_directory: /opt/xtrabackup

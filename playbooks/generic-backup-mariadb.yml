@@ -1,6 +1,6 @@
 ---
 - name: Backup mariadb
-  hosts: mariadb
+  hosts: "{{ hosts_mariadb|default('mariadb') }}"
   gather_facts: true
   serial: 1
 

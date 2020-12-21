@@ -1,6 +1,9 @@
 ---
-- name: Apply role osism.configuration
-  hosts: manager
+- name: Update configuration
+  hosts: "{{ hosts_manager|default('manager') }}"
+
+  collections:
+    - osism.commons
 
   roles:
-  - role: osism.configuration
+    - role: configuration

@@ -36,13 +36,15 @@
       - rgws
       - rolling_update
 
+    manager_roles:
+      - configuration
+
     generic_roles:
       - auditd
       - chrony
       - cleanup
       - cockpit
       - configfs
-      - configuration
       - docker
       - docker-compose
       - dotfiles
@@ -390,6 +392,40 @@
         ask_limit_on_launch: true
       loop: "{{ ceph_roles }}"
       when: ceph|bool
+
+    - name: Create manager job templates - type run
+      tower_job_template:
+        name: "manager - {{ item }}"
+        project: generic
+        inventory: manager
+        job_type: run
+        playbook: "generic-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        extra_vars:
+          hosts_manager: all
+      loop: "{{ manager_roles }}"
+
+    - name: Create manager job templates - type check
+      tower_job_template:
+        name: "manager - {{ item }} - check"
+        project: generic
+        inventory: manager
+        job_type: check
+        playbook: "generic-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        extra_vars:
+          hosts_manager: all
+      loop: "{{ manager_roles }}"
 
     - name: Create generic job templates - type run
       tower_job_template:
