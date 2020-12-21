@@ -11,6 +11,12 @@ docker_registry_cephclient: quay.io
 docker_registry_openstackclient: quay.io
 
 ##########################
+# docker
+
+docker_configure_storage_driver: true
+docker_storage_driver: overlay2
+
+##########################
 # debops
 
 # apt
