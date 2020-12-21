@@ -13,6 +13,8 @@
 
   vars:
 
+    group_name_docker: docker
+    group_name_generic: generic
     group_name_manager: manager
 
     operator_user: dragon
@@ -36,6 +38,10 @@
       - rgws
       - rolling_update
 
+    docker_roles:
+      - docker
+      - docker-compose
+
     manager_roles:
       - configuration
 
@@ -45,8 +51,6 @@
       - cleanup
       - cockpit
       - configfs
-      - docker
-      - docker-compose
       - dotfiles
       - facts
       - falco
@@ -181,6 +185,20 @@
         organization: default
         kind: smart
         host_filter: "groups__name={{ group_name_manager }}"
+
+    - name: Create generic inventory
+      tower_inventory:
+        name: generic
+        organization: default
+        kind: smart
+        host_filter: "groups__name={{ group_name_generic }}"
+
+    - name: Create docker inventory
+      tower_inventory:
+        name: docker
+        organization: default
+        kind: smart
+        host_filter: "groups__name={{ group_name_docker }}"
 
     - name: Create local inventory project
       tower_project:
@@ -427,11 +445,11 @@
           hosts_manager: all
       loop: "{{ manager_roles }}"
 
-    - name: Create generic job templates - type run
+    - name: Create docker job templates - type run
       tower_job_template:
         name: "generic - {{ item }}"
         project: generic
-        inventory: default
+        inventory: generic
         job_type: run
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -440,13 +458,15 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
-      loop: "{{ generic_roles }}"
+        extra_vars:
+          hosts_docker: all
+      loop: "{{ docker_roles }}"
 
     - name: Create generic job templates - type check
       tower_job_template:
         name: "generic - {{ item }} - check"
         project: generic
-        inventory: default
+        inventory: generic
         job_type: check
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -455,6 +475,42 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        extra_vars:
+          hosts_docker: all
+      loop: "{{ docker_roles }}"
+
+    - name: Create generic job templates - type run
+      tower_job_template:
+        name: "generic - {{ item }}"
+        project: generic
+        inventory: generic
+        job_type: run
+        playbook: "generic-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        extra_vars:
+          hosts_generic: all
+      loop: "{{ generic_roles }}"
+
+    - name: Create generic job templates - type check
+      tower_job_template:
+        name: "generic - {{ item }} - check"
+        project: generic
+        inventory: generic
+        job_type: check
+        playbook: "generic-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        extra_vars:
+          hosts_generic: all
       loop: "{{ generic_roles }}"
 
     - name: Create infrastructure job templates - type run
