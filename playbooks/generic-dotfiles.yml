@@ -4,4 +4,4 @@
   strategy: "{{ osism_strategy|default('linear') }}"
 
   roles:
-  - role: geerlingguy.dotfiles
+    - role: geerlingguy.dotfiles
