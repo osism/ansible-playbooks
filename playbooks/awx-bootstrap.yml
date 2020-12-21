@@ -449,7 +449,7 @@
       tower_job_template:
         name: "generic - {{ item }}"
         project: generic
-        inventory: generic
+        inventory: docker
         job_type: run
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -462,11 +462,11 @@
           hosts_docker: all
       loop: "{{ docker_roles }}"
 
-    - name: Create generic job templates - type check
+    - name: Create docker job templates - type check
       tower_job_template:
         name: "generic - {{ item }} - check"
         project: generic
-        inventory: generic
+        inventory: docker
         job_type: check
         playbook: "generic-{{ item }}.yml"
         credentials:
