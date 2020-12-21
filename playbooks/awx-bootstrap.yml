@@ -13,6 +13,8 @@
 
   vars:
 
+    forks: 5
+
     group_name_docker: generic
     group_name_generic: generic
     group_name_manager: manager
@@ -282,6 +284,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       with_items:
         - name: custom
           project: custom
@@ -317,6 +320,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       with_items:
         - name: ceph
           project: ceph
@@ -338,6 +342,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       with_items:
         - name: custom
           project: custom
@@ -373,6 +378,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       with_items:
         - name: ceph
           project: ceph
@@ -392,6 +398,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ ceph_roles }}"
       when: ceph|bool
 
@@ -408,6 +415,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ ceph_roles }}"
       when: ceph|bool
 
@@ -424,6 +432,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
         extra_vars:
           hosts_manager: all
       loop: "{{ manager_roles }}"
@@ -441,6 +450,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
         extra_vars:
           hosts_manager: all
       loop: "{{ manager_roles }}"
@@ -458,6 +468,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
         extra_vars:
           hosts_docker: all
       loop: "{{ docker_roles }}"
@@ -475,6 +486,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
         extra_vars:
           hosts_docker: all
       loop: "{{ docker_roles }}"
@@ -492,6 +504,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
         extra_vars:
           hosts_generic: all
       loop: "{{ generic_roles }}"
@@ -509,6 +522,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
         extra_vars:
           hosts_generic: all
       loop: "{{ generic_roles }}"
@@ -526,6 +540,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ infrastructure_roles }}"
 
     - name: Create infrastructure job templates - type check
@@ -541,6 +556,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ infrastructure_roles }}"
 
     - name: Create monitoring job templates - type run
@@ -556,6 +572,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ monitoring_roles }}"
 
     - name: Create monitoring job templates - type check
@@ -571,6 +588,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ monitoring_roles }}"
 
     - name: Create kolla job templates - type run
@@ -588,6 +606,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ kolla_roles }}"
 
     - name: Create kolla job templates - type check
@@ -605,6 +624,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
       loop: "{{ kolla_roles }}"
 
     - name: Create 'Gather facts' schedule
@@ -726,6 +746,7 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
 
     - name: Create kolla job templates 'prometheus' - type check
       tower_job_template:
@@ -743,3 +764,4 @@
         ask_extra_vars: true
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
+        forks: "{{ forks }}"
