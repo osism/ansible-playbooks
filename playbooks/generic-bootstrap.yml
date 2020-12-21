@@ -1,6 +1,6 @@
 ---
 - name: Gather facts for all hosts
-  hosts: manager
+  hosts: "{{ hosts_manager|default('manager') }}"
   gather_facts: false
   strategy: "{{ osism_strategy|default('linear') }}"
 

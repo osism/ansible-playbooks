@@ -1,6 +1,6 @@
 ---
 - name: Apply role ucs
-  hosts: ucs
+  hosts: "{{ hosts_ucs|default('ucs') }}"
   serial: "{{ osism_serial['ucs']|default(osism_serial_default)|default(0) }}"
 
   collections:

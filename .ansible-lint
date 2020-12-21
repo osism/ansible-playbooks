@@ -2,6 +2,7 @@
 exclude_paths:
   - .github/
   - playbooks/manager-import-inventory.yml
+  - playbooks/awx-bootstrap.yml
 skip_list:
   - 301
   - 302

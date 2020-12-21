@@ -1,6 +1,6 @@
 ---
 - name: Apply role zabbix
-  hosts: zabbix
+  hosts: "{{ hosts_zabbix|default('zabbix') }}"
   serial: "{{ osism_serial['zabbix']|default('0') }}"
 
   collections:

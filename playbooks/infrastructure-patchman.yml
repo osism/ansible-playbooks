@@ -1,6 +1,6 @@
 ---
 - name: Apply role patchman
-  hosts: patchman
+  hosts: "{{ hosts_patchman|default('patchman') }}"
   serial: "{{ osism_serial['patchman']|default(osism_serial_default)|default(0) }}"
 
   collections:

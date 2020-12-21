@@ -1,6 +1,6 @@
 ---
 - name: Cleanup sosreport archives
-  hosts: manager
+  hosts: "{{ hosts_manager|default('manager') }}"
 
   vars:
     sosreport_archive_directory: "/opt/archive/sosreport"

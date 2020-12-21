@@ -1,6 +1,6 @@
 ---
 - name: Apply role netdata
-  hosts: netdata
+  hosts: "{{ hosts_netdata|default('netdata') }}"
   serial: "{{ osism_serial['netdata']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

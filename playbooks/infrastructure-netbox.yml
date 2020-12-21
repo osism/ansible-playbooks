@@ -1,6 +1,6 @@
 ---
 - name: Apply role osism.netbox
-  hosts: netbox
+  hosts: "{{ hosts_netbox|default('netbox') }}"
   serial: "{{ osism_serial['netbox']|default(osism_serial_default)|default(0) }}"
 
   roles:

@@ -1,6 +1,6 @@
 ---
 - name: Apply role docker_compose
-  hosts: docker
+  hosts: "{{ hosts_docker|default('docker') }}"
   serial: "{{ osism_serial['docker_compose']|default('0') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

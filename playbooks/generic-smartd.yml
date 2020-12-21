@@ -1,6 +1,6 @@
 ---
 - name: Apply role smartd
-  hosts: smartd
+  hosts: "{{ hosts_smartd|default('smartd') }}"
   serial: "{{ osism_serial['smartd']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

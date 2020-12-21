@@ -1,6 +1,6 @@
 ---
 - name: Apply role podman
-  hosts: podman
+  hosts: "{{ hosts_podman|default('podman') }}"
   serial: "{{ osism_serial['podman']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

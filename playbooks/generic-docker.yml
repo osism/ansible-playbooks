@@ -1,6 +1,6 @@
 ---
 - name: Apply role docker
-  hosts: docker
+  hosts: "{{ hosts_docker|default('docker') }}"
   serial: "{{ osism_serial['docker']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -11,7 +11,7 @@
     - role: docker
 
 - name: Apply role docker_compose
-  hosts: docker
+  hosts: "{{ hosts_docker|default('docker') }}"
   serial: "{{ osism_serial['docker_compose']|default('0') }}"
 
   collections:
