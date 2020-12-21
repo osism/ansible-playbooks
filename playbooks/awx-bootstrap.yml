@@ -12,6 +12,9 @@
     TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
 
   vars:
+
+    group_name_manager: manager
+
     operator_user: dragon
 
     applications:
@@ -169,6 +172,13 @@
       tower_inventory:
         name: default
         organization: default
+
+    - name: Create manager inventory
+      tower_inventory:
+        name: manager
+        organization: default
+        kind: smart
+        host_filter: "groups__name={{ group_name_manager }}"
 
     - name: Create local inventory project
       tower_project:
