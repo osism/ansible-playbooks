@@ -1,4 +1,7 @@
 ---
+- name: Wait for AWX API
+  include: awx-wait.yml
+
 - hosts: localhost
   connection: local
   gather_facts: false
@@ -12,32 +15,13 @@
     TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
 
   vars:
-
     forks: 5
 
+    group_name_docker: generic
+    group_name_generic: generic
+    group_name_manager: manager
+
   tasks:
-    - name: Wait for AWX API availability
-      uri:
-        url: http://awx-web:8052/api/v2/ping/
-        status_code: 200
-      register: result
-      until: result.status == 200
-      retries: 60
-      delay: 10
-
-    - name: Wait for AWX API usability
-      uri:
-        url: http://awx-web:8052/api/v2/instances/
-        user: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
-        password: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
-        force_basic_auth: true
-        status_code: 200
-      register: result
-      until: result.status == 200
-      retries: 60
-      delay: 10
-      no_log: true
-
     - name: Create manager inventory
       tower_inventory:
         name: manager
