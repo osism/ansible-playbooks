@@ -1,4 +1,51 @@
 ---
+- name: Wait for AWX API
+  include: awx-wait.yml
+
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  collections:
+    - awx.awx
+
+  environment:
+    TOWER_HOST: http://awx-web:8052
+    TOWER_PASSWORD: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+    TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+
+  tasks:
+    - name: Create default organization
+      tower_organization:
+        name: default
+
+    - name: Create default inventory
+      tower_inventory:
+        name: default
+        organization: default
+
+    - name: Create local inventory project
+      tower_project:
+        name: local-inventory
+        organization: default
+        scm_type: git
+        scm_url: file:///inventory
+        custom_virtualenv: /var/lib/awx/venv/osism
+
+    - name: Add source to default inventory
+      tower_inventory_source:
+        inventory: default
+        name: local-inventory
+        overwrite: true
+        overwrite_vars: true
+        source: scm
+        source_project: local-inventory
+        source_path: inventory
+        update_on_launch: false
+
+- name: Create smart inventories
+  include: awx-smart-inventories.yml
+
 - hosts: localhost
   connection: local
   gather_facts: false
@@ -12,7 +59,6 @@
     TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
 
   vars:
-
     forks: 5
 
     group_name_docker: generic
@@ -154,77 +200,6 @@
       - zun
 
   tasks:
-    - name: Wait for AWX API availability
-      uri:
-        url: http://awx-web:8052/api/v2/ping/
-        status_code: 200
-      register: result
-      until: result.status == 200
-      retries: 60
-      delay: 10
-
-    - name: Wait for AWX API usability
-      uri:
-        url: http://awx-web:8052/api/v2/instances/
-        user: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
-        password: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
-        force_basic_auth: true
-        status_code: 200
-      register: result
-      until: result.status == 200
-      retries: 60
-      delay: 10
-      no_log: true
-
-    - name: Create default organization
-      tower_organization:
-        name: default
-
-    - name: Create default inventory
-      tower_inventory:
-        name: default
-        organization: default
-
-    - name: Create manager inventory
-      tower_inventory:
-        name: manager
-        organization: default
-        kind: smart
-        host_filter: "groups__name={{ group_name_manager }}"
-
-    - name: Create generic inventory
-      tower_inventory:
-        name: generic
-        organization: default
-        kind: smart
-        host_filter: "groups__name={{ group_name_generic }}"
-
-    - name: Create docker inventory
-      tower_inventory:
-        name: docker
-        organization: default
-        kind: smart
-        host_filter: "groups__name={{ group_name_docker }}"
-
-    - name: Create local inventory project
-      tower_project:
-        name: local-inventory
-        organization: default
-        scm_type: git
-        scm_url: file:///inventory
-        custom_virtualenv: /var/lib/awx/venv/osism
-
-    - name: Add source to default inventory
-      tower_inventory_source:
-        inventory: default
-        name: local-inventory
-        overwrite: true
-        overwrite_vars: true
-        source: scm
-        source_project: local-inventory
-        source_path: inventory
-        update_on_launch: false
-
     - name: Create projects
       tower_project:
         name: "{{ item.name }}"
