@@ -14,7 +14,7 @@
       vars:
         state_name: osism
         state_section: status
-        state_option: is_bootstraped
+        state_option: is_bootstrapped
         state_value: true
 
     - name: Set timestamp_bootstrap fact
