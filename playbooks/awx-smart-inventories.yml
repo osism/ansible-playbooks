@@ -1,0 +1,60 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  collections:
+    - awx.awx
+
+  environment:
+    TOWER_HOST: http://awx-web:8052
+    TOWER_PASSWORD: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+    TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+
+  vars:
+
+    forks: 5
+
+  tasks:
+    - name: Wait for AWX API availability
+      uri:
+        url: http://awx-web:8052/api/v2/ping/
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 10
+
+    - name: Wait for AWX API usability
+      uri:
+        url: http://awx-web:8052/api/v2/instances/
+        user: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+        password: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+        force_basic_auth: true
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 10
+      no_log: true
+
+    - name: Create manager inventory
+      tower_inventory:
+        name: manager
+        organization: default
+        kind: smart
+        host_filter: "groups__name={{ group_name_manager }}"
+
+    - name: Create generic inventory
+      tower_inventory:
+        name: generic
+        organization: default
+        kind: smart
+        host_filter: "groups__name={{ group_name_generic }}"
+
+    - name: Create docker inventory
+      tower_inventory:
+        name: docker
+        organization: default
+        kind: smart
+        host_filter: "groups__name={{ group_name_docker }}"
