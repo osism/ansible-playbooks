@@ -4,6 +4,7 @@ exclude_paths:
   - playbooks/awx-bootstrap.yml
   - playbooks/awx-schedules.yml
   - playbooks/awx-smart-inventories.yml
+  - playbooks/awx-workflows.yml
   - playbooks/manager-import-inventory.yml
 skip_list:
   - 301

@@ -770,5 +770,8 @@
         ask_limit_on_launch: true
         forks: "{{ forks }}"
 
+- name: Create workflows
+  include: awx-workflows.yml
+
 - name: Create schedules
   include: awx-schedules.yml
