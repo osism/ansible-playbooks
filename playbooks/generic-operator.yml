@@ -1,6 +1,6 @@
 ---
 - name: Make ssh pipelining working
-  hosts: all
+  hosts: "{{ hosts_operator|default('all') }}"
   serial: "{{ osism_serial['pipelining']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -10,15 +10,14 @@
   tasks:
     - name: Do not require tty for all users
       replace:
-        # NOTE: parameter changes to path after 2.3
-        dest: /etc/sudoers
+        path: /etc/sudoers
         regexp: "^Defaults.*requiretty$"
         replace: "Defaults !requiretty"
         mode: 0440
       become: true
 
 - name: Apply role operator
-  hosts: all
+  hosts: "{{ hosts_operator|default('all') }}"
   serial: "{{ osism_serial['operator']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
