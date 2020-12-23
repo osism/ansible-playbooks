@@ -103,7 +103,6 @@
       - cockpit
       - configfs
       - dotfiles
-      - facts
       - falco
       - firewall
       - grub
@@ -413,6 +412,23 @@
         forks: "{{ forks }}"
       loop: "{{ ceph_roles }}"
       when: ceph|bool
+
+    - name: Create facts job templates
+      tower_job_template:
+        name: "generic - facts"
+        project: generic
+        inventory: default
+        job_type: run
+        playbook: "generic-facts.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        forks: "{{ forks }}"
+        extra_vars:
+          hosts_facts: all
 
     - name: Create manager job templates - type run
       tower_job_template:

@@ -1,6 +1,7 @@
 ---
 - name: Apply role facts
-  hosts: all
+  ignore_unreachable: true
+  hosts: "{{ hosts_facts|default('all') }}"
   serial: "{{ osism_serial['facts']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -11,8 +12,10 @@
     - role: facts
 
 - name: Gather facts for all hosts
-  hosts: all
+  ignore_unreachable: true
+  hosts: "{{ hosts_facts|default('all') }}"
   gather_facts: false
+
   tasks:
     - name: Gathers facts about remote hosts
       setup:
