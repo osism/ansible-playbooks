@@ -1,0 +1,27 @@
+---
+- name: Wait for AWX API
+  include: awx-wait.yml
+
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  collections:
+    - awx.awx
+
+  environment:
+    TOWER_HOST: http://awx-web:8052
+    TOWER_PASSWORD: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+    TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+
+  tasks:
+    - name: Import 'chore - sync local inventory' workflow template
+      tower_import:
+        assets: "{{ lookup('file', 'workflows/chore-sync-local-inventory.json') | from_json() }}"
+
+    - name: Create 'chore - sync local inventory' schedule
+      tower_schedule:
+        name: chore - sync local inventory
+        state: present
+        unified_job_template: chore - sync local inventory
+        rrule: "{{ query('awx.awx.tower_schedule_rrule', 'hour', timezone='UTC', every=3) }}"
