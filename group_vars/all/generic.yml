@@ -130,6 +130,8 @@ chrony_allowed_subnets:
 ##########################
 # operator
 
+deploy_user: ubuntu
+
 operator_user: dragon
 operator_group: dragon
 
