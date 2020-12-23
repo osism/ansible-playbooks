@@ -29,16 +29,16 @@
         kind: smart
         host_filter: "groups__name={{ group_name_manager }}"
 
-    - name: Create generic inventory
-      tower_inventory:
-        name: generic
-        organization: default
-        kind: smart
-        host_filter: "groups__name={{ group_name_generic }}"
-
     - name: Create docker inventory
       tower_inventory:
         name: docker
         organization: default
         kind: smart
-        host_filter: "groups__name={{ group_name_docker }}"
+        host_filter: "(groups__name={{ group_name_docker }} and ansible_facts__ansible_local__osism__bootstrap__status=True)"
+
+    - name: Create generic inventory
+      tower_inventory:
+        name: generic
+        organization: default
+        kind: smart
+        host_filter: "(groups__name={{ group_name_generic }} and ansible_facts__ansible_local__osism__bootstrap__status=True)"
