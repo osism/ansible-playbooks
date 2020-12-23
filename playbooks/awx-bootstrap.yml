@@ -638,13 +638,6 @@
         forks: "{{ forks }}"
       loop: "{{ kolla_roles }}"
 
-    - name: Create 'Gather facts' schedule
-      tower_schedule:
-        name: "Gather facts"
-        state: present
-        unified_job_template: "generic - facts"
-        rrule: "{{ query('awx.awx.tower_schedule_rrule', 'hour', timezone='UTC', every=3) }}"
-
     - name: Create applications
       shell: "awx application create --name {{ item }} --client_type public --authorization_grant_type password --organization default"
       loop: "{{ applications }}"
@@ -776,3 +769,6 @@
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
         forks: "{{ forks }}"
+
+- name: Create schedules
+  include: awx-schedules.yml
