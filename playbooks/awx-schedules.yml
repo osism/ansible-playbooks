@@ -15,9 +15,9 @@
     TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
 
   tasks:
-    - name: Create 'Gather facts' schedule
+    - name: Create 'chore - gather facts' schedule
       tower_schedule:
-        name: "Gather facts"
+        name: "chore - gather facts"
         state: present
         unified_job_template: "generic - facts"
         rrule: "{{ query('awx.awx.tower_schedule_rrule', 'hour', timezone='UTC', every=3) }}"
