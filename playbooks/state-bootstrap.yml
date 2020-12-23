@@ -1,5 +1,5 @@
 ---
-- name: Set status bootstrap state
+- name: Set bootstrap state
   hosts: "{{ hosts_state_status_bootstrap|default('all') }}"
   serial: "{{ osism_serial['state']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
@@ -7,21 +7,24 @@
   collections:
     - osism.commons
 
+  vars:
+    state_bootstrap_status: "True"
+
   tasks:
     - name: Set is_bootstraped fact
       include_role:
         name: state
       vars:
         state_name: osism
-        state_section: status
-        state_option: is_bootstrapped
-        state_value: true
+        state_section: bootstrap
+        state_option: status
+        state_value: "{{ state_bootstrap_status }}"
 
     - name: Set timestamp_bootstrap fact
       include_role:
         name: state
       vars:
         state_name: osism
-        state_section: status
-        state_option: timestamp_bootstrap
+        state_section: bootstrap
+        state_option: timestamp
         state_value: "{{ ansible_date_time.iso8601 }}"
