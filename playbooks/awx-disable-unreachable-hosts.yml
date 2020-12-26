@@ -1,0 +1,28 @@
+---
+- name: Wait for AWX API
+  include: awx-wait.yml
+
+- hosts: all
+  gather_facts: false
+
+  collections:
+    - awx.awx
+
+  environment:
+    TOWER_HOST: http://awx-web:8052
+    TOWER_PASSWORD: "{{ lookup('file','/run/secrets/TOWER_PASSWORD') }}"
+    TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
+
+  tasks:
+    - name: Check if host is reachable
+      block:
+        - name: Wait for host
+          ansible.builtin.wait_for_connection:
+            timeout: 10
+      rescue:
+        - name: Disable unreachable host
+          tower_host:
+            name: "{{ inventory_hostname }}"
+            inventory: default
+            enabled: false
+          delegate_to: localhost

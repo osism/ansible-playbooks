@@ -198,6 +198,9 @@
       - watcher
       - zun
 
+    awx_playbooks:
+      - disable-unreachable-hosts
+
   tasks:
     - name: Create projects
       tower_project:
@@ -262,6 +265,22 @@
         ask_limit_on_launch: true
         forks: "{{ forks }}"
       loop: "{{ states }}"
+
+    - name: Create awx job templates
+      tower_job_template:
+        name: "awx - {{ item }}"
+        project: generic
+        inventory: generic
+        job_type: run
+        playbook: "awx-{{ item }}.yml"
+        credentials:
+          - operator
+        fact_caching_enabled: true
+        ask_extra_vars: true
+        ask_inventory_on_launch: true
+        ask_limit_on_launch: true
+        forks: "{{ forks }}"
+      loop: "{{ awx_playbooks }}"
 
     - name: Create generic job templates - type run
       tower_job_template:
