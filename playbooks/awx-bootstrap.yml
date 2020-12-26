@@ -453,7 +453,7 @@
       tower_job_template:
         name: "manager - {{ item }}"
         project: generic
-        inventory: manager
+        inventory: default
         job_type: run
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -463,15 +463,13 @@
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
         forks: "{{ forks }}"
-        extra_vars:
-          hosts_manager: all
       loop: "{{ manager_roles }}"
 
     - name: Create manager job templates - type check
       tower_job_template:
         name: "manager - {{ item }} - check"
         project: generic
-        inventory: manager
+        inventory: default
         job_type: check
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -481,8 +479,6 @@
         ask_inventory_on_launch: true
         ask_limit_on_launch: true
         forks: "{{ forks }}"
-        extra_vars:
-          hosts_manager: all
       loop: "{{ manager_roles }}"
 
     - name: Create docker job templates - type run
