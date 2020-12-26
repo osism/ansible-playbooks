@@ -270,7 +270,7 @@
       tower_job_template:
         name: "awx - {{ item }}"
         project: generic
-        inventory: generic
+        inventory: default
         job_type: run
         playbook: "awx-{{ item }}.yml"
         credentials:
