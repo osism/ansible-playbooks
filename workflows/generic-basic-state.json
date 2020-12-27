@@ -1,0 +1,1325 @@
+{
+     "workflow_job_templates": [
+          {
+               "name": "generic - basic state",
+               "description": "",
+               "extra_vars": "---",
+               "survey_enabled": false,
+               "allow_simultaneous": false,
+               "ask_variables_on_launch": true,
+               "limit": "",
+               "scm_branch": "",
+               "ask_inventory_on_launch": true,
+               "ask_scm_branch_on_launch": false,
+               "ask_limit_on_launch": true,
+               "webhook_service": "",
+               "webhook_credential": null,
+               "organization": {
+                    "name": "default",
+                    "type": "organization"
+               },
+               "inventory": {
+                    "organization": {
+                         "name": "default",
+                         "type": "organization"
+                    },
+                    "name": "default",
+                    "type": "inventory"
+               },
+               "related": {
+                    "schedules": [],
+                    "workflow_nodes": [
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "91e91e1e-5a9a-4d12-b797-16e1c5aad916",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - resolvconf",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "e8c30105-a207-47c8-ab4d-daf6166825bb",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "91e91e1e-5a9a-4d12-b797-16e1c5aad916",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "e8c30105-a207-47c8-ab4d-daf6166825bb",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - repository",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "eb830909-daf6-4a9a-8b4b-4d2222a7ff84",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "baac4b9b-9cd2-4e48-9775-0db8c0e89348",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "f1c86d57-a83d-456e-8a64-7be8a57cc77d",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "0df4218d-0266-41ff-b780-d34d9885b168",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "0712d6fe-d20d-44bc-9c02-b6cf73c230b4",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "8f56b207-d36b-49de-94a3-2126764ea8a7",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "fd12a01a-0ab4-40f8-9431-f86a22ee0be1",
+                                             "type": "workflow_job_template_node"
+                                        },
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "9822910d-778f-4849-8f0e-93b591bda361",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "e8c30105-a207-47c8-ab4d-daf6166825bb",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "eb830909-daf6-4a9a-8b4b-4d2222a7ff84",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - chrony",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "3d0332dd-c9bb-4ee3-b464-a9eb1e371884",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ],
+                                   "failure_nodes": [],
+                                   "always_nodes": []
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "eb830909-daf6-4a9a-8b4b-4d2222a7ff84",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "3d0332dd-c9bb-4ee3-b464-a9eb1e371884",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - systohc",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "3d0332dd-c9bb-4ee3-b464-a9eb1e371884",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "baac4b9b-9cd2-4e48-9775-0db8c0e89348",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - configfs",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "baac4b9b-9cd2-4e48-9775-0db8c0e89348",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - docker",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "2372bccd-93b5-46ea-b8be-5983c22dd731",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "80236592-4250-4d9f-96bc-9a5f9293c637",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "manager - configuration",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "0e06535d-b061-41aa-88e7-d4b09486aab1",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ],
+                                   "failure_nodes": [],
+                                   "always_nodes": []
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "80236592-4250-4d9f-96bc-9a5f9293c637",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "2372bccd-93b5-46ea-b8be-5983c22dd731",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - docker-compose",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "9cbda58a-babc-4b7f-94a2-834e94c1c120",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "2372bccd-93b5-46ea-b8be-5983c22dd731",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "f1c86d57-a83d-456e-8a64-7be8a57cc77d",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - sysctl",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "f1c86d57-a83d-456e-8a64-7be8a57cc77d",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "0df4218d-0266-41ff-b780-d34d9885b168",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - motd",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "0df4218d-0266-41ff-b780-d34d9885b168",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "0712d6fe-d20d-44bc-9c02-b6cf73c230b4",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - hddtemp",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "0712d6fe-d20d-44bc-9c02-b6cf73c230b4",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "8f56b207-d36b-49de-94a3-2126764ea8a7",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - services",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "8f56b207-d36b-49de-94a3-2126764ea8a7",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "7c38a666-4162-477e-9b73-10ed2589dbf1",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - facts",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "9e905dc8-f331-47e4-a1c3-cd61046a27af",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "7c38a666-4162-477e-9b73-10ed2589dbf1",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "fd12a01a-0ab4-40f8-9431-f86a22ee0be1",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - rng",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "fd12a01a-0ab4-40f8-9431-f86a22ee0be1",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "9e905dc8-f331-47e4-a1c3-cd61046a27af",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - operator",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "91e91e1e-5a9a-4d12-b797-16e1c5aad916",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "9e905dc8-f331-47e4-a1c3-cd61046a27af",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "9822910d-778f-4849-8f0e-93b591bda361",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - packages",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "85956754-eff8-45ec-a100-531fe8f01b6f",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "9822910d-778f-4849-8f0e-93b591bda361",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "7353b933-8ddb-403b-be53-a9ccd61bcb51",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - hardening",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": []
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "7353b933-8ddb-403b-be53-a9ccd61bcb51",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "9cbda58a-babc-4b7f-94a2-834e94c1c120",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - cleanup",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "7353b933-8ddb-403b-be53-a9ccd61bcb51",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "9cbda58a-babc-4b7f-94a2-834e94c1c120",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "058d4e4f-7f9f-47df-9b89-0c39d6f95072",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "awx - disable-unreachable-hosts",
+                                   "type": "job_template"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [],
+                                   "failure_nodes": [],
+                                   "always_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "7c38a666-4162-477e-9b73-10ed2589dbf1",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ]
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "058d4e4f-7f9f-47df-9b89-0c39d6f95072",
+                                   "type": "workflow_job_template_node"
+                              }
+                         },
+                         {
+                              "extra_data": {},
+                              "inventory": null,
+                              "scm_branch": null,
+                              "job_type": null,
+                              "job_tags": null,
+                              "skip_tags": null,
+                              "limit": null,
+                              "diff_mode": null,
+                              "verbosity": null,
+                              "all_parents_must_converge": false,
+                              "identifier": "0e06535d-b061-41aa-88e7-d4b09486aab1",
+                              "workflow_job_template": {
+                                   "organization": {
+                                        "name": "default",
+                                        "type": "organization"
+                                   },
+                                   "name": "generic - basic state",
+                                   "type": "workflow_job_template"
+                              },
+                              "unified_job_template": {
+                                   "name": "local-inventory",
+                                   "inventory": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "default",
+                                        "type": "inventory"
+                                   },
+                                   "type": "inventory_source"
+                              },
+                              "related": {
+                                   "credentials": [],
+                                   "success_nodes": [
+                                        {
+                                             "workflow_job_template": {
+                                                  "organization": {
+                                                       "name": "default",
+                                                       "type": "organization"
+                                                  },
+                                                  "name": "generic - basic state",
+                                                  "type": "workflow_job_template"
+                                             },
+                                             "identifier": "058d4e4f-7f9f-47df-9b89-0c39d6f95072",
+                                             "type": "workflow_job_template_node"
+                                        }
+                                   ],
+                                   "failure_nodes": [],
+                                   "always_nodes": []
+                              },
+                              "natural_key": {
+                                   "workflow_job_template": {
+                                        "organization": {
+                                             "name": "default",
+                                             "type": "organization"
+                                        },
+                                        "name": "generic - basic state",
+                                        "type": "workflow_job_template"
+                                   },
+                                   "identifier": "0e06535d-b061-41aa-88e7-d4b09486aab1",
+                                   "type": "workflow_job_template_node"
+                              }
+                         }
+                    ],
+                    "labels": [],
+                    "notification_templates_started": [],
+                    "notification_templates_success": [],
+                    "notification_templates_error": [],
+                    "notification_templates_approvals": [],
+                    "survey_spec": {}
+               },
+               "natural_key": {
+                    "organization": {
+                         "name": "default",
+                         "type": "organization"
+                    },
+                    "name": "generic - basic state",
+                    "type": "workflow_job_template"
+               }
+          }
+     ]
+}

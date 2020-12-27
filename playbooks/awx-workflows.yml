@@ -25,3 +25,14 @@
         state: present
         unified_job_template: chore - sync local inventory
         rrule: "{{ query('awx.awx.tower_schedule_rrule', 'hour', timezone='UTC', every=3) }}"
+
+    - name: Import 'generic - basic state' workflow template
+      tower_import:
+        assets: "{{ lookup('file', 'workflows/generic-basic-state.json') | from_json() }}"
+
+    - name: Create 'maintenance - basic state' schedule
+      tower_schedule:
+        name: maintenance - basic state
+        state: present
+        unified_job_template: generic - basic state
+        rrule: "{{ query('awx.awx.tower_schedule_rrule', 'hour', timezone='UTC', every=6) }}"
