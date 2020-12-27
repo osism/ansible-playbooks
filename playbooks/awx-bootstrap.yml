@@ -65,6 +65,7 @@
     group_name_generic: generic
     group_name_manager: manager
 
+    deploy_user: dragon
     operator_user: dragon
 
     applications:
@@ -238,7 +239,7 @@
     # NOTE: it is not possible to set the used username with the tower_credential module
     #
     #       https://github.com/ansible/tower-cli/issues/452
-    - name: Set username/key for ssh credential
+    - name: Create operator credential
       shell: |
         cat <<EOF > /tmp/cred.yaml
         ---
@@ -249,6 +250,19 @@
         EOF
         awx credential create --name="operator" --credential_type="Machine" --organization="default" --inputs=@/tmp/cred.yaml
         rm -f /tmp/cred.yaml
+
+    - name: Create deploy credential
+      tower_credential:
+        name: deploy
+        organization: default
+        state: present
+        credential_type: Machine
+        inputs:
+          username: "{{ deploy_user }}"
+          password: ASK
+          become_method: sudo
+          become_password: ASK
+          become_username: root
 
     - name: Create state job templates
       tower_job_template:
