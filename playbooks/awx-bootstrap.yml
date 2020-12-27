@@ -94,7 +94,7 @@
       - configuration
 
     states:
-      - status-bootstrap
+      - bootstrap
 
     generic_roles:
       - auditd
