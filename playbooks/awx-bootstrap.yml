@@ -65,7 +65,7 @@
     group_name_generic: generic
     group_name_manager: manager
 
-    deploy_user: dragon
+    deploy_user: ubuntu
     operator_user: dragon
 
     applications:
@@ -236,20 +236,16 @@
           virtualenv: ceph
       when: ceph|bool
 
-    # NOTE: it is not possible to set the used username with the tower_credential module
-    #
-    #       https://github.com/ansible/tower-cli/issues/452
     - name: Create operator credential
-      shell: |
-        cat <<EOF > /tmp/cred.yaml
-        ---
-        become_method: sudo
-        username: {{ operator_user }}
-        ssh_key_data: |
-        $(awk '{printf "      %s\n", $0}' < /ansible/secrets/id_rsa.operator)
-        EOF
-        awx credential create --name="operator" --credential_type="Machine" --organization="default" --inputs=@/tmp/cred.yaml
-        rm -f /tmp/cred.yaml
+      tower_credential:
+        name: operator
+        organization: default
+        state: present
+        credential_type: Machine
+        inputs:
+          username: "{{ operator_user }}"
+          become_method: sudo
+          ssh_key_data: "{{ lookup('file', '/ansible/secrets/id_rsa.operator') }}"
 
     - name: Create deploy credential
       tower_credential:
@@ -259,10 +255,8 @@
         credential_type: Machine
         inputs:
           username: "{{ deploy_user }}"
-          password: ASK
           become_method: sudo
-          become_password: ASK
-          become_username: root
+          ssh_key_data: "{{ lookup('file', '/ansible/secrets/id_rsa.deploy') }}"
 
     - name: Create state job templates
       tower_job_template:
