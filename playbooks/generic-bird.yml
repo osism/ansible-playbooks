@@ -1,0 +1,11 @@
+---
+- name: Apply role bird
+  hosts: "{{ hosts_bird|default('bird') }}"
+  serial: "{{ osism_serial['bird']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: bird
