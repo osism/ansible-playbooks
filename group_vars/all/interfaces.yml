@@ -1,0 +1,30 @@
+---
+# NOTE: default interfaces as defined in kolla-ansible
+
+network_interface: "eth0"
+
+api_interface: "{{ network_interface }}"
+bifrost_network_interface: "{{ network_interface }}"
+dns_interface: "{{ network_interface }}"
+kolla_external_vip_interface: "{{ network_interface }}"
+migration_interface: "{{ api_interface }}"
+neutron_external_interface: "{{ network_interface }}"
+octavia_network_interface: "{{ api_interface }}"
+storage_interface: "{{ network_interface }}"
+swift_replication_interface: "{{ swift_storage_interface }}"
+swift_storage_interface: "{{ storage_interface }}"
+tunnel_interface: "{{ network_interface }}"
+
+# NOTE: default address families as defined in kolla-ansible
+
+network_address_family: "ipv4"
+
+api_address_family: "{{ network_address_family }}"
+bifrost_network_address_family: "{{ network_address_family }}"
+dns_address_family: "{{ network_address_family }}"
+migration_address_family: "{{ api_address_family }}"
+octavia_network_address_family: "{{ api_address_family }}"
+storage_address_family: "{{ network_address_family }}"
+swift_replication_address_family: "{{ swift_storage_address_family }}"
+swift_storage_address_family: "{{ storage_address_family }}"
+tunnel_address_family: "{{ network_address_family }}"
