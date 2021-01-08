@@ -1,0 +1,11 @@
+---
+- name: Apply role zabbix_configuration
+  hosts: localhost
+  serial: "{{ osism_serial['zabbix_configuration']|default('0') }}"
+  connection: local
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: zabbix_configuration
