@@ -1,0 +1,11 @@
+---
+- name: Apply role zabbix_host
+  hosts: "{{ hosts_zabbix_host|default('zabbix_agent') }}"
+  serial: "{{ osism_serial['zabbix_host']|default('0') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: zabbix_host
