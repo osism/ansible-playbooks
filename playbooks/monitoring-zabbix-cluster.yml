@@ -14,4 +14,4 @@
         zabbix_cluster_link_templates_extra:
           - Elasticsearch Cluster by HTTP
         zabbix_cluster_host_groups_extra:
-          - Elasticsearch
+          - elasticsearch
