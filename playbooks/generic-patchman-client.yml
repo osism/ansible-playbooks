@@ -1,6 +1,20 @@
 ---
-- name: Apply role patchman_client
+- name: Group hosts based on configuration
   hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Group hosts based on enabled services
+      group_by:
+        key: "{{ item }}"
+      with_items:
+        - enable_patchman_client_{{ enable_patchman_client | default('true') | bool }}
+      tags: always
+
+- name: Apply role patchman_client
+  hosts:
+    - "{{ hosts_patchman_client|default('all') }}"
+    - "&enable_patchman_client_True"
   serial: "{{ osism_serial['patchman_client']|default('0') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
