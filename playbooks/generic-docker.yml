@@ -1,6 +1,20 @@
 ---
+- name: Group hosts based on configuration
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Group hosts based on enabled services
+      group_by:
+        key: "{{ item }}"
+      with_items:
+        - enable_docker_{{ enable_docker | default('true') | bool }}
+      tags: always
+
 - name: Apply role docker
-  hosts: "{{ hosts_docker|default('docker') }}"
+  hosts:
+    - "{{ hosts_docker|default('docker') }}"
+    - "&enable_docker_True"
   serial: "{{ osism_serial['docker']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -11,7 +25,9 @@
     - role: docker
 
 - name: Apply role docker_compose
-  hosts: "{{ hosts_docker|default('docker') }}"
+  hosts:
+    - "{{ hosts_docker|default('docker') }}"
+    - "&enable_docker_True"
   serial: "{{ osism_serial['docker_compose']|default('0') }}"
 
   collections:
