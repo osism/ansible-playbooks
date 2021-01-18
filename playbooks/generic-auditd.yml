@@ -1,6 +1,20 @@
 ---
-- name: Apply role auditd
+- name: Group hosts based on configuration
   hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Group hosts based on enabled services
+      group_by:
+        key: "{{ item }}"
+      with_items:
+        - enable_auditd_{{ enable_auditd | default('true') | bool }}
+      tags: always
+
+- name: Apply role auditd
+  hosts:
+    - "{{ hosts_auditd|default('all') }}"
+    - "&enable_auditd_True"
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
