@@ -41,7 +41,6 @@ timezone_name: UTC
 # packages
 
 required_packages_default:
-  - ack-grep
   - command-not-found
   - curl
   - debconf
