@@ -1,7 +1,6 @@
 ---
-- name: Reboot systems
+- name: Halt systems
   hosts: all
-  become: true
   serial: "{{ osism_serial['halt']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -20,7 +19,6 @@
            invoking the playbook"
       when: ireallymeanit != 'yes'
 
-    - name: Reboot system
-      shell: sleep 2 && /sbin/shutdown -h now
-      async: 1
-      poll: 0
+    - name: Halt system
+      become: true
+      shutdown:

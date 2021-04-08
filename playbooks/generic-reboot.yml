@@ -1,7 +1,6 @@
 ---
 - name: Reboot systems
   hosts: all
-  become: true
   serial: "{{ osism_serial['reboot']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -21,6 +20,5 @@
       when: ireallymeanit != 'yes'
 
     - name: Reboot system
-      shell: sleep 2 && /sbin/shutdown -r now
-      async: 1
-      poll: 0
+      become: true
+      reboot:
