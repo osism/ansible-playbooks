@@ -1,6 +1,6 @@
 ---
 - name: Wait for AWX API
-  include: awx-wait.yml
+  import_playbook: awx-wait.yml
 
 - hosts: localhost
   connection: local
@@ -44,7 +44,7 @@
         update_on_launch: false
 
 - name: Create smart inventories
-  include: awx-smart-inventories.yml
+  import_playbook: awx-smart-inventories.yml
 
 - hosts: localhost
   connection: local
@@ -794,7 +794,7 @@
         forks: "{{ forks }}"
 
 - name: Create workflows
-  include: awx-workflows.yml
+  import_playbook: awx-workflows.yml
 
 - name: Create schedules
-  include: awx-schedules.yml
+  import_playbook: awx-schedules.yml
