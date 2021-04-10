@@ -1,6 +1,6 @@
 ---
 - name: Wait for AWX API
-  include: awx-wait.yml
+  import_playbook: awx-wait.yml
 
 - hosts: localhost
   connection: local

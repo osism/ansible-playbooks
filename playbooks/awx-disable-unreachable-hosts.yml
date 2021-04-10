@@ -1,6 +1,6 @@
 ---
 - name: Wait for AWX API
-  include: awx-wait.yml
+  import_playbook: awx-wait.yml
 
 - hosts: all
   gather_facts: false
