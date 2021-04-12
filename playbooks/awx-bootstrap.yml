@@ -37,17 +37,6 @@
         scm_url: file:///inventory
         default_environment: default
 
-    - name: Add source to default inventory
-      tower_inventory_source:
-        inventory: default
-        name: local-inventory
-        overwrite: true
-        overwrite_vars: true
-        source: scm
-        source_project: local-inventory
-        source_path: inventory
-        update_on_launch: false
-
 - name: Create smart inventories
   import_playbook: awx-smart-inventories.yml
 
@@ -262,7 +251,6 @@
         inputs:
           username: "{{ operator_user }}"
           become_method: sudo
-          ssh_key_data: "{{ lookup('file', '/ansible/secrets/id_rsa.operator') }}"
 
     - name: Create deploy credential
       tower_credential:
@@ -273,7 +261,6 @@
         inputs:
           username: "{{ deploy_user }}"
           become_method: sudo
-          ssh_key_data: "{{ lookup('file', '/ansible/secrets/id_rsa.deploy') }}"
 
     - name: Create state job templates
       tower_job_template:
