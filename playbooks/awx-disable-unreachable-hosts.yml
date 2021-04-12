@@ -23,6 +23,6 @@
         - name: Disable unreachable host
           tower_host:
             name: "{{ inventory_hostname }}"
-            inventory: default
+            inventory: osism
             enabled: false
           delegate_to: localhost
