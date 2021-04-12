@@ -29,14 +29,6 @@
         name: default
         image: quay.io/ansible/awx-ee
 
-    - name: Create local inventory project
-      tower_project:
-        name: local-inventory
-        organization: default
-        scm_type: git
-        scm_url: file:///inventory
-        default_environment: default
-
 - name: Create smart inventories
   import_playbook: awx-smart-inventories.yml
 
