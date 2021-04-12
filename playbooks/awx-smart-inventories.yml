@@ -25,20 +25,20 @@
     - name: Create manager inventory
       tower_inventory:
         name: manager
-        organization: default
+        organization: osism
         kind: smart
         host_filter: "groups__name={{ group_name_manager }}"
 
     - name: Create docker inventory
       tower_inventory:
         name: docker
-        organization: default
+        organization: osism
         kind: smart
         host_filter: "(groups__name={{ group_name_docker }} and ansible_facts__ansible_local__osism__bootstrap__status=True)"
 
     - name: Create generic inventory
       tower_inventory:
         name: generic
-        organization: default
+        organization: osism
         kind: smart
         host_filter: "(groups__name={{ group_name_generic }} and ansible_facts__ansible_local__osism__bootstrap__status=True)"

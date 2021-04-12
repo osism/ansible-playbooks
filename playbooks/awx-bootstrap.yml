@@ -15,18 +15,18 @@
     TOWER_USERNAME: "{{ lookup('file','/run/secrets/TOWER_USERNAME') }}"
 
   tasks:
-    - name: Create default organization
+    - name: Create osism organization
       tower_organization:
-        name: default
+        name: osism
 
-    - name: Create default inventory
+    - name: Create osism inventory
       tower_inventory:
-        name: default
-        organization: default
+        name: oissm
+        organization: osism
 
-    - name: Create default execution environment
+    - name: Create osism execution environment
       tower_execution_environment:
-        name: default
+        name: osism
         image: quay.io/ansible/awx-ee
 
 - name: Create smart inventories
@@ -204,7 +204,7 @@
     - name: Create projects
       tower_project:
         name: "{{ item.name }}"
-        organization: default
+        organization: osism
         scm_type: manual
         local_path: "{{ item.name }}"
         default_environment: "{{ item.environment }}"
@@ -225,7 +225,7 @@
     - name: Create optional projects
       tower_project:
         name: "{{ item.name }}"
-        organization: default
+        organization: osism
         scm_type: manual
         local_path: "{{ item.name }}"
         default_environment: "{{ item.environment }}"
@@ -237,7 +237,7 @@
     - name: Create operator credential
       tower_credential:
         name: operator
-        organization: default
+        organization: osism
         state: present
         credential_type: Machine
         inputs:
@@ -247,7 +247,7 @@
     - name: Create deploy credential
       tower_credential:
         name: deploy
-        organization: default
+        organization: osism
         state: present
         credential_type: Machine
         inputs:
@@ -274,7 +274,7 @@
       tower_job_template:
         name: "awx - {{ item }}"
         project: generic
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "awx-{{ item }}.yml"
         credentials:
@@ -290,7 +290,7 @@
       tower_job_template:
         name: "{{ item.name|upper }}"
         project: "{{ item.project }}"
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: awx.yml
         credentials:
@@ -326,7 +326,7 @@
       tower_job_template:
         name: "{{ item.name|upper }}"
         project: "{{ item.project }}"
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: awx.yml
         credentials:
@@ -348,7 +348,7 @@
       tower_job_template:
         name: "{{ item.name|upper }} - check"
         project: "{{ item.project }}"
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: awx.yml
         credentials:
@@ -384,7 +384,7 @@
       tower_job_template:
         name: "{{ item.name|upper }} - check"
         project: "{{ item.project }}"
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: awx.yml
         credentials:
@@ -406,7 +406,7 @@
       tower_job_template:
         name: "ceph - {{ item }}"
         project: ceph
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "ceph-{{ item }}.yml"
         credentials:
@@ -423,7 +423,7 @@
       tower_job_template:
         name: "ceph - {{ item }} - check"
         project: ceph
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: "ceph-{{ item }}.yml"
         credentials:
@@ -440,7 +440,7 @@
       tower_job_template:
         name: "generic - facts"
         project: generic
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "generic-facts.yml"
         credentials:
@@ -457,7 +457,7 @@
       tower_job_template:
         name: "manager - {{ item }}"
         project: generic
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -473,7 +473,7 @@
       tower_job_template:
         name: "manager - {{ item }} - check"
         project: generic
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: "generic-{{ item }}.yml"
         credentials:
@@ -561,7 +561,7 @@
       tower_job_template:
         name: "infrastructure - {{ item }}"
         project: infrastructure
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "infrastructure-{{ item }}.yml"
         credentials:
@@ -577,7 +577,7 @@
       tower_job_template:
         name: "infrastructure - {{ item }} - check"
         project: infrastructure
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: "infrastructure-{{ item }}.yml"
         credentials:
@@ -593,7 +593,7 @@
       tower_job_template:
         name: "monitoring - {{ item }}"
         project: monitoring
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "monitoring-{{ item }}.yml"
         credentials:
@@ -609,7 +609,7 @@
       tower_job_template:
         name: "monitoring - {{ item }} - check"
         project: monitoring
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: "monitoring-{{ item }}.yml"
         credentials:
@@ -625,7 +625,7 @@
       tower_job_template:
         name: "kolla - {{ item }}"
         project: kolla
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "kolla-{{ item }}.yml"
         credentials:
@@ -643,7 +643,7 @@
       tower_job_template:
         name: "kolla - {{ item }} - check"
         project: kolla
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: "kolla-{{ item }}.yml"
         credentials:
@@ -658,7 +658,7 @@
       loop: "{{ kolla_roles }}"
 
     - name: Create applications
-      shell: "awx application create --name {{ item }} --client_type public --authorization_grant_type password --organization default"
+      shell: "awx application create --name {{ item }} --client_type public --authorization_grant_type password --organization osism"
       loop: "{{ applications }}"
       register: result
       failed_when: result.rc >= 2
@@ -742,7 +742,7 @@
     - name: Create 'Prometheus Access Token' credential
       tower_credential:
         name: Prometheus Access Token
-        organization: default
+        organization: osism
         state: present
         credential_type: AWX API Token
         inputs:
@@ -757,7 +757,7 @@
       tower_job_template:
         name: "kolla - prometheus"
         project: kolla
-        inventory: default
+        inventory: osism
         job_type: run
         playbook: "kolla-prometheus.yml"
         credentials:
@@ -775,7 +775,7 @@
       tower_job_template:
         name: "kolla - prometheus - check"
         project: kolla
-        inventory: default
+        inventory: osism
         job_type: check
         playbook: "kolla-prometheus.yml"
         credentials:
