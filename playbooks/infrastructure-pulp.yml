@@ -1,9 +1,0 @@
----
-- name: Apply role pulp
-  hosts: "{{ hosts_pulp|default('pulp') }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: pulp
