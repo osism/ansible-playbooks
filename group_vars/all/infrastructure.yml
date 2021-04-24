@@ -36,3 +36,8 @@ patchman_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interfac
 # keycloak
 
 keycloak_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interface]['ipv4']['address'] }}"
+
+##########################
+# rundeck
+
+rundeck_host: "{{ hostvars[inventory_hostname]['ansible_' + management_interface]['ipv4']['address'] }}"
