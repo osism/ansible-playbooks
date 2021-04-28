@@ -5,6 +5,8 @@ exclude_paths:
   - playbooks/awx-schedules.yml
   - playbooks/awx-smart-inventories.yml
   - playbooks/awx-workflows.yml
+  - playbooks/ceph-purge-storage-node.yml
+  - playbooks/kolla-rgw-endpoint.yml
   - playbooks/manager-import-inventory.yml
 skip_list:
   - 301

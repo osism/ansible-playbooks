@@ -1,0 +1,12 @@
+---
+- name: Apply role ceph-client
+  gather_facts: false
+  hosts: ceph-client
+  become: true
+  roles:
+    - ceph-defaults
+    - ceph-facts
+    - ceph-handler
+    - ceph-container-common
+    - ceph-config
+    - ceph-client

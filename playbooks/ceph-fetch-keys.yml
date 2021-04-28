@@ -1,0 +1,9 @@
+---
+- name: Apply role fetch-keys
+  gather_facts: false
+  hosts: ceph-mon[0]
+  become: true
+  roles:
+    - ceph-defaults
+    - ceph-facts
+    - ceph-fetch-keys
