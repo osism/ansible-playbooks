@@ -1,0 +1,12 @@
+---
+- name: Apply role ceph-mds
+  gather_facts: false
+  hosts: ceph-mds
+  become: true
+  roles:
+    - ceph-defaults
+    - ceph-facts
+    - ceph-handler
+    - ceph-container-common
+    - ceph-config
+    - ceph-mds

@@ -1,0 +1,10 @@
+---
+- name: Apply role ceph-config
+  gather_facts: false
+  hosts: ceph
+  become: true
+  roles:
+    - ceph-defaults
+    - ceph-facts
+    - ceph-handler
+    - ceph-config

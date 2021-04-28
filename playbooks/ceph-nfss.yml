@@ -1,0 +1,12 @@
+---
+- name: Apply role ceph-nfs
+  gather_facts: false
+  hosts: ceph-nfs
+  become: true
+  roles:
+    - ceph-defaults
+    - ceph-facts
+    - ceph-handler
+    - ceph-container-common
+    - ceph-config
+    - ceph-nfs
