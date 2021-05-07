@@ -1,0 +1,10 @@
+---
+- name: Apply role heimdall
+  hosts: "{{ hosts_heimdall|default('heimdall') }}"
+  serial: "{{ osism_serial['heimdall']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: heimdall
