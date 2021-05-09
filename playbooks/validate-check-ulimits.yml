@@ -1,0 +1,11 @@
+---
+- name: Apply role check_ulimits
+  hosts: "{{ hosts_check_ulimits|default('all') }}"
+  serial: "{{ osism_serial['check_ulimits']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.validations
+
+  roles:
+    - role: check_ulimits
