@@ -1,0 +1,11 @@
+---
+- name: Apply role container_status
+  hosts: "{{ hosts_container_status|default('all') }}"
+  serial: "{{ osism_serial['container_status']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.validations
+
+  roles:
+    - role: container_status
