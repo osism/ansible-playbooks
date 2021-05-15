@@ -1,6 +1,15 @@
 ---
-- name: Gather facts for all hosts
+- name: Group hosts based on state bootstrap
+  ignore_unreachable: true
   hosts: "{{ hosts_bootstrap|default('all') }}"
+  gather_facts: false
+  tasks:
+    - name: Group hosts based on state bootstrap
+      group_by:
+        key: state_bootstrap_{{ ansible_local.osism.bootstrap.status|default("False")|bool }}
+
+- name: Gather facts for all hosts
+  hosts: state_bootstrap_False
   gather_facts: false
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -9,7 +18,7 @@
       setup:
 
 - name: Gather facts for all hosts (if using --limit)
-  hosts: "{{ hosts_bootstrap|default('all') }}"
+  hosts: state_bootstrap_False
   gather_facts: false
   strategy: "{{ osism_strategy|default('linear') }}"
   tasks:
@@ -21,50 +30,69 @@
       when:
         - (play_hosts | length) != (groups['all'] | length)
 
-- import_playbook: generic-hostname.yml
+- name: Apply bootstrap roles
+  hosts: state_bootstrap_False
+  serial: "{{ osism_serial_default|default(0) }}"
+  strategy: "{{ osism_strategy|default('free') }}"
 
-- import_playbook: generic-hosts.yml
+  collections:
+    - osism.commons
+    - osism.services
 
-- import_playbook: generic-proxy.yml
+  roles:
+    - role: hostname
+    - role: hosts
+    - role: proxy
+    - role: resolvconf
+    - role: repository
+    - role: rsyslog
+    - role: systohc
+    - role: configfs
+    - role: packages
+    - role: sysctl
+    - role: services
+    - role: motd
+    - role: hddtemp
+    - role: rng
+    - role: smartd
+    - role: cleanup
+    - role: timezone
+    - role: docker
+    - role: facts
+    - role: cockpit
+    - role: chrony
+    - role: hardening
+      become: true
+    - role: auditd
 
-- import_playbook: generic-resolvconf.yml
+- name: Set state bootstrap
+  hosts: "{{ hosts_bootstrap|default('all') }}"
+  gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
 
-- import_playbook: generic-repository.yml
+  collections:
+    - osism.commons
 
-- import_playbook: generic-rsyslog.yml
+  vars:
+    state_bootstrap_status: "True"
 
-- import_playbook: generic-systohc.yml
+  tasks:
+    - name: Set is_bootstraped fact
+      include_role:
+        name: state
+      vars:
+        state_name: osism
+        state_section: bootstrap
+        state_option: status
+        state_value: "{{ state_bootstrap_status }}"
+      when: not ansible_local.osism.bootstrap.status|default("False")|bool
 
-- import_playbook: generic-configfs.yml
-
-- import_playbook: generic-packages.yml
-
-- import_playbook: generic-sysctl.yml
-
-- import_playbook: generic-services.yml
-
-- import_playbook: generic-motd.yml
-
-- import_playbook: generic-hddtemp.yml
-
-- import_playbook: generic-rng.yml
-
-- import_playbook: generic-smartd.yml
-
-- import_playbook: generic-cleanup.yml
-
-- import_playbook: generic-grub.yml
-
-- import_playbook: generic-timezone.yml
-
-- import_playbook: generic-docker.yml
-
-- import_playbook: generic-facts.yml
-
-- import_playbook: generic-cockpit.yml
-
-- import_playbook: generic-chrony.yml
-
-- import_playbook: generic-hardening.yml
-
-- import_playbook: generic-auditd.yml
+    - name: Set timestamp_bootstrap fact
+      include_role:
+        name: state
+      vars:
+        state_name: osism
+        state_section: bootstrap
+        state_option: timestamp
+        state_value: "{{ ansible_date_time.iso8601 }}"
+      when: not ansible_local.osism.bootstrap.status|default("False")|bool
