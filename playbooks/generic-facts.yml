@@ -17,5 +17,5 @@
   gather_facts: false
 
   tasks:
-    - name: Gathers facts about remote hosts
+    - name: Gathers facts about hosts
       setup:

@@ -1,0 +1,66 @@
+---
+- name: Group hosts based on state bootstrap
+  ignore_unreachable: true
+  hosts: "{{ hosts_maintenance|default('all') }}"
+  gather_facts: false
+  tasks:
+    - name: Group hosts based on state bootstrap
+      group_by:
+        key: state_bootstrap_{{ ansible_local.osism.bootstrap.status|default("False")|bool }}
+
+- name: Gather facts for all hosts
+  hosts: state_bootstrap_True
+  gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Gathers facts about hosts
+      setup:
+
+- name: Gather facts for all hosts (if using --limit)
+  hosts: state_bootstrap_True
+  gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
+  tasks:
+    - name: Gathers facts about hosts
+      setup:
+      delegate_facts: true
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['all'] }}"
+      when:
+        - (play_hosts | length) != (groups['all'] | length)
+
+- name: Apply maintenance roles
+  hosts: state_bootstrap_True
+  serial: "{{ osism_serial_default|default(0) }}"
+  strategy: "{{ osism_strategy|default('free') }}"
+
+  collections:
+    - osism.commons
+    - osism.services
+
+  roles:
+    - role: hostname
+    - role: hosts
+    - role: proxy
+    - role: resolvconf
+    - role: repository
+    - role: rsyslog
+    - role: systohc
+    - role: configfs
+    - role: packages
+    - role: sysctl
+    - role: services
+    - role: motd
+    - role: hddtemp
+    - role: rng
+    - role: smartd
+    - role: cleanup
+    - role: timezone
+    - role: docker
+    - role: facts
+    - role: cockpit
+    - role: chrony
+    - role: hardening
+      become: true
+    - role: auditd
