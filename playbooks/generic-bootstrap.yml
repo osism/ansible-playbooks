@@ -1,12 +1,25 @@
 ---
 - name: Gather facts for all hosts
-  hosts: "{{ hosts_manager|default('manager') }}"
+  hosts: "{{ hosts_bootstrap|default('all') }}"
   gather_facts: false
   strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
-    - name: Gathers facts about remote hosts
+    - name: Gathers facts about hosts
       setup:
+
+- name: Gather facts for all hosts (if using --limit)
+  hosts: "{{ hosts_bootstrap|default('all') }}"
+  gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
+  tasks:
+    - name: Gathers facts about hosts
+      setup:
+      delegate_facts: true
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['all'] }}"
+      when:
+        - (play_hosts | length) != (groups['all'] | length)
 
 - import_playbook: generic-hostname.yml
 
@@ -20,26 +33,33 @@
 
 - import_playbook: generic-rsyslog.yml
 
-# NOTE: This is the old osism.common role, divided into separate roles.
 - import_playbook: generic-systohc.yml
+
 - import_playbook: generic-configfs.yml
+
 - import_playbook: generic-packages.yml
+
 - import_playbook: generic-sysctl.yml
+
 - import_playbook: generic-services.yml
-- import_playbook: generic-facts.yml
+
 - import_playbook: generic-motd.yml
+
 - import_playbook: generic-hddtemp.yml
+
 - import_playbook: generic-rng.yml
+
 - import_playbook: generic-smartd.yml
+
 - import_playbook: generic-cleanup.yml
 
 - import_playbook: generic-grub.yml
 
 - import_playbook: generic-timezone.yml
 
-- import_playbook: generic-utilities.yml
-
 - import_playbook: generic-docker.yml
+
+- import_playbook: generic-facts.yml
 
 - import_playbook: generic-cockpit.yml
 
