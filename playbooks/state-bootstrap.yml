@@ -19,6 +19,7 @@
         state_section: bootstrap
         state_option: status
         state_value: "{{ state_bootstrap_status }}"
+      when: not ansible_local.osism.bootstrap.status|default("False")|bool
 
     - name: Set timestamp_bootstrap fact
       include_role:
@@ -28,3 +29,4 @@
         state_section: bootstrap
         state_option: timestamp
         state_value: "{{ ansible_date_time.iso8601 }}"
+      when: not ansible_local.osism.bootstrap.status|default("False")|bool
