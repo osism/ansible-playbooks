@@ -134,6 +134,7 @@
       - keycloak
       - netbox
       - openstackclient
+      - openldap
       - patchman
       - phpmyadmin
       - pulp
