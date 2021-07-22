@@ -1,0 +1,10 @@
+---
+- name: Apply role virtualbmc
+  hosts: "{{ hosts_virtualbmc|default('compute') }}"
+  serial: "{{ osism_serial['virtualbmc']|default('0') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: virtualbmc
