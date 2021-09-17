@@ -17,7 +17,9 @@ name: Check ansible syntax
 
 jobs:
   check-ansible-syntax:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - docker
     steps:
       - uses: actions/checkout@v2
       - uses: ansible/ansible-lint-action@master
