@@ -2,8 +2,11 @@
 - name: Update configuration
   hosts: "{{ hosts_manager|default('manager') }}"
 
-  collections:
-    - osism.commons
-
-  roles:
-    - role: configuration
+  tasks:
+    - name: Playbook was deprecated
+      fail:
+        msg: |
+          Playbook was deprecated. From now on, please use the playbook
+          of the same name in the manager environment. All configuration
+          parameters from environments/configuration.yml should be moved
+          to environments/manager/configuration.yml.
