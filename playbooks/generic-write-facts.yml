@@ -14,6 +14,7 @@
 
   vars:
     facts_path: /tmp/facts
+    facts_timestamp: "{{ ansible_date_time.date }}-{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}"
 
   tasks:
     - name: Create facts directory
@@ -23,14 +24,21 @@
         mode: '0755'
       delegate_to: localhost
 
-    - name: Write all available facts
-      template:
-        src: facts.j2
-        dest: "{{ facts_path }}/{{ inventory_hostname }}.j2"
+    - name: Create timestamp directory
+      ansible.builtin.file:
+        path: "{{ facts_path }}/{{ facts_timestamp }}"
+        state: directory
+        mode: '0755'
       delegate_to: localhost
 
-    - name: Write all available facts
+    - name: Write all available facts template
       template:
-        src: "{{ facts_path }}/{{ inventory_hostname }}.j2"
-        dest: "{{ facts_path }}/{{ inventory_hostname }}"
+        src: facts.j2
+        dest: "{{ facts_path }}/{{ facts_timestamp }}/{{ inventory_hostname }}.j2"
+      delegate_to: localhost
+
+    - name: Parse all available facts template
+      template:
+        src: "{{ facts_path }}/{{ facts_timestamp }}/{{ inventory_hostname }}.j2"
+        dest: "{{ facts_path }}/{{ facts_timestamp }}/{{ inventory_hostname }}"
       delegate_to: localhost
