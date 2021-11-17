@@ -1,0 +1,36 @@
+---
+- name: Gather facts for all hosts
+  ignore_unreachable: true
+  hosts: "{{ hosts_facts|default('all') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Gathers facts about hosts
+      setup:
+
+- name: Write all available facts
+  hosts: all
+  gather_facts: false
+
+  vars:
+    facts_path: /tmp/facts
+
+  tasks:
+    - name: Create facts directory
+      ansible.builtin.file:
+        path: "{{ facts_path }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+
+    - name: Write all available facts
+      template:
+        src: facts.j2
+        dest: "{{ facts_path }}/{{ inventory_hostname }}.j2"
+      delegate_to: localhost
+
+    - name: Write all available facts
+      template:
+        src: "{{ facts_path }}/{{ inventory_hostname }}.j2"
+        dest: "{{ facts_path }}/{{ inventory_hostname }}"
+      delegate_to: localhost
