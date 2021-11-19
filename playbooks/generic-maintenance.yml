@@ -76,7 +76,6 @@
     - role: timezone
     - role: docker
     - role: facts
-    - role: cockpit
     - role: chrony
     - role: hardening
       become: true
