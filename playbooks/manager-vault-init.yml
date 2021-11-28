@@ -1,0 +1,15 @@
+---
+- name: Init vault
+  hosts: localhost
+  connection: local
+
+  vars_prompt:
+    - name: vault_token
+      prompt: Token
+      private: true
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: vault_init
