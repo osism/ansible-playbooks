@@ -1,0 +1,22 @@
+---
+- name: Unseal vault
+  hosts: "{{ hosts_manager|default('manager') }}"
+
+  vars_prompt:
+    - name: vault_unseal_key_1
+      prompt: Key 1
+      private: true
+
+    - name: vault_unseal_key_2
+      prompt: Key 2
+      private: true
+
+    - name: vault_unseal_key_3
+      prompt: Key 3
+      private: true
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: vault_unseal
