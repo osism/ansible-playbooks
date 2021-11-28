@@ -1,11 +1,9 @@
 ---
 exclude_paths:
   - .github/
-  - playbooks/awx-bootstrap.yml
-  - playbooks/awx-schedules.yml
-  - playbooks/awx-smart-inventories.yml
-  - playbooks/awx-workflows.yml
   - playbooks/manager-import-inventory.yml
+  - playbooks/manager-vault-import.yml
+  - playbooks/manager-vault-init.yml
 skip_list:
   - 301
   - 302
