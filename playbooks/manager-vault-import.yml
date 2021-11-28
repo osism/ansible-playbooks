@@ -1,0 +1,14 @@
+---
+- name: Import secrets into vault
+  hosts: localhost
+  connection: local
+
+  vars_prompt:
+    - name: vault_secrets_path
+      prompt: Path to the secrets.yml to be imported
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: vault_import
