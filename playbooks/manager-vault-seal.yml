@@ -1,0 +1,14 @@
+---
+- name: Seal vault
+  hosts: "{{ hosts_manager|default('manager') }}"
+
+  vars_prompt:
+    - name: vault_token
+      prompt: Token
+      private: true
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: vault_seal
