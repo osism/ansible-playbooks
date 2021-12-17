@@ -35,6 +35,7 @@
       template:
         src: facts.j2
         dest: "{{ facts_path }}/{{ facts_timestamp }}/{{ inventory_hostname }}.j2"
+        mode: 0644
       delegate_to: localhost
 
     - name: Parse all available facts template
