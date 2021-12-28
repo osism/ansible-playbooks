@@ -80,3 +80,4 @@
     - role: hardening
       become: true
     - role: auditd
+    - role: journald

@@ -66,6 +66,7 @@
     - role: hardening
       become: true
     - role: auditd
+    - role: journald
 
 - name: Set state bootstrap
   ignore_unreachable: true
