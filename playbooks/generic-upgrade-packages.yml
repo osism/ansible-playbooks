@@ -12,7 +12,7 @@
 
   tasks:
     - name: Exit playbook, if user did not mean to upgrade the packages
-      fail:
+      ansible.builtin.fail:
         msg: >
           "To upgrade the packages, either say 'yes' on the prompt or
            use `-e ireallymeanit=yes` on the command line when

@@ -1,14 +1,16 @@
 ---
 exclude_paths:
-  - .github/
-  - playbooks/manager-import-inventory.yml
-  - playbooks/manager-vault-import.yml
-  - playbooks/manager-vault-init.yml
+  - .cache
+  - ../home/.cache
+mock_modules:
+  - hashivault_auth_method
+  - hashivault_policy
+  - hashivault_secret
+  - hashivault_secret_engine
 skip_list:
-  - 301
-  - 302
-  - 303
-  - 305
-  - 306
-  - 504
-  - 602
+  - command-instead-of-module
+  - command-instead-of-shell
+  - deprecated-command-syntax
+  - deprecated-local-action
+  - ignore-errors
+  - no-changed-when

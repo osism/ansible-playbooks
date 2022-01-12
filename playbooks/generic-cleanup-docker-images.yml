@@ -11,7 +11,7 @@
 
   tasks:
     - name: Exit playbook, if user did not mean to cleanup docker images
-      fail:
+      ansible.builtin.fail:
         msg: >
           "To cleanup docker images, either say 'yes' on the prompt or
            use `-e ireallymeanit=yes` on the command line when

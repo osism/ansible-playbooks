@@ -6,5 +6,5 @@
 
   tasks:
     - name: Role has been split up
-      fail:
+      ansible.builtin.fail:
         msg: Please use new roles from osism.services and osism.commons.

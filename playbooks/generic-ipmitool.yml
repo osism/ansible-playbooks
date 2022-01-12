@@ -5,7 +5,7 @@
   strategy: "{{ osism_strategy|default('linear') }}"
 
   collections:
-    - osism.services
+    - osism.commons
 
   roles:
     - role: ipmitool

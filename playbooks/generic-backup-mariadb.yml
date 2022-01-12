@@ -24,9 +24,9 @@
       register: result
 
     - name: Ensure mariadb container is running
-      fail:
+      ansible.builtin.fail:
         msg: mariadb container is not running
-      when: result.stdout == ""
+      when: not result.stdout|length
 
     - name: Run innobackupex
       command: docker exec -t mariadb innobackupex --galera-info /tmp
@@ -34,7 +34,11 @@
       poll: 5
 
     - name: Get latest backup directory
-      shell: docker exec -t mariadb find /tmp -name '{{ ansible_date_time.date }}*' | sort | tail -n 1
+      shell: |
+        set -o pipefail
+        docker exec -t mariadb find /tmp -name '{{ ansible_date_time.date }}*' | sort | tail -n 1
+      args:
+        executable: /bin/bash
       register: result
 
     - name: Set latest backup directory fact
@@ -42,9 +46,9 @@
         mariadb_backup_directory_latest: "{{ result.stdout }}"
 
     - name: Ensure mariadb_backup_directory_latest is not empty
-      fail:
+      ansible.builtin.fail:
         msg: mariadb_backup_directory_latest is empty
-      when: mariadb_backup_directory_latest == ""
+      when: not mariadb_backup_directory_latest|length
 
     - name: Prepare backup
       command: innobackupex --apply-log {{ mariadb_backup_directory_latest }}
