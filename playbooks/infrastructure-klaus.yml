@@ -1,0 +1,10 @@
+---
+- name: Apply role klaus
+  hosts: "{{ hosts_klaus|default('klaus') }}"
+  serial: "{{ osism_serial['klaus']|default('0') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: klaus
