@@ -1,0 +1,23 @@
+---
+- name: Run bifrost command
+  hosts: "{{ hosts_manager|default('manager') }}"
+
+  vars:
+    bifrost_arguments: baremetal node list
+    bifrost_result_id: 0
+
+  tasks:
+    - name: Run bifrost command
+      community.docker.docker_container_exec:
+        container: bifrost_deploy
+        command: "/bin/bash -c 'OS_CLOUD=bifrost openstack {{ bifrost_arguments }} -f json'"
+      register: result
+
+    - name: Write result
+      delegate_to: localhost
+      copy:
+        content: "{{ result['stdout']|from_json }}"
+        dest: "/tmp/bifrost-command-{{ bifrost_result_id }}.json"
+        mode: 0644
+        owner: dragon
+        group: dragon
