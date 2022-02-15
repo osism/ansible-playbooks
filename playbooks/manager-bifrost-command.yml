@@ -10,10 +10,10 @@
     - name: Run bifrost command
       community.docker.docker_container_exec:
         container: bifrost_deploy
-        command: "/bin/bash -c 'OS_CLOUD=bifrost openstack {{ bifrost_arguments }} -f json'"
+        command: "/bin/bash -c 'OS_CLOUD=bifrost openstack {{ bifrost_arguments }}'"
       register: result
 
-    - name: Write result
+    - name: Write json result
       delegate_to: localhost
       copy:
         content: "{{ result['stdout']|from_json }}"
@@ -21,3 +21,14 @@
         mode: 0644
         owner: dragon
         group: dragon
+      when: '"-f json" in bifrost_arguments'
+
+    - name: Write result
+      delegate_to: localhost
+      copy:
+        content: "{{ result['stdout'] }}"
+        dest: "/tmp/bifrost-command-{{ bifrost_result_id }}.log"
+        mode: 0644
+        owner: dragon
+        group: dragon
+      when: '"-f json" not in bifrost_arguments'
