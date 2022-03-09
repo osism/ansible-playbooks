@@ -15,10 +15,13 @@
       become: true
       ignore_errors: true
 
-- name: Apply role osism.operator
+- name: Apply role operator
   hosts: manager
 
+  collections:
+    - osism.commons
+
   roles:
-    - role: osism.operator
+    - role: operator
       tags: operator
       ignore_errors: true

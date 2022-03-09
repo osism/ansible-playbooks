@@ -13,7 +13,7 @@
 
   tasks:
     - name: Exit playbook, if user did not mean to halt systems
-      fail:
+      ansible.builtin.fail:
         msg: >
           "To halt the systems, either say 'yes' on the prompt or
            use `-e ireallymeanit=yes` on the command line when

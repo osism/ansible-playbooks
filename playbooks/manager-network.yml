@@ -1,7 +1,10 @@
 ---
-- name: Apply role osism.network-interfaces
+- name: Apply role network
   hosts: manager
   become: true
 
+  collections:
+    - osism.commons
+
   roles:
-  - role: osism.network-interfaces
+    - role: network

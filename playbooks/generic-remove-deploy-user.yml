@@ -11,7 +11,7 @@
 
   tasks:
     - name: Exit playbook, if user did not mean to remove the deploy user
-      fail:
+      ansible.builtin.fail:
         msg: >
           "To remove the deploy user, either say 'yes' on the prompt or
            use `-e ireallymeanit=yes` on the command line when

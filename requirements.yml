@@ -1,0 +1,97 @@
+---
+roles:
+  - name: geerlingguy.certbot
+    version: master
+    type: git
+    src: git+https://github.com/geerlingguy/ansible-role-certbot.git
+
+  - name: geerlingguy.dotfiles
+    version: master
+    type: git
+    src: git+https://github.com/geerlingguy/ansible-role-dotfiles.git
+
+  - name: hardening
+    version: e4b55822cf1bf12f205d3b7d08dcdb634c2f505f
+    type: git
+    src: git+https://github.com/openstack/ansible-hardening.git
+
+  - name: stackhpc.libvirt_host
+    version: master
+    type: git
+    src: git+https://github.com/stackhpc/ansible-role-libvirt-host.git
+
+  - name: stackhpc.libvirt_vm
+    version: master
+    type: git
+    src: git+https://github.com/stackhpc/ansible-role-libvirt-vm.git
+
+  - name: stackhpc.luks
+    version: master
+    type: git
+    src: git+https://github.com/stackhpc/ansible-role-luks.git
+
+  - name: stackhpc.systemd_networkd
+    version: master
+    type: git
+    src: git+https://github.com/stackhpc/ansible-role-systemd-networkd.git
+
+collections:
+  - name: ansible.netcommon
+    source: https://galaxy.ansible.com
+    version: 2.2.0
+
+  - name: https://github.com/ansible-collections/ansible.posix.git
+    type: git
+    version: main
+
+  - name: arista.cvp
+    source: https://galaxy.ansible.com
+    version: 3.0.0
+
+  - name: arista.eos
+    source: https://galaxy.ansible.com
+    version: 2.2.0
+
+  - name: awx.awx
+    source: https://galaxy.ansible.com
+    version: 19.4.0
+
+  - name: https://github.com/ansible-collections/community.general.git
+    type: git
+    version: main
+
+  - name: https://github.com/ansible-collections/community.network.git
+    type: git
+    version: main
+
+  - name: https://github.com/ansible-collections/community.zabbix.git
+    type: git
+    version: main
+
+  - name: debops.debops
+    source: https://galaxy.ansible.com
+    version: 2.3.1
+
+  - name: https://github.com/netbox-community/ansible_modules.git
+    type: git
+    version: devel
+
+  - name: https://github.com/openstack/ansible-collections-openstack.git
+    type: git
+    version: master
+
+  - name: https://github.com/osism/ansible-collection-commons.git
+    type: git
+    version: main
+
+  - name: https://github.com/osism/ansible-collection-services.git
+    type: git
+    version: main
+
+  - name: https://github.com/osism/ansible-collection-validations.git
+    type: git
+    version: main
+
+  - name: https://github.com/stackhpc/ansible-collection-cephadm.git
+    type: git
+    version: master

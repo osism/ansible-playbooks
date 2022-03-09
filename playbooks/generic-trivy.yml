@@ -12,6 +12,7 @@
       tags: always
 
 - name: Apply role trivy
+  hosts:
     - "{{ hosts_trivy|default('all') }}"
     - "&enable_trivy_True"
   serial: "{{ osism_serial['trivy']|default('0') }}"
