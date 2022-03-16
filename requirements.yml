@@ -11,7 +11,7 @@ roles:
     src: git+https://github.com/geerlingguy/ansible-role-dotfiles.git
 
   - name: hardening
-    version: e4b55822cf1bf12f205d3b7d08dcdb634c2f505f
+    version: master
     type: git
     src: git+https://github.com/openstack/ansible-hardening.git
 
@@ -38,7 +38,6 @@ roles:
 collections:
   - name: ansible.netcommon
     source: https://galaxy.ansible.com
-    version: 2.2.0
 
   - name: https://github.com/ansible-collections/ansible.posix.git
     type: git
@@ -46,15 +45,9 @@ collections:
 
   - name: arista.cvp
     source: https://galaxy.ansible.com
-    version: 3.0.0
 
   - name: arista.eos
     source: https://galaxy.ansible.com
-    version: 2.2.0
-
-  - name: awx.awx
-    source: https://galaxy.ansible.com
-    version: 19.4.0
 
   - name: https://github.com/ansible-collections/community.general.git
     type: git
@@ -70,7 +63,6 @@ collections:
 
   - name: debops.debops
     source: https://galaxy.ansible.com
-    version: 2.3.1
 
   - name: https://github.com/netbox-community/ansible_modules.git
     type: git
