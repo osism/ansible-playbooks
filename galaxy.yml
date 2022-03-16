@@ -1,0 +1,17 @@
+---
+namespace: osism
+name: playbooks
+version: 999.0.0
+readme: README.md
+authors:
+  - OSISM community <info@osism.tech>
+description: OSISM playbooks
+license_file: LICENSE
+tags:
+  - osism
+  - system
+dependencies: {}
+repository: https://github.com/osism/ansible-playbooks.git
+documentation: https://docs.osism.tech
+homepage: https://www.osism.tech
+issues: https://github.com/osism/ansible-playbooks/issues
