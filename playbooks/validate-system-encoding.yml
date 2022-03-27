@@ -1,11 +1,1 @@
----
-- name: Apply role system_encoding
-  hosts: "{{ hosts_system_encoding|default('all') }}"
-  serial: "{{ osism_serial['system_encoding']|default(osism_serial_default)|default(0) }}"
-  strategy: "{{ osism_strategy|default('linear') }}"
-
-  collections:
-    - osism.validations
-
-  roles:
-    - role: system_encoding
+validate/system-encoding.yml

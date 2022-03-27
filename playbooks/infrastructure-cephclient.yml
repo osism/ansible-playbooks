@@ -1,9 +1,1 @@
----
-- name: Apply role cephclient
-  hosts: "{{ hosts_cephclient|default('cephclient') }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: cephclient
+infrastructure/cephclient.yml

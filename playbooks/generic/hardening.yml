@@ -1,0 +1,9 @@
+---
+- name: Apply role hardening
+  hosts: all
+  serial: "{{ osism_serial['hardening']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+  - role: hardening
+    become: true

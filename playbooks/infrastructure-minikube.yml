@@ -1,10 +1,1 @@
----
-- name: Apply role minikube
-  hosts: "{{ hosts_minikube|default('minikube') }}"
-  serial: "{{ osism_serial['minikube']|default(osism_serial_default)|default(0) }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: minikube
+infrastructure/minikube.yml

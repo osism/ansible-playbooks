@@ -1,0 +1,10 @@
+---
+- name: Apply role dnsdist
+  hosts: "{{ hosts_dnsdist|default('dnsdist') }}"
+  serial: "{{ osism_serial['dnsdist']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: dnsdist

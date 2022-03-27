@@ -1,0 +1,10 @@
+---
+- name: Role has been split up
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Role has been split up
+      ansible.builtin.fail:
+        msg: Please use new roles from osism.services.

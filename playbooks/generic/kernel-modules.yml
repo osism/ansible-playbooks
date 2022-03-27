@@ -1,0 +1,11 @@
+---
+- name: Apply role kernel_modules
+  hosts: all
+  serial: "{{ osism_serial['kernel_modules']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: kernel_modules

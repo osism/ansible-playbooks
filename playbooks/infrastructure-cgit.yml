@@ -1,10 +1,1 @@
----
-- name: Apply role cgit
-  hosts: "{{ hosts_cgit|default('cgit') }}"
-  serial: "{{ osism_serial['cgit']|default(osism_serial_default)|default(0) }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: cgit
+infrastructure/cgit.yml

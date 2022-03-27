@@ -1,0 +1,10 @@
+---
+- name: Install python3 environment
+  hosts: all
+  gather_facts: false
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Install required packages
+      raw: test -e /usr/bin/python3 || (apt-get -y update && apt-get install -y python3-minimal)
+      become: true

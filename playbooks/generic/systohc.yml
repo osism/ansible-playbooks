@@ -1,0 +1,11 @@
+---
+- name: Apply role systohc
+  hosts: all
+  serial: "{{ osism_serial['systohc']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: systohc

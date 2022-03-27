@@ -1,0 +1,47 @@
+---
+- name: Group hosts based on configuration
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Group hosts based on enabled services
+      group_by:
+        key: "{{ item }}"
+      with_items:
+        - enable_zabbix_agent_{{ enable_zabbix_agent | default('true') | bool }}
+      tags: always
+
+- name: Remove zabbix_agent
+  hosts:
+    - "{{ hosts_zabbix_agent|default('all') }}"
+    - "&enable_zabbix_agent_True"
+  serial: "{{ osism_serial['zabbix_agent']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Stop/disable service
+      become: true
+      ansible.builtin.systemd:
+        enabled: false
+        state: stopped
+        name: zabbix-agent2
+      ignore_errors: true
+
+    - name: Wait for apt lock
+      ansible.builtin.shell: "while fuser /var/lib/dpkg/{{ item }} >/dev/null 2>&1; do sleep 5; done;"
+      loop:
+        - lock
+        - lock-frontend
+      changed_when: false
+
+    - name: Remove package
+      become: true
+      ansible.builtin.apt:
+        name: zabbix-agent2
+        state: absent
+
+    - name: Remove directory
+      become: true
+      ansible.builtin.file:
+        path: /etc/zabbix
+        state: absent

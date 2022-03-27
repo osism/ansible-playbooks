@@ -1,11 +1,1 @@
----
-- name: Ping systems
-  hosts: all
-  serial: "{{ osism_serial['ping']|default(osism_serial_default)|default(0) }}"
-  strategy: "{{ osism_strategy|default('linear') }}"
-
-  tasks:
-    - name: Ping system
-      ping:
-      retries: 10
-      delay: 5
+generic/ping.yml

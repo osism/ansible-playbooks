@@ -1,0 +1,15 @@
+---
+- name: Check if system reboot is required
+  hosts: all
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+  - name: Check if /var/run/reboot-required exist
+    stat:
+      path: /var/run/reboot-required
+    register: rebootrequired
+
+  - name: Print message if /var/run/reboot-required exist
+    debug:
+      msg: "Reboot of {{ inventory_hostname }} required"
+    when: rebootrequired.stat.islnk is defined
