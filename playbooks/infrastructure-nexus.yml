@@ -1,10 +1,1 @@
----
-- name: Apply role nexus
-  hosts: "{{ hosts_nexus|default('nexus') }}"
-  serial: "{{ osism_serial['nexus']|default('0') }}"
-
-  collections:
-    - osism.services
-
-  roles:
-    - role: nexus
+infrastructure/nexus.yml

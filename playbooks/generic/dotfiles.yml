@@ -1,0 +1,7 @@
+---
+- name: Apply role geerlingguy.dotfiles
+  hosts: all
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: geerlingguy.dotfiles

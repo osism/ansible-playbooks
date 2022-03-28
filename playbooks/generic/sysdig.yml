@@ -1,0 +1,11 @@
+---
+- name: Apply role sysdig
+  hosts: all
+  serial: "{{ osism_serial['sysdig']|default('0') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: sysdig

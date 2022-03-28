@@ -1,0 +1,11 @@
+---
+- name: Print all available facts
+  ignore_unreachable: true
+  hosts: "{{ hosts_facts|default('all') }}"
+  serial: "{{ osism_serial['facts']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Print all available facts
+      ansible.builtin.debug:
+        var: ansible_facts

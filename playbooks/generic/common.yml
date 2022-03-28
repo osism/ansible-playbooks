@@ -1,0 +1,13 @@
+---
+# NOTE: This is the old osism.common role, divided into separate roles
+- import_playbook: generic-systohc.yml
+- import_playbook: generic-configfs.yml
+- import_playbook: generic-packages.yml
+- import_playbook: generic-sysctl.yml
+- import_playbook: generic-services.yml
+- import_playbook: generic-facts.yml
+- import_playbook: generic-motd.yml
+- import_playbook: generic-hddtemp.yml
+- import_playbook: generic-rng.yml
+- import_playbook: generic-smartd.yml
+- import_playbook: generic-cleanup.yml

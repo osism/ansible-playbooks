@@ -1,0 +1,11 @@
+---
+- name: Apply role clamav
+  hosts: "{{ hosts_clamav|default('all') }}"
+  serial: "{{ osism_serial['clamav']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: clamav

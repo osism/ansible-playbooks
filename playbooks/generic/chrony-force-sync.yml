@@ -1,0 +1,20 @@
+---
+- name: Force time sync with chronyc
+  hosts: all
+  serial: "{{ osism_serial['chrony-force-sync']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  vars:
+    chronyc_options:
+      - burst 4/4
+      - makestep
+
+  tasks:
+    - name: Execute chronyc
+      command: "/usr/bin/chronyc -a '{{ item }}'"  # noqa 301
+      loop: "{{ chronyc_options }}"
+      become: true
+
+    - name: Sync hardware clock
+      command: /sbin/hwclock --systohc --utc  # noqa 301
+      become: true

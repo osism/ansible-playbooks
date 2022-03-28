@@ -1,0 +1,15 @@
+---
+- name: Cleanup queues
+  hosts: control[0]
+  gather_facts: false
+
+  tasks:
+    - name: Purge versioned_notifications.info queue
+      command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.info
+      async: 120
+      poll: 5
+
+    - name: Purge versioned_notifications.error queue
+      command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.error
+      async: 120
+      poll: 5

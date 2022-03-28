@@ -1,0 +1,11 @@
+---
+- name: Apply role openstack_health_monitor
+  hosts: "{{ hosts_openstack_health_monitor|default('openstack_health_monitor') }}"
+  serial: "{{ osism_serial['openstack_health_monitor']|default('0') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: openstack_health_monitor

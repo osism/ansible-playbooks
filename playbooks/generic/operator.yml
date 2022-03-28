@@ -1,0 +1,28 @@
+---
+- name: Make ssh pipelining working
+  hosts: "{{ hosts_operator|default('all') }}"
+  serial: "{{ osism_serial['pipelining']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  vars:
+    ansible_ssh_pipelining: false
+
+  tasks:
+    - name: Do not require tty for all users
+      replace:
+        path: /etc/sudoers
+        regexp: "^Defaults.*requiretty$"
+        replace: "Defaults !requiretty"
+        mode: 0440
+      become: true
+
+- name: Apply role operator
+  hosts: "{{ hosts_operator|default('all') }}"
+  serial: "{{ osism_serial['operator']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: operator

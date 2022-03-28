@@ -1,0 +1,10 @@
+---
+- name: Apply role zuul
+  hosts: "{{ hosts_zuul|default('zuul') }}"
+  serial: "{{ osism_serial['zuul']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: zuul

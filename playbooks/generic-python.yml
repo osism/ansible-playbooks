@@ -1,10 +1,1 @@
----
-- name: Install python environment
-  hosts: all
-  gather_facts: false
-  strategy: "{{ osism_strategy|default('linear') }}"
-
-  tasks:
-    - name: Install required packages
-      raw: test -e /usr/bin/python || (apt-get -y update && apt-get install -y python-minimal)
-      become: true
+generic/python.yml

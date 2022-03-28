@@ -1,0 +1,10 @@
+---
+- name: Apply role openldap
+  hosts: "{{ hosts_openldap|default('openldap') }}"
+  serial: "{{ osism_serial['openldap']|default('0') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: openldap

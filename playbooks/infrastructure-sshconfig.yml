@@ -1,10 +1,1 @@
----
-- name: Apply role sshconfig
-  hosts: manager
-  serial: "{{ osism_serial['sshconfig']|default('0') }}"
-
-  collections:
-    - osism.commons
-
-  roles:
-    - role: sshconfig
+infrastructure/sshconfig.yml
