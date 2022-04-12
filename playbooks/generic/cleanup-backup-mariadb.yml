@@ -8,14 +8,14 @@
 
   tasks:
     - name: Find old mariadb backup archives
-      find:
+      ansible.builtin.find:
         path: "{{ mariadb_backup_directory }}"
         age: "{{ mariadb_backup_retention_time }}"
         file_type: directory
       register: mariadb_backup_old_directories
 
     - name: Delete old mariadb backup archives
-      file:
+      ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
       loop: "{{ mariadb_backup_old_directories.files }}"

@@ -6,5 +6,5 @@
 
   tasks:
     - name: Wait until remote system is reachable
-      wait_for_connection:
+      ansible.builtin.wait_for_connection:
         delay: 10

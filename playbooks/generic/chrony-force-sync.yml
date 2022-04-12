@@ -11,10 +11,10 @@
 
   tasks:
     - name: Execute chronyc
-      command: "/usr/bin/chronyc -a '{{ item }}'"  # noqa 301
+      ansible.builtin.command: "/usr/bin/chronyc -a '{{ item }}'"  # noqa 301
       loop: "{{ chronyc_options }}"
       become: true
 
     - name: Sync hardware clock
-      command: /sbin/hwclock --systohc --utc  # noqa 301
+      ansible.builtin.command: /sbin/hwclock --systohc --utc  # noqa 301
       become: true

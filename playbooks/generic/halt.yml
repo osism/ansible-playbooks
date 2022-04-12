@@ -21,6 +21,6 @@
       when: ireallymeanit != 'yes'
 
     - name: Reboot system
-      shell: sleep 2 && /sbin/shutdown -h now
+      ansible.builtin.shell: sleep 2 && /sbin/shutdown -h now
       async: 1
       poll: 0

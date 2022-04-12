@@ -5,11 +5,11 @@
 
   tasks:
   - name: Check if /var/run/reboot-required exist
-    stat:
+    ansible.builtin.stat:
       path: /var/run/reboot-required
     register: rebootrequired
 
   - name: Print message if /var/run/reboot-required exist
-    debug:
+    ansible.builtin.debug:
       msg: "Reboot of {{ inventory_hostname }} required"
     when: rebootrequired.stat.islnk is defined

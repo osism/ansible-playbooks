@@ -6,6 +6,6 @@
 
   tasks:
     - name: Ping system
-      ping:
+      ansible.builtin.ping:
       retries: 10
       delay: 5

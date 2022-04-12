@@ -5,7 +5,7 @@
   gather_facts: false
   tasks:
     - name: Group hosts based on state bootstrap
-      group_by:
+      ansible.builtin.group_by:
         key: state_bootstrap_{{ ansible_local.osism.bootstrap.status|default("False")|bool }}
 
 - name: Group hosts based on reachability
@@ -14,13 +14,13 @@
   gather_facts: false
   tasks:
     - name: Check if host is reachable
-      command: ping -c1 {{ inventory_hostname }}
+      ansible.builtin.command: ping -c1 {{ inventory_hostname }}
       delegate_to: localhost
       register: result
       ignore_errors: true
 
     - name: Group hosts based on reachability
-      group_by:
+      ansible.builtin.group_by:
         key: reachable
       when: result is success
 
@@ -32,7 +32,7 @@
 
   tasks:
     - name: Gathers facts about hosts
-      setup:
+      ansible.builtin.setup:
 
 - name: Gather facts for all hosts (if using --limit)
   hosts: reachable
@@ -40,7 +40,7 @@
   strategy: "{{ osism_strategy|default('linear') }}"
   tasks:
     - name: Gathers facts about hosts
-      setup:
+      ansible.builtin.setup:
       delegate_facts: true
       delegate_to: "{{ item }}"
       with_items: "{{ groups['reachable'] }}"

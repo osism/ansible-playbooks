@@ -6,7 +6,7 @@
 
   tasks:
     - name: Manage container
-      command: "docker {{ container_action }} {{ container_name }}"
+      ansible.builtin.command: "docker {{ container_action }} {{ container_name }}"
 
       # NOTE: Errors are intentionally ignored here.
       ignore_errors: true

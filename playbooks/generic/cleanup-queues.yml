@@ -5,11 +5,11 @@
 
   tasks:
     - name: Purge versioned_notifications.info queue
-      command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.info
+      ansible.builtin.command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.info
       async: 120
       poll: 5
 
     - name: Purge versioned_notifications.error queue
-      command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.error
+      ansible.builtin.command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.error
       async: 120
       poll: 5
