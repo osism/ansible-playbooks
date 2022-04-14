@@ -20,7 +20,7 @@
 
     - name: Remove deploy user
       become: true
-      user:
+      ansible.builtin.user:
         name: "{{ deploy_user }}"
         state: absent
         remove: true

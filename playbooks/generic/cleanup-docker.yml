@@ -19,22 +19,22 @@
       when: ireallymeanit != 'yes'
 
     - name: Prune containers
-      docker_prune:
+      community.docker.docker_prune:
         containers: true
       tags: containers
 
     - name: Prune volumes
-      docker_prune:
+      community.docker.docker_prune:
         volumes: true
       tags: volumes
 
     - name: Prune networks
-      docker_prune:
+      community.docker.docker_prune:
         networks: true
       tags: networks
 
     - name: Prune images
-      docker_prune:
+      community.docker.docker_prune:
         images: true
         images_filters:
           dangling: true

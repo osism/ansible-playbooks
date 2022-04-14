@@ -18,4 +18,4 @@
 
   tasks:
     - name: Gathers facts about hosts
-      setup:
+      ansible.builtin.setup:

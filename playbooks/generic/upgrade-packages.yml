@@ -20,22 +20,22 @@
       when: ireallymeanit != 'yes'
 
     - name: Update package cache
-      apt:
+      ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
       become: true
 
     - name: Upgrade packages
-      apt:
+      ansible.builtin.apt:
         upgrade: dist
       become: true
 
     - name: Remove useless packages from the cache
-      apt:
+      ansible.builtin.apt:
         autoclean: true
       become: true
 
     - name: Remove dependencies that are no longer required
-      apt:
+      ansible.builtin.apt:
         autoremove: true
       become: true

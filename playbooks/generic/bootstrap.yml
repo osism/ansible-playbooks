@@ -5,7 +5,7 @@
   gather_facts: false
   tasks:
     - name: Group hosts based on state bootstrap
-      group_by:
+      ansible.builtin.group_by:
         key: state_bootstrap_{{ ansible_local.osism.bootstrap.status|default("False")|bool }}
 
 - name: Gather facts for all hosts
@@ -16,7 +16,7 @@
 
   tasks:
     - name: Gathers facts about hosts
-      setup:
+      ansible.builtin.setup:
 
 - name: Gather facts for all hosts (if using --limit)
   ignore_unreachable: true
@@ -25,7 +25,7 @@
   strategy: "{{ osism_strategy|default('linear') }}"
   tasks:
     - name: Gathers facts about hosts
-      setup:
+      ansible.builtin.setup:
       delegate_facts: true
       delegate_to: "{{ item }}"
       with_items: "{{ groups['all'] }}"
@@ -82,7 +82,7 @@
 
   tasks:
     - name: Set is_bootstraped fact
-      include_role:
+      ansible.builtin.include_role:
         name: state
       vars:
         state_name: osism
@@ -92,7 +92,7 @@
       when: not ansible_local.osism.bootstrap.status|default("False")|bool
 
     - name: Set timestamp_bootstrap fact
-      include_role:
+      ansible.builtin.include_role:
         name: state
       vars:
         state_name: osism

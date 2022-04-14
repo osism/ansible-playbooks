@@ -19,7 +19,7 @@
       when: ireallymeanit != 'yes'
 
     - name: Prune images
-      docker_prune:
+      community.docker.docker_prune:
         images: true
         images_filters:
           dangling: true

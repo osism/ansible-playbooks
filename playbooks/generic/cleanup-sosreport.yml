@@ -8,14 +8,14 @@
 
   tasks:
     - name: Find old sosreport archives
-      find:
+      ansible.builtin.find:
         path: "{{ sosreport_archive_directory }}"
         age: "{{ sosreport_archive_retention_time }}"
         file_type: directory
       register: sosreport_old_directories
 
     - name: Delete old sosreport archives
-      file:
+      ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
       loop: "{{ sosreport_old_directories.files }}"
