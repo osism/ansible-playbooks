@@ -1,0 +1,9 @@
+---
+- name: Reboot manager systems
+  hosts: manager
+  gather_facts: false
+
+  tasks:
+    - name: Reboot system
+      become: true
+      reboot:
