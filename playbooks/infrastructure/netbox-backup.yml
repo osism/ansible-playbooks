@@ -4,7 +4,7 @@
   serial: "{{ osism_serial['netbox']|default('0') }}"
 
   vars:
-    netbox_postgres_container_name: netbox_postgres_1
+    netbox_postgres_container_name: netbox-postgres-1
     netbox_archive_directory: /opt/archive/netbox
     operator_user: dragon
     operator_group: "{{ operator_user }}"
