@@ -3,6 +3,7 @@
   hosts: manager
 
   vars:
+    ceph_ansible_container_name: ceph-ansible
     ceph_keys:
       - src: ceph.client.admin.keyring
         dest: "{{ configuration_directory }}/environments/infrastructure/files/ceph/ceph.client.admin.keyring"
@@ -35,5 +36,5 @@
         INTERACTIVE: false
 
     - name: Copy ceph keys to the configuration repository
-      command: "docker cp manager_ceph-ansible_1:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"  # noqa 301
+      command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"  # noqa 301
       loop: "{{ ceph_keys }}"
