@@ -1,5 +1,5 @@
 ---
-- name: Apply role sosreports
+- name: Apply role sosreport
   hosts: all
   gather_facts: false
   serial: "{{ osism_serial['sosreport']|default(osism_serial_default)|default(0) }}"
