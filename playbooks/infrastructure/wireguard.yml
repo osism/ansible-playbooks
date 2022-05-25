@@ -1,0 +1,10 @@
+---
+- name: Apply role wireguard
+  hosts: "{{ hosts_wireguard|default('wireguard') }}"
+  serial: "{{ osism_serial['wireguard']|default('0') }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: wireguard
