@@ -45,3 +45,9 @@
       ansible.builtin.file:
         path: /etc/zabbix
         state: absent
+
+    - name: Remove repository
+      become: true
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/zabbix.list
+        state: absent
