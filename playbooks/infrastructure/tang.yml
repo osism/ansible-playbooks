@@ -1,0 +1,10 @@
+---
+- name: Apply role tang
+  hosts: "{{ hosts_tang|default('tang') }}"
+  serial: "{{ osism_serial['tang']|default(osism_serial_default)|default(0) }}"
+
+  collections:
+    - osism.services
+
+  roles:
+    - role: tang
