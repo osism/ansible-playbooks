@@ -1,9 +1,9 @@
 ---
 - name: Apply role debops.grub
   hosts: all
+  become: true
   serial: "{{ osism_serial['grub']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
-  become: true
 
   collections:
     - debops.debops

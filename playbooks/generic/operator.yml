@@ -9,12 +9,12 @@
 
   tasks:
     - name: Do not require tty for all users
+      become: true
       ansible.builtin.replace:
         path: /etc/sudoers
         regexp: "^Defaults.*requiretty$"
         replace: "Defaults !requiretty"
         mode: 0440
-      become: true
 
 - name: Apply role operator
   hosts: "{{ hosts_operator|default('all') }}"
