@@ -79,5 +79,6 @@
     - role: chrony
     - role: hardening
       become: true
+      when: enable_hardening|default('true')|bool
     - role: auditd
     - role: journald
