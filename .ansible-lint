@@ -2,15 +2,19 @@
 exclude_paths:
   - .cache
   - ../home/.cache
+  - library
+  - .github
 mock_modules:
   - hashivault_auth_method
   - hashivault_policy
   - hashivault_secret
   - hashivault_secret_engine
+use_default_rules: true
+rulesdir:
+  - ./.ansible-lint-rules/
+warn_list:
+  - var-spacing
 skip_list:
-  - command-instead-of-module
-  - command-instead-of-shell
-  - deprecated-command-syntax
-  - deprecated-local-action
   - ignore-errors
-  - no-changed-when
+  - schema
+  - yaml
