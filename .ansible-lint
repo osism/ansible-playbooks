@@ -9,6 +9,8 @@ mock_modules:
   - hashivault_policy
   - hashivault_secret
   - hashivault_secret_engine
+mock_roles:
+  - squid
 use_default_rules: true
 rulesdir:
   - ./.ansible-lint-rules/
