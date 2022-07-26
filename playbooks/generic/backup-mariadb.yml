@@ -22,6 +22,7 @@
     - name: Get status of mariadb container
       ansible.builtin.command: docker ps -a -f name=/mariadb -f status=running --format "{{ '{{' }}.ID{{ '}}' }}"
       register: result
+      changed_when: false
 
     - name: Ensure mariadb container is running
       ansible.builtin.fail:
@@ -32,6 +33,7 @@
       ansible.builtin.command: docker exec -t mariadb innobackupex --galera-info /tmp
       async: 600
       poll: 5
+      changed_when: true
 
     - name: Get latest backup directory
       ansible.builtin.shell: |
@@ -40,6 +42,7 @@
       args:
         executable: /bin/bash
       register: result
+      changed_when: false
 
     - name: Set latest backup directory fact
       ansible.builtin.set_fact:
@@ -54,9 +57,12 @@
       ansible.builtin.command: innobackupex --apply-log {{ mariadb_backup_directory_latest }}
       async: 600
       poll: 5
+      changed_when: true
 
     - name: Extract backup from the container
       ansible.builtin.command: "docker cp mariadb:{{ mariadb_backup_directory_latest }} {{ mariadb_backup_directory }}"
+      changed_when: true
 
     - name: Remove backup from the container
       ansible.builtin.command: docker exec -t mariadb rm -rf {{ mariadb_backup_directory_latest }}
+      changed_when: true
