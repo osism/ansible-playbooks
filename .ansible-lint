@@ -3,20 +3,21 @@ exclude_paths:
   - .cache
   - ../home/.cache
   - library
-  - .github
+  - .github/
+  - playbooks/generic/common.yml
 mock_modules:
-  - hashivault_auth_method
-  - hashivault_policy
   - hashivault_secret
-  - hashivault_secret_engine
 mock_roles:
   - squid
+  - containerd
+  - runc
 use_default_rules: true
 rulesdir:
   - ./.ansible-lint-rules/
 warn_list:
-  - var-spacing
+  - internal-error
 skip_list:
   - ignore-errors
   - schema
   - yaml
+  - fqcn-builtins

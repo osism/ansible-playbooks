@@ -1,18 +1,18 @@
 ---
 - name: Group hosts based on state bootstrap
   ignore_unreachable: true
-  hosts: "{{ hosts_bootstrap|default('all') }}"
+  hosts: "{{ hosts_bootstrap | default('all') }}"
   gather_facts: false
   tasks:
     - name: Group hosts based on state bootstrap
       ansible.builtin.group_by:
-        key: state_bootstrap_{{ ansible_local.osism.bootstrap.status|default("False")|bool }}
+        key: state_bootstrap_{{ ansible_local.osism.bootstrap.status | default("False") | bool }}
 
 - name: Gather facts for all hosts
   ignore_unreachable: true
   hosts: state_bootstrap_False
   gather_facts: false
-  strategy: "{{ osism_strategy|default('linear') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Gathers facts about hosts
@@ -22,7 +22,7 @@
   ignore_unreachable: true
   hosts: state_bootstrap_False
   gather_facts: false
-  strategy: "{{ osism_strategy|default('linear') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
   tasks:
     - name: Gathers facts about hosts
       ansible.builtin.setup:
@@ -35,8 +35,8 @@
 - name: Apply bootstrap roles part 1
   ignore_unreachable: true
   hosts: state_bootstrap_False
-  serial: "{{ osism_serial_default|default(0) }}"
-  strategy: "{{ osism_strategy|default('free') }}"
+  serial: "{{ osism_serial_default | default(0) }}"
+  strategy: "{{ osism_strategy | default('free') }}"
 
   collections:
     - osism.commons
@@ -67,20 +67,20 @@
 - name: Apply bootstrap role part 2
   ignore_unreachable: true
   hosts: state_bootstrap_False
-  serial: "{{ osism_serial_default|default(0) }}"
-  strategy: "{{ osism_strategy|default('free') }}"
+  serial: "{{ osism_serial_default | default(0) }}"
+  strategy: "{{ osism_strategy | default('free') }}"
 
   tasks:
     - name: Include hardening role
       ansible.builtin.include_role:
         name: hardening
-      when: enable_hardening|default('true')|bool
+      when: enable_hardening | default('true')|bool
 
 - name: Apply bootstrap roles part 3
   ignore_unreachable: true
   hosts: state_bootstrap_False
-  serial: "{{ osism_serial_default|default(0) }}"
-  strategy: "{{ osism_strategy|default('free') }}"
+  serial: "{{ osism_serial_default | default(0) }}"
+  strategy: "{{ osism_strategy | default('free') }}"
 
   collections:
     - osism.services
@@ -91,9 +91,9 @@
 
 - name: Set state bootstrap
   ignore_unreachable: true
-  hosts: "{{ hosts_bootstrap|default('all') }}"
+  hosts: "{{ hosts_bootstrap | default('all') }}"
   gather_facts: false
-  strategy: "{{ osism_strategy|default('linear') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   collections:
     - osism.commons
@@ -110,7 +110,7 @@
         state_section: bootstrap
         state_option: status
         state_value: "{{ state_bootstrap_status }}"
-      when: not ansible_local.osism.bootstrap.status|default("False")|bool
+      when: not ansible_local.osism.bootstrap.status | default("False") | bool
 
     - name: Set timestamp_bootstrap fact
       ansible.builtin.include_role:
@@ -120,4 +120,4 @@
         state_section: bootstrap
         state_option: timestamp
         state_value: "{{ ansible_date_time.iso8601 }}"
-      when: not ansible_local.osism.bootstrap.status|default("False")|bool
+      when: not ansible_local.osism.bootstrap.status | default("False") | bool

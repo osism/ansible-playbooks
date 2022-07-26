@@ -1,6 +1,6 @@
 ---
 - name: Run bifrost command
-  hosts: "{{ hosts_manager|default('manager') }}"
+  hosts: "{{ hosts_manager | default('manager') }}"
 
   vars:
     bifrost_arguments: baremetal node list
@@ -14,21 +14,21 @@
       register: result
 
     - name: Write json result
-      delegate_to: localhost
-      copy:
-        content: "{{ result['stdout']|from_json }}"
+      ansible.builtin.copy:
+        content: "{{ result['stdout'] | from_json }}"
         dest: "/tmp/bifrost-command-{{ bifrost_result_id }}.json"
         mode: 0644
         owner: dragon
         group: dragon
+      delegate_to: localhost
       when: '"-f json" in bifrost_arguments'
 
     - name: Write result
-      delegate_to: localhost
-      copy:
+      ansible.builtin.copy:
         content: "{{ result['stdout'] }}"
         dest: "/tmp/bifrost-command-{{ bifrost_result_id }}.log"
         mode: 0644
         owner: dragon
         group: dragon
+      delegate_to: localhost
       when: '"-f json" not in bifrost_arguments'

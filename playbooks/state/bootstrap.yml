@@ -12,7 +12,7 @@
 
   tasks:
     - name: Set is_bootstraped fact
-      include_role:
+      ansible.builtin.include_role:
         name: state
       vars:
         state_name: osism
@@ -22,7 +22,7 @@
       when: not ansible_local.osism.bootstrap.status|default("False")|bool
 
     - name: Set timestamp_bootstrap fact
-      include_role:
+      ansible.builtin.include_role:
         name: state
       vars:
         state_name: osism

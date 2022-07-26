@@ -24,3 +24,4 @@
       ansible.builtin.shell: sleep 2 && /sbin/shutdown -h now
       async: 1
       poll: 0
+      changed_when: false

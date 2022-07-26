@@ -8,8 +8,10 @@
       ansible.builtin.command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.info
       async: 120
       poll: 5
+      changed_when: true
 
     - name: Purge versioned_notifications.error queue
       ansible.builtin.command: docker exec -it rabbitmq rabbitmqctl purge_queue versioned_notifications.error
       async: 120
       poll: 5
+      changed_when: true
