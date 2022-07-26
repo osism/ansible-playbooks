@@ -1,12 +1,12 @@
 ---
 - name: Group hosts based on state bootstrap
   ignore_unreachable: true
-  hosts: "{{ hosts_maintenance|default('all') }}"
+  hosts: "{{ hosts_maintenance | default('all') }}"
   gather_facts: false
   tasks:
     - name: Group hosts based on state bootstrap
       ansible.builtin.group_by:
-        key: state_bootstrap_{{ ansible_local.osism.bootstrap.status|default("False")|bool }}
+        key: state_bootstrap_{{ ansible_local.osism.bootstrap.status | default("False") | bool }}
 
 - name: Group hosts based on reachability
   ignore_unreachable: true
@@ -18,6 +18,7 @@
       delegate_to: localhost
       register: result
       ignore_errors: true
+      changed_when: false
 
     - name: Group hosts based on reachability
       ansible.builtin.group_by:
@@ -28,7 +29,7 @@
   ignore_unreachable: true
   hosts: reachable
   gather_facts: false
-  strategy: "{{ osism_strategy|default('linear') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Gathers facts about hosts
@@ -37,7 +38,7 @@
 - name: Gather facts for all hosts (if using --limit)
   hosts: reachable
   gather_facts: false
-  strategy: "{{ osism_strategy|default('linear') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
   tasks:
     - name: Gathers facts about hosts
       ansible.builtin.setup:
@@ -49,8 +50,8 @@
 
 - name: Apply maintenance roles
   hosts: reachable
-  serial: "{{ osism_serial_default|default(0) }}"
-  strategy: "{{ osism_strategy|default('free') }}"
+  serial: "{{ osism_serial_default | default(0) }}"
+  strategy: "{{ osism_strategy | default('free') }}"
 
   collections:
     - osism.commons

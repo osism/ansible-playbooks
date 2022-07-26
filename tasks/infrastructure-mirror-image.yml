@@ -11,30 +11,30 @@
 
 - name: "Pull docker {{ images_external[image] }}"
   community.docker.docker_image:
-    name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image] }}"
+    name: "{{ ceph_docker_registry_external | default('') }}{{ images_external[image] }}"
     tag: "{{ images_external[tag] }}"
     state: present
   ignore_errors: true
 
 - name: "Tag and push image {{ images_internal[image] }}"
   community.docker.docker_image:
-    name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image] }}"
+    name: "{{ ceph_docker_registry_external | default('') }}{{ images_external[image] }}"
     tag: "{{ images_external[tag] }}"
-    repository: "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image] }}"
+    repository: "{{ ceph_docker_registry_internal | default('') }}{{ images_internal[image] }}"
     push: true
   ignore_errors: true
 
 - name: "Remove tagged image {{ images_internal[image] }}"
   community.docker.docker_image:
-    name: "{{ ceph_docker_registry_internal|default('') }}{{ images_internal[image]|regex_replace('index.docker.io/') }}"
+    name: "{{ ceph_docker_registry_internal | default('') }}{{ images_internal[image] | regex_replace('index.docker.io/') }}"
     tag: "{{ images_internal[tag] }}"
     state: absent
   ignore_errors: true
 
 - name: "Remove pulled image {{ images_external[image] }}"
   community.docker.docker_image:
-    name: "{{ ceph_docker_registry_external|default('') }}{{ images_external[image]|regex_replace('index.docker.io/') }}"
+    name: "{{ ceph_docker_registry_external | default('') }}{{ images_external[image] | regex_replace('index.docker.io/') }}"
     tag: "{{ images_external[tag] }}"
     state: absent
   ignore_errors: true
-  when: remove_local_docker_images|default(true)|bool
+  when: remove_local_docker_images | default(true) | bool

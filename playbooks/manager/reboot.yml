@@ -6,4 +6,4 @@
   tasks:
     - name: Reboot system
       become: true
-      reboot:
+      ansible.builtin.reboot:
