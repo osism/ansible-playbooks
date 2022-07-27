@@ -21,5 +21,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ansible/ansible-lint-action@main
+      - uses: ansible/ansible-lint-action@main
         with:
-          path: 'playbooks/**/**.yml'
+          path: playbooks/generic
+      - uses: ansible/ansible-lint-action@main
+        with:
+          path: playbooks/infrastructure
+      - uses: ansible/ansible-lint-action@main
+        with:
+          path: playbooks/manager
+      - uses: ansible/ansible-lint-action@main
+        with:
+          path: playbooks/monitoring
+      - uses: ansible/ansible-lint-action@main
+        with:
+          path: playbooks/state
+      - uses: ansible/ansible-lint-action@main
+        with:
+          path: playbooks/validate
