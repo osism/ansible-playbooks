@@ -104,7 +104,7 @@
     state_bootstrap_status: "True"
 
   tasks:
-    - name: Set is_bootstraped fact
+    - name: Set osism.bootstrap.status fact
       ansible.builtin.include_role:
         name: state
       vars:
@@ -114,7 +114,7 @@
         state_value: "{{ state_bootstrap_status }}"
       when: not ansible_local.osism.bootstrap.status | default("False") | bool
 
-    - name: Set timestamp_bootstrap fact
+    - name: Set osism.bootstrap.timestamp fact
       ansible.builtin.include_role:
         name: state
       vars:
