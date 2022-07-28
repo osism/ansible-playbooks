@@ -1,5 +1,5 @@
 ---
-- name: Group hosts based on state bootstrap
+- name: Group hosts based on state bootstrap and maintenance
   ignore_unreachable: true
   hosts: "{{ hosts_maintenance | default('all') }}"
   gather_facts: false
@@ -7,6 +7,10 @@
     - name: Group hosts based on state bootstrap
       ansible.builtin.group_by:
         key: state_bootstrap_{{ ansible_local.osism.bootstrap.status | default("False") | bool }}
+
+    - name: Group hosts based on state maintenance
+      ansible.builtin.group_by:
+        key: state_maintenance_{{ ansible_local.osism.maintenance.status | default("False") | bool }}
 
 - name: Group hosts based on reachability
   ignore_unreachable: true
@@ -97,11 +101,14 @@
   serial: "{{ osism_serial_default | default(0) }}"
   strategy: "{{ osism_strategy | default('free') }}"
 
+  collections:
+    - osism.services
+
   roles:
     - role: auditd
     - role: journald
 
-- name: Set timestamp maintenance
+- name: Set state maintenance
   hosts: reachable
   serial: "{{ osism_serial_default | default(0) }}"
   gather_facts: false
@@ -110,8 +117,21 @@
   collections:
     - osism.commons
 
+  vars:
+    state_maintenance_status: "False"
+
   tasks:
-    - name: Set timestamp_maintenance fact
+    - name: Set osism.maintenance.status fact
+      ansible.builtin.include_role:
+        name: state
+      vars:
+        state_name: osism
+        state_section: maintenance
+        state_option: status
+        state_value: "{{ state_maintenance_status }}"
+      when: not ansible_local.osism.maintenance.status | default("False") | bool
+
+    - name: Set osism.maintenance.timestamp fact
       ansible.builtin.include_role:
         name: state
       vars:
