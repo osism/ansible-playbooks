@@ -14,8 +14,6 @@ mock_roles:
 use_default_rules: true
 rulesdir:
   - ./.ansible-lint-rules/
-warn_list:
-  - internal-error
 skip_list:
   - ignore-errors
   - schema
