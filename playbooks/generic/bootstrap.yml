@@ -55,7 +55,6 @@
     - role: sysctl
     - role: services
     - role: motd
-    - role: hddtemp
     - role: rng
     - role: smartd
     - role: cleanup
