@@ -86,8 +86,13 @@
   collections:
     - osism.services
 
+  tasks:
+    - name: Include auditd role
+      ansible.builtin.include_role:
+        name: auditd
+      when: enable_auditd | default('true')|bool
+
   roles:
-    - role: auditd
     - role: journald
 
 - name: Set state bootstrap
