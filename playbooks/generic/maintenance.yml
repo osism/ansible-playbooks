@@ -75,6 +75,7 @@
     - role: services
     - role: motd
     - role: hddtemp
+      when: ansible_lsb.major_release|int < 22
     - role: rng
     - role: smartd
     - role: cleanup
