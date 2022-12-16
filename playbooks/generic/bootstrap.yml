@@ -64,6 +64,7 @@
     - role: docker
     - role: facts
     - role: chrony
+    - role: lldpd
 
 - name: Apply bootstrap role part 2
   ignore_unreachable: true
