@@ -83,6 +83,7 @@
     - role: docker
     - role: facts
     - role: chrony
+    - role: lldpd
 
 - name: Apply maintenance roles part 2
   hosts: reachable
