@@ -1,0 +1,220 @@
+---
+###
+# This playbook checks the following Ceph components inside a OSISM-deployed Ceph cluster:
+# Monitor nodes:
+# Tests:
+# - All containers with mons are existing
+# - All containers with mons are running
+# - Ceph Mons have quorum
+# - Number of ceph-mons matches nodes inside quorum
+# - Cluster FSID matches the configured FSID
+# - Cluster Health is either HEALTH_OK/HEALTH_WARN or HEALTH_OK if var ceph_validate_strict is set
+# This playbook can be used to validate that basic ceph cluster functionality is present and in sync with config.
+# To check other components use the other playbooks.
+# This playbook will create a JSON report file on the first manager node in /opt/reports/validator
+###
+
+- name: Ceph validate mons
+  hosts: ceph-mon
+  gather_facts: true
+  tasks:
+    # Since ansible_date_time doesn't seem to update between every run,
+    # I'll get it this way
+    - name: Get timestamp for report file
+      run_once: true
+      ansible.builtin.shell:
+        cmd: "date --iso-8601=seconds"
+      register: ceph_validate_mons_report_timestamp
+      delegate_to: "{{ groups['manager'][0] }}"
+
+    - name: Prepare report vars
+      run_once: true
+      set_fact:
+        ceph_validate_mons_test_failed: false
+        ceph_validate_mons_result: "no-result"
+        ceph_validate_mons_reasons: []
+        ceph_validate_mons_tests: []
+
+    - name: Create report output directory
+      become: true
+      run_once: true
+      ansible.builtin.file:
+        path: /opt/reports/validator
+        state: directory
+        owner: "{{ operator_user }}"
+        group: "{{ operator_group }}"
+        recurse: true
+      delegate_to: "{{ groups['manager'][0] }}"
+
+    - name: Prepare test vars for container checks
+      set_fact:
+        ceph_validate_mons_container_test_data: []
+
+    - name: Get container info
+      community.docker.docker_container_info:
+        name: "ceph-mon-{{ ansible_hostname }}"
+      register: ceph_validate_mons_container_info
+
+    - name: Set container test data
+      set_fact:
+        ceph_validate_mons_container_test_data: "{{ ceph_validate_mons_container_test_data + [ {\"host\": ansible_hostname, \"data\": ceph_validate_mons_container_info } ] }}"
+
+    - name: Write report and fail due to missing ceph-mon containers
+      block:
+        - name: Set validator result to failed
+          set_fact:
+            ceph_validate_mons_result: failed
+            ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"Ceph mon container(s) missing.\"] }}"
+            ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"container-existance\", \"result\": \"failed\", \"data\": ceph_validate_mons_container_test_data|to_json } ] }}"
+
+        - name: Write failure report
+          run_once: true
+          ansible.builtin.template:
+            src: "templates/ceph-mons-validator-report.json.j2"
+            dest: "/opt/reports/validator/ceph-mons-validator-{{ ceph_validate_mons_report_timestamp.stdout|trim }}-report.json"
+          delegate_to: "{{ groups['manager'][0] }}"
+
+        - name: Fail due to missing containers
+          ansible.builtin.fail:
+            msg: "Container ceph-mon-{{ ansible_hostname }} is missing"
+      when: not ceph_validate_mons_container_info.exists
+
+    - name: Append container test data
+      set_fact:
+        ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"container-existance\", \"result\": \"success\", \"data\": ceph_validate_mons_container_test_data|to_json } ] }}"
+
+    - name: Write report and fail due to ceph-mon containers not running
+      block:
+        - name: Set validator result to failed
+          set_fact:
+            ceph_validate_mons_result: failed
+            ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"Ceph mon container(s) not running.\"] }}"
+            ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"container-running\", \"result\": \"failed\", \"data\": ceph_validate_mons_container_test_data|to_json } ] }}"
+
+        - name: Write failure report
+          run_once: true
+          ansible.builtin.template:
+            src: "templates/ceph-mons-validator-report.json.j2"
+            dest: "/opt/reports/validator/ceph-mons-validator-{{ ceph_validate_mons_report_timestamp.stdout|trim }}-report.json"
+          delegate_to: "{{ groups['manager'][0] }}"
+
+        - name: Fail due to containers not running
+          ansible.builtin.fail:
+            msg: "Container ceph-mon-{{ ansible_hostname }} is not running"
+      when: ceph_validate_mons_container_info.container['State']['Status'] != "running"
+
+    - name: Append container test data
+      set_fact:
+        ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"container-running\", \"result\": \"success\", \"data\": ceph_validate_mons_container_test_data|to_json } ] }}"
+
+    - name: Prepare quorum and fsid test vars
+      run_once: true
+      set_fact:
+        ceph_validate_mons_quorum_test_result: success
+        ceph_validate_mons_quorum_test_data: []
+        ceph_validate_mons_fsid_test_result: success
+        ceph_validate_mons_fsid_test_data: []
+
+    - name: Get monmap info from one mon container
+      run_once: true
+      community.docker.docker_container_exec:
+        container: "ceph-mon-{{ ansible_hostname }}"
+        command: "ceph mon dump --format=json"
+      register: ceph_validate_mons_monmap
+
+    - name: Set quorum test data
+      run_once: true
+      set_fact:
+        ceph_validate_mons_quorum_test_data: "{{ ceph_validate_mons_quorum_test_data + [ {\"host\": ansible_hostname, \"data\": ceph_validate_mons_monmap.stdout } ] }}"
+
+    - name: Check that all monitors are in quorum
+      run_once: true
+      set_fact:
+        ceph_validate_mons_quorum_test_result: failed
+        ceph_validate_mons_test_failed: true
+        ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"No quorum or not all monitors are part of the quorum.\"]}}"
+      when: ceph_validate_mons_monmap.stdout|from_json|json_query('quorum')|length != groups['ceph-mon']|length
+
+    - name: Append quorum test data
+      run_once: true
+      set_fact:
+        ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"ceph-mon-quorum\", \"result\": ceph_validate_mons_quorum_test_result, \"data\": ceph_validate_mons_quorum_test_data|to_json } ] }}"
+
+    - name: Set fsid test data
+      run_once: true
+      set_fact:
+        ceph_validate_mons_fsid_test_data: "{{ ceph_validate_mons_fsid_test_data + [ {\"host\": ansible_hostname, \"data\": ceph_validate_mons_monmap.stdout } ] }}"
+    - name: Check that fsid matches configuration
+      run_once: true
+      set_fact:
+        ceph_validate_mons_fsid_test_result: failed
+        ceph_validate_mons_test_failed: true
+        ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"Cluster fsid differs from configuration.\"]}}"
+      when: ceph_validate_mons_monmap.stdout|from_json|json_query('fsid') != ceph_cluster_fsid
+
+    - name: Append fsid test data
+      run_once: true
+      set_fact:
+        ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"ceph-cluster-fsid\", \"result\": ceph_validate_mons_fsid_test_result, \"data\": ceph_validate_mons_fsid_test_data|to_json } ] }}"
+
+    - name: Prepare status test vars
+      run_once: true
+      set_fact:
+        ceph_validate_mons_status_test_result: success
+        ceph_validate_mons_status_test_data: []
+
+    - name: Gather status data
+      run_once: true
+      community.docker.docker_container_exec:
+        container: "ceph-mon-{{ ansible_hostname }}"
+        command: "ceph -s --format=json"
+      register: ceph_validate_mons_status_data
+
+    - name: Set status test data
+      run_once: true
+      set_fact:
+        ceph_validate_mons_status_test_data: "{{ ceph_validate_mons_status_test_data + [ {\"host\": ansible_hostname, \"data\": ceph_validate_mons_status_data } ] }}"
+
+    - name: Check health is acceptable
+      run_once: true
+      set_fact:
+        ceph_validate_mons_status_test_result: "failed"
+        ceph_validate_mons_test_failed: true
+        ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"Health is not in acceptable state.\"] }}"
+      when:
+        - ceph_validate_strict is not defined
+        - ceph_validate_mons_status_data.stdout|from_json|json_query('health.status') not in ["HEALTH_OK", "HEALTH_WARN"]
+
+    - name: Check health is acceptable (strict mode)
+      run_once: true
+      set_fact:
+        ceph_validate_mons_status_test_result: "failed"
+        ceph_validate_mons_test_failed: true
+        ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"Health is not in acceptable state.\"] }}"
+      when:
+        - ceph_validate_strict is defined
+        - ceph_validate_mons_status_data.stdout|from_json|json_query('health.status') == "HEALTH_OK"
+
+    - name: Append status test data
+      set_fact:
+        ceph_validate_mons_tests: "{{ ceph_validate_mons_tests + [ {\"name\": \"ceph-health\", \"result\": ceph_validate_mons_status_test_result, \"data\": ceph_validate_mons_status_test_data|to_json } ] }}"
+
+    - name: Set validator result to passed
+      run_once: true
+      set_fact:
+        ceph_validate_mons_result: passed
+        ceph_validate_mons_reasons: "{{ ceph_validate_mons_reasons + [\"All tests passed.\"] }}"
+      when: not ceph_validate_mons_test_failed
+
+    - name: Set validator result to failed
+      run_once: true
+      set_fact:
+        ceph_validate_mons_result: failed
+      when: ceph_validate_mons_test_failed
+
+    - name: Write report
+      run_once: true
+      ansible.builtin.template:
+        src: "templates/ceph-mons-validator-report.json.j2"
+        dest: "/opt/reports/validator/ceph-mons-validator-{{ ceph_validate_mons_report_timestamp.stdout|trim }}-report.json"
+      delegate_to: "{{ groups['manager'][0] }}"
