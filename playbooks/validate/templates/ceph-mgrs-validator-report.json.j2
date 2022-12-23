@@ -1,0 +1,14 @@
+{
+  "validator": "ceph-mgrs",
+  "validator_result": "{{ ceph_validate_mgrs_result }}",
+  "validator_reason": {{ ceph_validate_mgrs_reasons|to_json }},
+  "validator_tests": [
+    {% for test in ceph_validate_mgrs_tests %}
+    {
+      "test_name": "{{ test.name }}",
+      "test_result": "{{ test.result }}",
+      "test_data": {{ test.data }}
+    }{%- if not loop.last -%},{% endif %}
+    {% endfor %}
+  ]
+}
