@@ -1,5 +1,5 @@
 ---
-- name: Apply role ulimits
+- name: Run ulimits validator
   hosts: "{{ hosts_ulimits|default('all') }}"
   serial: "{{ osism_serial['ulimits']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"

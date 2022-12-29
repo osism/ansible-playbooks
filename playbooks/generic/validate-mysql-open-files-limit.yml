@@ -1,5 +1,5 @@
 ---
-- name: Apply role mysql_open_files_limit
+- name: Run mysql_open_files_limit validator
   hosts: "{{ hosts_mysql_open_files_limit|default('mariadb') }}"
   serial: "{{ osism_serial['mysql_open_files_limit']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
