@@ -1,5 +1,5 @@
 ---
-- name: Apply role system_encoding
+- name: Run system_encoding validator
   hosts: "{{ hosts_system_encoding|default('all') }}"
   serial: "{{ osism_serial['system_encoding']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
