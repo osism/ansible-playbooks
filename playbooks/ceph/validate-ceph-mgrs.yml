@@ -1,173 +1,413 @@
 ---
 ###
-# This playbook checks the following Ceph components inside a OSISM-deployed Ceph cluster:
+# This playbook checks the following Ceph components
+# inside a OSISM-deployed Ceph cluster:
 # Manager services:
 # Tests:
 # - All containers with mgrs are existing
 # - All containers with mgrs are running
-# - All module are enabled that should be enabled according to configuration
+# - All manager modules are enabled that should be enabled
+#   according to configuration
 #
-# This playbook can be used to validate that basic ceph cluster functionality is present and in sync with config.
+# This playbook can be used to validate that basic ceph
+# cluster functionality is present and in sync with config.
 # To check other components use the other playbooks.
-# This playbook will create a JSON report file on the first manager node in /opt/reports/validator
+# This playbook will create a JSON report file on
+# the first manager node in /opt/reports/validator
 ###
 
 - name: Ceph validate mgrs
+  vars:
+    _mgrs_reports_directory: "/opt/reports/validator"
   hosts: ceph-mgr
   gather_facts: true
+  force_handlers: true
   tasks:
-    # Since ansible_date_time doesn't seem to update between every run,
-    # I'll get it this way
+    # ansible_date_time is cached between runs,
+    # so we need to get a timestamp another way
     - name: Get timestamp for report file
-      run_once: true
       ansible.builtin.shell:
         cmd: "date --iso-8601=seconds"
-      register: ceph_validate_mgrs_report_timestamp
-      delegate_to: "{{ groups['manager'][0] }}"
-
-    - name: Define report vars
+      register: _mgrs_report_timestamp
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_test_failed: false
-        ceph_validate_mgrs_result: "no-result"
-        ceph_validate_mgrs_reasons: []
-        ceph_validate_mgrs_tests: []
+      delegate_to: "{{ groups['manager'][0] }}"
 
     - name: Create report output directory
       become: true
-      run_once: true
       ansible.builtin.file:
-        path: /opt/reports/validator
+        path: "{{ _mgrs_reports_directory }}"
         state: directory
         owner: "{{ operator_user }}"
         group: "{{ operator_group }}"
         recurse: true
+      run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Define test vars for container checks
-      set_fact:
-        ceph_validate_mgrs_container_test_data: []
+    - name: Define report vars
+      ansible.builtin.set_fact:
+        _mgrs_report_file:
+          "{{ _mgrs_reports_directory }}\
+           /ceph-mgrs-validator-\
+           {{ _mgrs_report_timestamp.stdout|trim }}\
+           -report.json"
+        _mgrs_test_failed: false
+        _mgrs_result: "no-result"
+        _mgrs_reasons: ""
+        _mgrs_tests: []
+      run_once: true
+
+    # Test 1: Check for existance of ceph-mgr containers
+    - name: Prepare test data for container existance test
+      ansible.builtin.set_fact:
+        _mgrs_test_containers_existance_result: "no-result"
+        _mgrs_test_containers_existance_data: {}
 
     - name: Get container info
       community.docker.docker_container_info:
         name: "ceph-mgr-{{ ansible_hostname }}"
-      register: ceph_validate_mgrs_container_info
+      register: _mgrs_container_info
 
-    - name: Set container test data
-      set_fact:
-        ceph_validate_mgrs_container_test_data: "{{ ceph_validate_mgrs_container_test_data + [ {\"host\": ansible_hostname, \"data\": ceph_validate_mgrs_container_info } ] }}"
+    # Fail test if ceph-mgr container is missing on a host
+    - name: Set test result to failed if container is missing
+      ansible.builtin.set_fact:
+        _mgrs_test_failed: true
+        _mgrs_test_containers_existance_result: "failed"
+        _mgrs_test_containers_existance_data:
+          "Container 'ceph-mgr-{{ ansible_hostname }}'
+           missing on {{ inventory_hostname }}."
+        _mgrs_reasons:
+          "{{ _mgrs_reasons }}{{ ' ' if _mgrs_reasons }}\
+          Test 'container-existance' failed on
+           {{ inventory_hostname }}."
+      when: not _mgrs_container_info.exists
 
-    - name: Write report and fail due to missing ceph-mgr containers
+    # Pass test if ceph-mgr is existing on the host under test
+    - name: Set test result to passed if container is existing
+      ansible.builtin.set_fact:
+        _mgrs_test_containers_existance_result: "passed"
+        _mgrs_test_containers_existance_data:
+          "Container 'ceph-mgr-{{ ansible_hostname }}'
+           exists on {{ inventory_hostname }}."
+      when: _mgrs_container_info.exists
+
+    # Test 2: Check that all ceph-mgr containers are running
+    - name: Prepare test data
+      ansible.builtin.set_fact:
+        _mgrs_container_status:
+          "{{
+              _mgrs_container_info.container['State']['Status']|
+              default('not-found')
+           }}"
+        _mgrs_test_containers_running_result: "no-result"
+        _mgrs_test_containers_running_data: ""
+
+    # Fail test if ceph-mgr container is not running on a host
+    - name: Set test result to failed if ceph-mgr is not running
+      ansible.builtin.set_fact:
+        _mgrs_test_failed: true
+        _mgrs_test_containers_running_result: "failed"
+        _mgrs_test_containers_running_data:
+          "Container 'ceph-mgr-{{ ansible_hostname }}'
+           not in running state on {{ inventory_hostname }}"
+        _mgrs_reasons:
+          "{{ _mgrs_reasons }}{{ ' ' if _mgrs_reasons }}\
+          Test 'container-running' failed on
+           {{ inventory_hostname }}."
+      when:
+        _mgrs_container_status != "running"
+
+    # Pass test if ceph-mgr container is running on a host
+    - name: Set test result to passed if ceph-mgr is running
+      ansible.builtin.set_fact:
+        _mgrs_test_containers_running_result: "passed"
+        _mgrs_test_containers_running_data:
+          "Container 'ceph-mgr-{{ ansible_hostname }}'
+           is running on {{ inventory_hostname }}"
+      when:
+        _mgrs_container_status == "running"
+
+    # I bail out early here if one of the two container tests failed
+    # as it indicates a major problem and could be problematic
+    # when trying to run the other tests. It's simpler to bail
+    # out early than having to code around missing containers etc.
+    - name: Fail and bail out early due to critical test failure(s)
       block:
-        - name: Set validator result to failed
-          set_fact:
-            ceph_validate_mgrs_result: failed
-            ceph_validate_mgrs_reasons: "{{ ceph_validate_mgrs_reasons + [\"Ceph mgr container(s) missing.\"] }}"
-            ceph_validate_mgrs_tests: "{{ ceph_validate_mgrs_tests + [ {\"name\": \"container-existance\", \"result\": \"failed\", \"data\": ceph_validate_mgrs_container_test_data|to_json } ] }}"
-
-        - name: Write failure report
+        # We need to aggregate the test data from the different nodes
+        # into one variable that gets written to the report because
+        # of the way ansible handles facts across hosts.
+        # This is split into multiple steps as apparently you can't
+        # just use a fact you just set in the same set_fact task.
+        - name: Aggregate test results step one
+          ansible.builtin.set_fact:
+            _mgrs_test_containers_existance_data:
+              "{{
+                 play_hosts|
+                 map(
+                     'extract',
+                     hostvars,
+                     '_mgrs_test_containers_existance_data'
+                    )
+               }}"
+            _mgrs_test_containers_running_data:
+              "{{
+                 play_hosts|
+                 map(
+                     'extract',
+                     hostvars,
+                     '_mgrs_test_containers_running_data'
+                    )
+               }}"
+            _mgrs_reasons:
+              "{{
+                 play_hosts|
+                 map(
+                     'extract',
+                     hostvars,
+                     '_mgrs_reasons'
+                    )|
+                 join('\n')
+                 + '\nSee test data for details.'
+               }}"
           run_once: true
-          ansible.builtin.template:
-            src: "templates/ceph-mgrs-validator-report.json.j2"
-            dest: "/opt/reports/validator/ceph-mgrs-validator-{{ ceph_validate_mgrs_report_timestamp.stdout|trim }}-report.json"
           delegate_to: "{{ groups['manager'][0] }}"
 
-        - name: Fail due to missing containers
-          ansible.builtin.fail:
-            msg: "Container ceph-mgr-{{ ansible_hostname }} is missing"
-      when: not ceph_validate_mgrs_container_info.exists
-
-    - name: Append container test data
-      set_fact:
-        ceph_validate_mgrs_tests: "{{ ceph_validate_mgrs_tests + [ {\"name\": \"container-existance\", \"result\": \"success\", \"data\": ceph_validate_mgrs_container_test_data|to_json } ] }}"
-
-    - name: Write report and fail due to ceph-mgr containers not running
-      block:
-        - name: Set validator result to failed
-          set_fact:
-            ceph_validate_mgrs_result: failed
-            ceph_validate_mgrs_reasons: "{{ ceph_validate_mgrs_reasons + [\"Ceph mgr container(s) not running.\"] }}"
-            ceph_validate_mgrs_tests: "{{ ceph_validate_mgrs_tests + [ {\"name\": \"container-running\", \"result\": \"failed\", \"data\": ceph_validate_mgrs_container_test_data|to_json } ] }}"
-
-        - name: Write failure report
+        - name: Aggregate test results step two
+          ansible.builtin.set_fact:
+            _mgrs_result: "failed"
+            _mgrs_tests:
+              - {
+                name: "containers-existance",
+                result: "{{ _mgrs_test_containers_existance_result }}",
+                data: "{{ _mgrs_test_containers_existance_data }}"
+              }
+              - {
+                name: "containers-running",
+                result: "{{ _mgrs_test_containers_running_result }}",
+                data: "{{ _mgrs_test_containers_running_data }}"
+              }
           run_once: true
-          ansible.builtin.template:
-            src: "templates/ceph-mgrs-validator-report.json.j2"
-            dest: "/opt/reports/validator/ceph-mgrs-validator-{{ ceph_validate_mgrs_report_timestamp.stdout|trim }}-report.json"
           delegate_to: "{{ groups['manager'][0] }}"
 
-        - name: Fail due to containers not running
-          ansible.builtin.fail:
-            msg: "Container ceph-mgr-{{ ansible_hostname }} is not running"
-      when: ceph_validate_mgrs_container_info.container['State']['Status'] != "running"
+        - name: Aggregate test results step three
+          ansible.builtin.set_fact:
+            _validator_data:
+              validator: "ceph-mgrs"
+              validator_result: "{{ _mgrs_result }}"
+              validator_reason: "{{ _mgrs_reasons }}"
+              validator_tests: "{{ _mgrs_tests }}"
+          run_once: true
+          delegate_to: "{{ groups['manager'][0] }}"
+          changed_when: true
+          notify:
+            - Write report file
+      when: _mgrs_test_failed
 
-    - name: Append container test data
-      set_fact:
-        ceph_validate_mgrs_tests: "{{ ceph_validate_mgrs_tests + [ {\"name\": \"container-running\", \"result\": \"success\", \"data\": ceph_validate_mgrs_container_test_data|to_json } ] }}"
-
-    - name: Gather list of mgr modules
+    # Flush handlers to write report file
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
       run_once: true
-      community.docker.docker_container_exec:
-        container: "ceph-mgr-{{ ansible_hostname }}"
-        command: "ceph mgr module ls --format=json"
-      register: ceph_validate_mgrs_module_list_raw
+      delegate_to: "{{ groups['manager'][0] }}"
 
+    # Print where to find report file
+    - name: Print report file information
+      ansible.builtin.debug:
+        msg:
+          - "Validator run completed."
+          - "You can find the report file here:"
+          - "{{ _mgrs_report_file }}"
+          - "on the following host:"
+          - "{{ groups['manager'][0] }}"
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+      when: _mgrs_test_failed
+
+    # Abort playbook execution after writing report
+    - name: Fail due to missing containers
+      ansible.builtin.fail:
+        msg: "Critical tests failed. See report file for details."
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+      when: _mgrs_test_failed
+
+    # Test 3: Check list of enabled mgr modules
     - name: Define mgr module test vars
+      ansible.builtin.set_fact:
+        _mgrs_test_modules_enabled_list: ""
+        _mgrs_test_modules_enabled_result: "no-result"
+        _mgrs_test_modules_enabled_data: ""
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_module_list: ""
-        ceph_validate_mgrs_module_test_result: success
-        ceph_validate_mgrs_module_test_data: []
-        ceph_validate_mgrs_module_test_reasons: []
 
     - name: Gather list of mgr modules
-      run_once: true
       community.docker.docker_container_exec:
         container: "ceph-mgr-{{ ansible_hostname }}"
         command: "ceph mgr module ls --format=json"
-      register: ceph_validate_mgrs_module_list_raw
+      register: _mgrs_module_list_raw
+      run_once: true
 
     - name: Parse mgr module list from json
+      ansible.builtin.set_fact:
+        _mgrs_test_modules_enabled_list:
+          "{{ _mgrs_module_list_raw.stdout|from_json }}"
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_module_list: "{{ ceph_validate_mgrs_module_list_raw.stdout|from_json }}"
 
     - name: Extract list of enabled mgr modules
+      ansible.builtin.set_fact:
+        _mgrs_module_list_enabled:
+          "{{ _mgrs_test_modules_enabled_list|
+              json_query('always_on_modules') +
+              _mgrs_test_modules_enabled_list|
+              json_query('enabled_modules')
+           }}"
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_module_list_enabled: "{{ ceph_validate_mgrs_module_list|json_query('always_on_modules') + ceph_validate_mgrs_module_list|json_query('enabled_modules') }}"
-        ceph_validate_mgrs_module_test_data: "{{ ceph_validate_mgrs_module_list }}"
 
-    - name: Fail test if modules are disabled that should be enabled according to configuration
+    # Set test result to failed if required modules are disabled
+    - name: Fail test if mgr modules are disabled that should be enabled
+      ansible.builtin.set_fact:
+        _mgrs_test_failed: true
+        _mgrs_test_modules_enabled_result: "failed"
+        _mgrs_test_modules_enabled_data:
+          - "Disabled mgr modules that should be enabled:\n\
+             {{
+               ceph_mgr_modules|
+               difference(_mgrs_module_list_enabled)|
+               join(',')
+             }}"
+        _mgrs_reasons:
+          "{{ _mgrs_reasons }}{{ ' ' if _mgrs_reasons }}\
+          Test 'manager-modules-enabled' failed on
+           {{ inventory_hostname }}."
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_test_failed: true
-        ceph_validate_mgrs_module_test_result: failed
-        ceph_validate_mgrs_module_test_reasons:
-          - "Disabled mgr modules that should be enabled: {{ ceph_mgr_modules | difference(ceph_validate_mgrs_module_list_enabled) }}"
-      when: ceph_mgr_modules is not subset(ceph_validate_mgrs_module_list_enabled)
+      when: ceph_mgr_modules is not subset(_mgrs_module_list_enabled)
 
-    - name: Append container test data
-      set_fact:
-        ceph_validate_mgrs_reasons: "{{ ceph_validate_mgrs_reasons + ceph_validate_mgrs_module_test_reasons }}"
-        ceph_validate_mgrs_tests: "{{ ceph_validate_mgrs_tests + [ {\"name\": \"mgr-modules-enabled\", \"result\": ceph_validate_mgrs_module_test_result, \"data\": ceph_validate_mgrs_module_test_data|to_json } ] }}"
-
-    - name: Set validator result to passed
+    # Set test result to passed if all required modules are enabled
+    - name: Pass test if required mgr modules are enabled
+      ansible.builtin.set_fact:
+        _mgrs_test_modules_enabled_result: "passed"
+        _mgrs_test_modules_enabled_data:
+          - "All required module are enabled. Modules enabled:\n\
+             {{ _mgrs_module_list_enabled|join(',') }}"
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_result: passed
-        ceph_validate_mgrs_reasons: "{{ ceph_validate_mgrs_reasons + [\"All tests passed.\"] }}"
-      when: not ceph_validate_mgrs_test_failed
+      when: ceph_mgr_modules is subset(_mgrs_module_list_enabled)
 
-    - name: Set validator result to failed
+    # Set validation result to passed if no test failed
+    - name: Set validation result to passed if no test failed
+      ansible.builtin.set_fact:
+        _mgrs_result: "passed"
+        _mgrs_reasons:
+          "All tests passed validation."
       run_once: true
-      set_fact:
-        ceph_validate_mgrs_result: failed
-      when: ceph_validate_mgrs_test_failed
+      delegate_to: "{{ groups['manager'][0] }}"
+      when: not _mgrs_test_failed
 
-    - name: Write report
+    # Set validation result to failed if a test failed
+    - name: Set validation result to failed if a test failed
+      ansible.builtin.set_fact:
+        _mgrs_result: "failed"
       run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+      when: _mgrs_test_failed
+
+    # Aggregate results for report file
+    - name: Aggregate test results step one
+      ansible.builtin.set_fact:
+        _mgrs_test_containers_existance_data:
+          "{{
+              play_hosts|
+              map(
+                  'extract',
+                  hostvars,
+                  '_mgrs_test_containers_existance_data'
+                )
+            }}"
+        _mgrs_test_containers_running_data:
+          "{{
+              play_hosts|
+              map(
+                  'extract',
+                  hostvars,
+                  '_mgrs_test_containers_running_data'
+                )
+            }}"
+        _mgrs_test_modules_enabled_data:
+          "{{
+              play_hosts|
+              map(
+                  'extract',
+                  hostvars,
+                  '_mgrs_test_modules_enabled_data'
+                )|
+              unique
+            }}"
+        _mgrs_reasons:
+          "{{
+              play_hosts|
+              map(
+                  'extract',
+                  hostvars,
+                  '_mgrs_reasons'
+                )|
+              unique|
+              join('\n')
+              + '\nSee test data for details.'
+            }}"
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+
+    - name: Aggregate test results step two
+      ansible.builtin.set_fact:
+        _mgrs_tests:
+          - {
+            name: "containers-existance",
+            result: "{{ _mgrs_test_containers_existance_result }}",
+            data: "{{ _mgrs_test_containers_existance_data }}"
+          }
+          - {
+            name: "containers-running",
+            result: "{{ _mgrs_test_containers_running_result }}",
+            data: "{{ _mgrs_test_containers_running_data }}"
+          }
+          - {
+            name: "manager-modules-enabled",
+            result: "{{ _mgrs_test_modules_enabled_result }}",
+            data: "{{ _mgrs_test_modules_enabled_data }}"
+          }
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+
+    - name: Aggregate test results step three
+      ansible.builtin.set_fact:
+        _validator_data:
+          validator: "ceph-mgrs"
+          validator_result: "{{ _mgrs_result }}"
+          validator_reason: "{{ _mgrs_reasons }}"
+          validator_tests: "{{ _mgrs_tests }}"
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+      changed_when: true
+      notify:
+        - Write report file
+
+    # Flush handlers to write report file
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+
+    # Print where to find report file
+    - name: Print report file information
+      ansible.builtin.debug:
+        msg:
+          - "Validator run completed."
+          - "You can find the report file here:"
+          - "{{ _mgrs_report_file }}"
+          - "on the following host:"
+          - "{{ groups['manager'][0] }}"
+      run_once: true
+      delegate_to: "{{ groups['manager'][0] }}"
+  handlers:
+    - name: Write report file
       ansible.builtin.template:
         src: "templates/ceph-mgrs-validator-report.json.j2"
-        dest: "/opt/reports/validator/ceph-mgrs-validator-{{ ceph_validate_mgrs_report_timestamp.stdout|trim }}-report.json"
+        dest: "{{ _mgrs_report_file }}"
       delegate_to: "{{ groups['manager'][0] }}"
+      run_once: true
