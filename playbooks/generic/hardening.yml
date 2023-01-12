@@ -5,5 +5,5 @@
   strategy: "{{ osism_strategy|default('linear') }}"
 
   roles:
-  - role: hardening
-    become: true
+    - role: hardening
+      become: true

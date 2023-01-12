@@ -4,12 +4,12 @@
   strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
-  - name: Check if /var/run/reboot-required exist
-    ansible.builtin.stat:
-      path: /var/run/reboot-required
-    register: rebootrequired
+    - name: Check if /var/run/reboot-required exist
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: rebootrequired
 
-  - name: Print message if /var/run/reboot-required exist
-    ansible.builtin.debug:
-      msg: "Reboot of {{ inventory_hostname }} required"
-    when: rebootrequired.stat.islnk is defined
+    - name: Print message if /var/run/reboot-required exist
+      ansible.builtin.debug:
+        msg: "Reboot of {{ inventory_hostname }} required"
+      when: rebootrequired.stat.islnk is defined
