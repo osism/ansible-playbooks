@@ -66,6 +66,7 @@
     - role: hosts
     - role: proxy
     - role: resolvconf
+      when: enable_resolvconf | default('true') | bool
     - role: repository
     - role: rsyslog
     - role: systohc
