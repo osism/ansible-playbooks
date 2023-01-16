@@ -9,3 +9,4 @@
 
   roles:
     - role: resolvconf
+      when: enable_resolvconf | default('true') | bool
