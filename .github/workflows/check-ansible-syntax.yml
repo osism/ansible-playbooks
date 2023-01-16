@@ -23,6 +23,9 @@ jobs:
       - uses: ansible/ansible-lint-action@main
       - uses: ansible/ansible-lint-action@main
         with:
+          path: playbooks/ceph
+      - uses: ansible/ansible-lint-action@main
+        with:
           path: playbooks/generic
       - uses: ansible/ansible-lint-action@main
         with:
