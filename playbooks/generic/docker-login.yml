@@ -1,0 +1,27 @@
+---
+- name: Group hosts based on configuration
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Group hosts based on enabled services
+      ansible.builtin.group_by:
+        key: "{{ item }}"
+      with_items:
+        - enable_docker_{{ enable_docker | default('true') | bool }}
+        - enable_docker_login_{{ enable_docker_login | default('true') | bool }}
+      tags: always
+
+- name: Apply role docker_login
+  hosts:
+    - "{{ hosts_docker|default('docker') }}"
+    - "&enable_docker_True"
+    - "&enable_docker_login_True"
+  serial: "{{ osism_serial['docker_login']|default('0') }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  collections:
+    - osism.commons
+
+  roles:
+    - role: docker_login
