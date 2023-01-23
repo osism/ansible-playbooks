@@ -7,6 +7,7 @@
     - name: Group hosts based on state bootstrap
       ansible.builtin.group_by:
         key: state_bootstrap_{{ ansible_local.osism.bootstrap.status | default("False") | bool }}
+      changed_when: false
 
 - name: Gather facts for all hosts
   ignore_unreachable: true

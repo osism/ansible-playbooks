@@ -11,6 +11,7 @@
         - enable_docker_{{ enable_docker | default('true') | bool }}
         - enable_docker_login_{{ enable_docker_login | default('true') | bool }}
       tags: always
+      changed_when: false
 
 - name: Apply role docker_login
   hosts:
