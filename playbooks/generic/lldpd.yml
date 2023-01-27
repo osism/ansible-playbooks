@@ -10,6 +10,7 @@
       with_items:
         - enable_lldpd_{{ enable_lldpd | default('true') | bool }}
       tags: always
+      changed_when: false
 
 - name: Apply role lldpd
   hosts:

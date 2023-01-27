@@ -10,6 +10,7 @@
       with_items:
         - enable_auditd_{{ enable_auditd | default('true') | bool }}
       tags: always
+      changed_when: false
 
 - name: Apply role auditd
   hosts:
