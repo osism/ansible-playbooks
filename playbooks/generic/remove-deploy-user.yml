@@ -3,6 +3,9 @@
   hosts: all
   serial: "{{ osism_serial['remove_deploy_user']|default('0') }}"
 
+  vars:
+    deploy_user: osism
+
   vars_prompt:
     - name: ireallymeanit
       prompt: Are you sure you want to remove the  deploy user?
