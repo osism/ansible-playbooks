@@ -1,0 +1,20 @@
+---
+- name: Cleanup opensearch
+  hosts: "{{ hosts_manager|default('manager') }}"
+
+  vars:
+    opensearch_ip: 127.0.0.1
+    opensearch_port: 9200
+    opensearch_prefix: flog
+    opensearch_retention_time: 60
+
+  tasks:
+    - name: Remove opensearch index
+      ansible.builtin.uri:
+        url: "http://{{ opensearch_ip }}:{{ opensearch_port }}/{{ opensearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  opensearch_retention_time | int) ) }}"  # noqa 204
+        method: DELETE
+        return_content: true
+        status_code: [200, 404]
+      register: result
+      changed_when: result.status == 200
+      run_once: true
