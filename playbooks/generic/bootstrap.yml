@@ -64,6 +64,7 @@
     - role: cleanup
     - role: timezone
     - role: docker
+    - role: docker_compose
     - role: facts
     - role: chrony
     - role: lldpd
