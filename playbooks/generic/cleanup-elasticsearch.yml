@@ -17,3 +17,4 @@
         status_code: [200, 404]
       register: result
       changed_when: result.status == 200
+      run_once: true
