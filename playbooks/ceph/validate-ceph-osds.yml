@@ -74,7 +74,7 @@
         _osds_count_total: 0
         _osds_count_by_host: 0
         _osds_num_per_device:
-          "{{ _osds_configuration_vars['osds_per_device'] }}"
+          "{{ _osds_configuration_vars['osds_per_device']|default(1) }}"
         _osds_dmcrypt:
           "{{ _osds_configuration_vars['dmcrypt'] }}"
         _osds_container_test_data: []
