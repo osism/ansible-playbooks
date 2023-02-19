@@ -1,7 +1,6 @@
 ---
 - name: Run refstack validator
-  hosts: "{{ hosts_refstack|default('manager') }}"
-  strategy: "{{ osism_strategy|default('linear') }}"
+  hosts: localhost
 
   collections:
     - osism.validations
