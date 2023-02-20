@@ -5,6 +5,8 @@
     check:
       jobs:
         - ansible-lint
+        - yamllint
     gate:
       jobs:
         - ansible-lint
+        - yamllint
