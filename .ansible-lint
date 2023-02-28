@@ -6,7 +6,13 @@ exclude_paths:
   - .github/
   - playbooks/generic/common.yml
 mock_modules:
+  - community.docker.docker_container_exec
+  - community.docker.docker_container_info
+  - community.docker.docker_prune
   - hashivault_secret
+  - hashivault_secret_engine
+  - hashivault_auth_method
+  - hashivault_policy
 mock_roles:
   - squid
   - containerd
@@ -20,5 +26,7 @@ skip_list:
   - ignore-errors
   - schema
   - yaml
+# DO NOT DELETE THE WARNLIST! It is required for our custom rules!
+# If this isn't there our custom rules will only through a warning and wont generate a failure!:
 warn_list:
-  - experimental  # all rules tagged as experimental
+  - dummy
