@@ -1,0 +1,94 @@
+---
+- name: Clean up obsolet service configuration
+  hosts: all
+  vars:
+    obsolet_service:
+    obsolet_service_os_name:
+    obsolet_containers_volumes:
+    obsolet_service_containers:
+    obsolet_service_dir:
+
+    gather_facts: false
+  tasks:
+
+    - name: Get infos on container
+      ansible.builtin.raw: "docker images --filter=reference='quay.io/osism/{{ obsolet_service }}*' -q"
+      register: result
+
+    - name: "Stop/disable {{ obsolet_service }}-containers"
+      become: true
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+        stop_signal: true
+      with_items:
+        - "{{ obsolet_service_containers }}"
+
+    - name: "Stop/disable {{ obsolet_service }}-volumes"
+      become: true
+      community.docker.docker_volume:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ obsolet_service }}"
+
+    - name: "Remove {{ obsolet_service }}-images"
+      become: true
+      ansible.builtin.raw: "docker rmi {{ item }}"
+      with_items:
+        - "{{ result.stdout_lines }}"
+
+    - name: Remove etc directory
+      become: true
+      ansible.builtin.file:
+        path: "/etc/kolla/{{ item }}"
+        state: absent
+      with_items:
+        - "{{ obsolet_service_dir}}"
+
+    - name: Remove log Directory
+      become: true
+      ansible.builtin.file:
+        path: "/var/log/kolla/{{ obsolet_service}}"
+        state: absent
+
+- name: Clean up obsolet service configuration
+  hosts: loadbalancer
+  vars:
+    obsolet_service:
+    obsolet_service_dir:
+    gather_facts: false
+  tasks:
+    - name: "Remove {{ obsolet_service }} Loadbalancer Configuration"
+      become: true
+      ansible.builtin.file:
+        path: "/etc/kolla/haproxy/service.d/{{ item }}.cfg"
+        state: absent
+      with_items:
+        - "{{ obsolet_service_dir}}"
+
+- name: Clean up obsolet service endpoint
+  hosts: manager
+  vars:
+    obsolet_service_os_name:
+    obsolet_service_os_type:
+    obsolet_service_os_indentity:
+    os_cloud:
+      gather_facts: false
+  tasks:
+    - name: "Remove {{ obsolet_service }} Endpoints"
+      openstack.cloud.catalog_service:
+        cloud: "{{ os_cloud }}"
+        state: absent
+        name: "{{ obsolet_service_os_name }}"
+        service_type: "{{ obsolet_service_os_type }}"
+
+    - name: "Remove {{ obsolet_service_os_indentity }}"
+      openstack.cloud.identity_user:
+        cloud: "{{ os_cloud }}"
+        state: absent
+        name: "{{ obsolet_service_os_indentity }}"
+
+    - name: "Database {{ obsolet_service }} already exists"
+      ansible.builtin.debug:
+        msg: "The Database of {{ obsolet_service }} should remove, later"

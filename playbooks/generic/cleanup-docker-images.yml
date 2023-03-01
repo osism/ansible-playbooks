@@ -1,7 +1,7 @@
 ---
 - name: Cleanup docker images
   hosts: all
-  serial: "{{ osism_serial['docker_cleanup']|default('1') }}"
+  serial: "{{ osism_serial['docker_cleanup']|default('0') }}"
 
   vars_prompt:
     - name: ireallymeanit

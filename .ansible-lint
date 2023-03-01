@@ -6,9 +6,11 @@ exclude_paths:
   - .github/
   - playbooks/generic/common.yml
 mock_modules:
+  - community.docker.docker_container
   - community.docker.docker_container_exec
   - community.docker.docker_container_info
   - community.docker.docker_prune
+  - community.docker.docker_volume
   - hashivault_secret
   - hashivault_secret_engine
   - hashivault_auth_method
