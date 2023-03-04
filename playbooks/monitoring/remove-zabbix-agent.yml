@@ -39,6 +39,7 @@
       ansible.builtin.apt:
         name: zabbix-agent2
         state: absent
+        lock_timeout: "{{ apt_lock_timeout|default(300) }}"
 
     - name: Remove directory
       become: true
