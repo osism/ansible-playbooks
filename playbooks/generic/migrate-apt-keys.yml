@@ -1,0 +1,32 @@
+# This is a workaround to migrate existing installations.
+#
+# Required because of the deprecation of apt-key. Only necessary on
+# Ubuntu 22.04. Only necessary once.
+#
+# Only necessary for existing installations. For new installations,
+# the execution is not necessary. New systems already get the keys
+# in the right place.
+#
+# https://github.com/osism/issues/issues/381
+---
+- name: Fix "Key is stored in legacy trusted.gpg keyring" warning
+  hosts: all
+  
+  tasks:
+    - name: Check /etc/apt/trusted.gpg file
+      ansible.builtin.stat:
+        path: /etc/apt/trusted.gpg
+      register: result
+      when:
+        - ansible_distribution_version is version('22.04', '>=')
+
+    # https://itsfoss.com/key-is-stored-in-legacy-trusted-gpg/
+    - name: Copy /etc/apt/trusted.gpg to /etc/apt/trusted.gpg.d
+      become: true
+      ansible.builtin.copy:
+        remote_src: true
+        src: /etc/apt/trusted.gpg
+        dest: /etc/apt/trusted.gpg.d
+      when:
+        - ansible_distribution_version is version('22.04', '>=')
+        - result.stat.exists
