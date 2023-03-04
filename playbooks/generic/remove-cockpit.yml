@@ -43,6 +43,7 @@
       ansible.builtin.apt:
         name: "{{ item }}"
         state: absent
+        lock_timeout: "{{ apt_lock_timeout|default(300) }}"
       loop:
         - cockpit-bridge
         - cockpit-storaged
