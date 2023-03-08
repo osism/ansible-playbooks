@@ -1,0 +1,56 @@
+---
+- name: Clean up obsolet service configuration
+  hosts: all
+  vars:
+    obsolet_service: skydive
+    obsolet_containers_volumes:
+    obsolet_service_containers:
+      - skydive_agent
+      - skydive_analyzer
+    obsolet_service_dir:
+      - skydive-agent
+      - skydive-analyzer
+    gather_facts: false
+  tasks:
+
+    - name: Get infos on container
+      ansible.builtin.raw: "docker images --filter=reference='quay.io/osism/{{ obsolet_service }}*' -q"
+      register: result
+      changed_when: false
+
+    - name: "Stop/disable {{ obsolet_service }}-containers"
+      become: true
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+        stop_signal: true
+      with_items:
+        - "{{ obsolet_service_containers }}"
+
+    # the community.docker.docker_image module is not able handle this  
+    - name: "Remove {{ obsolet_service }}-images"
+      become: true
+      ansible.builtin.raw: "docker rmi {{ item }}"
+      with_items:
+        - "{{ result.stdout_lines }}"
+      register: docker_rmi_status
+      failed_when: false
+      changed_when: docker_rmi_status.rc == 0
+
+    - name: Remove etc directory
+      become: true
+      ansible.builtin.file:
+        path: "/etc/kolla/{{ item }}"
+        state: absent
+      with_items:
+        - "{{ obsolet_service_dir}}"
+
+    - name: Remove log Directory
+      become: true
+      ansible.builtin.file:
+        path: "/var/log/kolla/{{ obsolet_service}}"
+        state: absent
+
+    - name: "maybe some ELK relics from {{ obsolet_service }} already exists"
+      ansible.builtin.debug:
+        msg: "This {{ obsolet_service }} should remove, later"
