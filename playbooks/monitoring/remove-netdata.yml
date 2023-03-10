@@ -27,13 +27,6 @@
         name: netdata
       ignore_errors: true
 
-    - name: Wait for apt lock
-      ansible.builtin.shell: "while fuser /var/lib/dpkg/{{ item }} >/dev/null 2>&1; do sleep 5; done;"
-      loop:
-        - lock
-        - lock-frontend
-      changed_when: false
-
     - name: Remove package
       become: true
       ansible.builtin.apt:
