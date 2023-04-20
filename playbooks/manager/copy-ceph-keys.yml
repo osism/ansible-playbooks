@@ -29,6 +29,9 @@
       - src: ceph.client.gnocchi.keyring
         dest: "{{ configuration_directory }}/environments/kolla/files/overlays/gnocchi/ceph.client.gnocchi.keyring"
 
+      - src: ceph.client.manila.keyring
+        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/manila/ceph.client.manila.keyring"
+
   tasks:
     - name: Fetch ceph keys from the first monitor node
       ansible.builtin.command: "osism apply ceph-fetch-keys"  # noqa no-changed-when
