@@ -39,5 +39,10 @@
         INTERACTIVE: false
 
     - name: Copy ceph keys to the configuration repository
-      ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"  # noqa no-changed-when
+      ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"
+      changed_when: true
+      # It is possible that certain keys are not available in an environment
+      # or certain services have not been activated. In this case, errors are
+      # ignored.
+      ignore_errors: true
       loop: "{{ ceph_keys }}"
