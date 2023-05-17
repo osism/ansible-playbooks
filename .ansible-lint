@@ -16,9 +16,10 @@ mock_modules:
   - hashivault_auth_method
   - hashivault_policy
 mock_roles:
-  - squid
   - containerd
   - runc
+  - scaphandre
+  - squid
 use_default_rules: true
 rulesdir:
   - ./.ansible-lint-rules/
