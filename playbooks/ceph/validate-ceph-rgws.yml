@@ -38,20 +38,22 @@
     _rgws_reports_directory: "/opt/reports/validator"
     _rgws_venv_directory: "/opt/validator/rgw"
     _rgws_group_name: "{{ rgw_group_name|default('ceph-rgw') }}"
-  hosts: "{{ groups[_rgws_group_name] }}"
+  hosts: "{{ groups[_rgws_group_name]|default('ceph-rgw') }}"
+  strategy: linear
   gather_facts: true
   force_handlers: true
   tasks:
     # ansible_date_time is cached between runs,
     # so we need to get a timestamp another way
-    - name: Get timestamp for report file
-      ansible.builtin.shell:
+    - name: Get timestamp for report file # noqa: run-once[task]
+      ansible.builtin.command:
         cmd: "date --iso-8601=seconds"
       register: _rgws_report_timestamp
+      changed_when: false
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Create report output directory
+    - name: Create report output directory # noqa: run-once[task]
       become: true
       ansible.builtin.file:
         path: "{{ _rgws_reports_directory }}"
@@ -62,12 +64,12 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Define report vars
+    - name: Define report vars # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_report_file:
           "{{ _rgws_reports_directory }}\
            /ceph-rgws-validator-\
-           {{ _rgws_report_timestamp.stdout|trim }}\
+           {{ _rgws_report_timestamp.stdout | trim }}\
            -report.json"
         _rgws_test_failed: false
         _rgws_result: "no-result"
@@ -78,7 +80,7 @@
         _rgws_instance_port: 8081
       run_once: true
 
-    - name: Create directory for python test script venv
+    - name: Create directory for python test script venv # noqa: run-once[task]
       become: true
       ansible.builtin.file:
         path: "{{ _rgws_venv_directory }}"
@@ -89,7 +91,7 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Create venv and install requirements
+    - name: Create venv and install requirements # noqa: run-once[task]
       ansible.builtin.pip:
         chdir: "{{ _rgws_venv_directory }}"
         name:
@@ -101,7 +103,7 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Copy S3 validator script
+    - name: Copy S3 validator script # noqa: run-once[task]
       become: true
       ansible.builtin.copy:
         src: files/rgw-validator.py
@@ -118,7 +120,7 @@
         _rgws_test_containers_existance_result: "no-result"
         _rgws_test_containers_existance_data: {}
 
-    - name: Get container info
+    - name: Get container info # noqa: args[module]
       community.docker.docker_container_info:
         name:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -154,7 +156,7 @@
       ansible.builtin.set_fact:
         _rgws_container_status:
           "{{
-              _rgws_container_info.container['State']['Status']|
+              _rgws_container_info.container['State']['Status'] |
               default('not-found')
            }}"
         _rgws_test_containers_running_result: "no-result"
@@ -192,47 +194,48 @@
     # when trying to run the other tests. It's simpler to bail
     # out early than having to code around missing containers etc.
     - name: Fail and bail out early due to critical test failure(s)
+      when: _rgws_test_failed
       block:
         # We need to aggregate the test data from the different nodes
         # into one variable that gets written to the report because
         # of the way ansible handles facts across hosts.
         # This is split into multiple steps as apparently you can't
         # just use a fact you just set in the same set_fact task.
-        - name: Aggregate test results step one
+        - name: Aggregate test results step one # noqa: run-once[task]
           ansible.builtin.set_fact:
             _rgws_test_containers_existance_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_rgws_test_containers_existance_data'
+                     '_rgws_test_containers_existance_data'\
                     )
                }}"
             _rgws_test_containers_running_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_rgws_test_containers_running_data'
+                     '_rgws_test_containers_running_data'\
                     )
                }}"
             _rgws_reasons:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_rgws_reasons'
-                    )|
+                     '_rgws_reasons'\
+                    ) |
                  join('\n')
                  + '\nSee test data for details.'
                }}"
           run_once: true
           delegate_to: "{{ groups['manager'][0] }}"
 
-        - name: Aggregate test results step two
+        - name: Aggregate test results step two # noqa: run-once[task]
           ansible.builtin.set_fact:
             _rgws_result: "failed"
             _rgws_tests:
@@ -249,7 +252,7 @@
           run_once: true
           delegate_to: "{{ groups['manager'][0] }}"
 
-        - name: Aggregate test results step three
+        - name: Aggregate test results step three # noqa: run-once[task]
           ansible.builtin.set_fact:
             _validator_data:
               validator: "ceph-rgws"
@@ -261,16 +264,15 @@
           changed_when: true
           notify:
             - Write report file
-      when: _rgws_test_failed
 
     # Flush handlers to write report file
-    - name: Flush handlers
+    - name: Flush handlers # noqa: run-once[task]
       ansible.builtin.meta: flush_handlers
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
     # Print where to find report file
-    - name: Print report file information
+    - name: Print report file information # noqa: run-once[task]
       ansible.builtin.debug:
         msg:
           - "Validator run completed."
@@ -283,7 +285,7 @@
       when: _rgws_test_failed
 
     # Abort playbook execution after writing report
-    - name: Fail due to missing containers
+    - name: Fail due to missing containers # noqa: run-once[task]
       ansible.builtin.fail:
         msg: "Critical tests failed. See report file for details."
       run_once: true
@@ -291,13 +293,13 @@
       when: _rgws_test_failed
 
     # Test 3: List radosgw users
-    - name: Prepare user list test vars
+    - name: Prepare user list test vars # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_list_result: "no-result"
         _rgws_test_user_list_data: ""
       run_once: true
 
-    - name: Get RGW user list
+    - name: Get RGW user list # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
         container:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -307,7 +309,7 @@
       run_once: true
 
     # Fail the user-list test if return code is not zero
-    - name: Fail user-list if return code is not acceptable
+    - name: Fail user-list if return code is not acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
         _rgws_test_user_list_result: "failed"
@@ -323,7 +325,7 @@
         - _rgws_user_list_data.rc != 0
 
     # Pass the user-list test if return code is zero
-    - name: Pass user-list if return code is acceptable
+    - name: Pass user-list if return code is acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_list_result: "passed"
         _rgws_test_user_list_data:
@@ -333,13 +335,13 @@
         - _rgws_user_list_data.rc == 0
 
     # Test 4: List radosgw buckets
-    - name: Prepare bucket list test vars
+    - name: Prepare bucket list test vars # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_bucket_list_result: "no-result"
         _rgws_test_bucket_list_data: ""
       run_once: true
 
-    - name: Get RGW bucket list
+    - name: Get RGW bucket list # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
         container:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -349,7 +351,7 @@
       run_once: true
 
     # Fail the bucket-list test if return code is not zero
-    - name: Fail bucket-list if return code is not acceptable
+    - name: Fail bucket-list if return code is not acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
         _rgws_test_bucket_list_result: "failed"
@@ -365,7 +367,7 @@
         - _rgws_bucket_list_data.rc != 0
 
     # Pass the bucket-list test if return code is zero
-    - name: Pass bucket-list if return code is acceptable
+    - name: Pass bucket-list if return code is acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_bucket_list_result: "passed"
         _rgws_test_bucket_list_data:
@@ -375,7 +377,7 @@
         - _rgws_bucket_list_data.rc == 0
 
     # Test 5: Create radosgw validator test user
-    - name: Prepare user create test vars
+    - name: Prepare user create test vars # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_create_result: "no-result"
         _rgws_test_user_create_data: ""
@@ -383,7 +385,7 @@
           "osism-s3-validator-{{ _rgws_instance_name }}"
       run_once: true
 
-    - name: Fetch RGW test user info
+    - name: Fetch RGW test user info # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
         container:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -396,7 +398,7 @@
         - _rgws_user_create_user_info_data.rc != 22
       run_once: true
 
-    - name: Create RGW test user (if not exists)
+    - name: Create RGW test user (if not exists) # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
         container:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -409,7 +411,7 @@
       when: _rgws_user_create_user_info_data.rc != 0
 
     # Fail the user-create test if return code is not zero
-    - name: Fail user-create if return code is not acceptable
+    - name: Fail user-create if return code is not acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
         _rgws_test_user_create_result: "failed"
@@ -428,7 +430,7 @@
         - _rgws_user_create_data.rc != 0
 
     # Pass the user-create test if return code is zero
-    - name: Pass user-create if return code is acceptable
+    - name: Pass user-create if return code is acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_create_result: "passed"
         _rgws_test_user_create_data:
@@ -439,47 +441,47 @@
         - _rgws_user_create_data.rc == 0
 
     # Test 6: Test S3 functionality through rgw-validator.py script
-    - name: Prepare S3 functionality test vars
+    - name: Prepare S3 functionality test vars # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_s3_functions_result: "no-result"
         _rgws_test_s3_functions_data: ""
       run_once: true
 
-    - name: Prepare S3 test user vars (user created)
+    - name: Prepare S3 test user vars (user created) # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_access_key:
           "{{
-             _rgws_user_create_data.stdout|
-             from_json|
+             _rgws_user_create_data.stdout |
+             from_json |
              json_query('keys[0].access_key')
            }}"
         _rgws_test_user_secret_key:
           "{{
-             _rgws_user_create_data.stdout|
-             from_json|
+             _rgws_user_create_data.stdout |
+             from_json |
              json_query('keys[0].secret_key')
            }}"
       run_once: true
       when: _rgws_user_create_user_info_data.rc != 0
 
-    - name: Prepare S3 test user vars (existing user)
+    - name: Prepare S3 test user vars (existing user) # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_access_key:
           "{{
-             _rgws_user_create_user_info_data.stdout|
-             from_json|
+             _rgws_user_create_user_info_data.stdout |
+             from_json |
              json_query('keys[0].access_key')
            }}"
         _rgws_test_user_secret_key:
           "{{
-             _rgws_user_create_user_info_data.stdout|
-             from_json|
+             _rgws_user_create_user_info_data.stdout |
+             from_json |
              json_query('keys[0].secret_key')
            }}"
       run_once: true
       when: _rgws_user_create_user_info_data.rc == 0
 
-    - name: Test S3 functionality
+    - name: Test S3 functionality # noqa: run-once[task]
       ansible.builtin.shell:
         cmd:
           ". {{ _rgws_venv_directory }}/bin/activate &&
@@ -494,14 +496,15 @@
           "osism-rgw-validator-{{ groups['manager'][0] }}"
       register: _rgws_s3_script_output
       ignore_errors: true
-      delegate_to: "{{ groups['manager'][0]}}"
+      changed_when: false
+      delegate_to: "{{ groups['manager'][0] }}"
       run_once: true
       when:
         - _rgws_test_user_access_key is defined
         - _rgws_test_user_secret_key is defined
 
     # Fail the s3-functions test if return code is not zero
-    - name: Fail s3-functions if return code is not acceptable
+    - name: Fail s3-functions if return code is not acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
         _rgws_test_s3_functions_result: "failed"
@@ -515,7 +518,7 @@
         - _rgws_s3_script_output.rc != 0
 
     # Pass the s3-functions test if return code is zero
-    - name: Pass s3-functions if return code is acceptable
+    - name: Pass s3-functions if return code is acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_s3_functions_result: "passed"
         _rgws_test_s3_functions_data:
@@ -525,13 +528,13 @@
         - _rgws_s3_script_output.rc == 0
 
     # Test 7: Delete radosgw validator test user
-    - name: Prepare user delete test vars
+    - name: Prepare user delete test vars # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_delete_result: "no-result"
         _rgws_test_user_delete_data: ""
       run_once: true
 
-    - name: Fetch RGW test user info
+    - name: Fetch RGW test user info # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
         container:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -544,7 +547,7 @@
         - _rgws_user_create_user_info_data.rc != 22
       run_once: true
 
-    - name: Delete RGW test user (if it exists)
+    - name: Delete RGW test user (if it exists) # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
         container:
           "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
@@ -557,7 +560,7 @@
       when: _rgws_user_delete_user_info_data.rc == 0
 
     # Fail the user-delete test if return code is not zero
-    - name: Fail user-delete if return code is not acceptable
+    - name: Fail user-delete if return code is not acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
         _rgws_test_user_delete_result: "failed"
@@ -575,7 +578,7 @@
         - _rgws_user_delete_data.rc != 0
 
     # Pass the user-delete test if return code is zero
-    - name: Pass user-delete if return code is acceptable
+    - name: Pass user-delete if return code is acceptable # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_user_delete_result: "passed"
         _rgws_test_user_delete_data:
@@ -586,7 +589,7 @@
         - _rgws_user_delete_data.rc == 0
 
     # Set validation result to passed if no test failed
-    - name: Set validation result to passed if no test failed
+    - name: Set validation result to passed if no test failed # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_result: "passed"
         _rgws_reasons:
@@ -596,7 +599,7 @@
       when: not _rgws_test_failed
 
     # Set validation result to failed if a test failed
-    - name: Set validation result to failed if a test failed
+    - name: Set validation result to failed if a test failed # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_result: "failed"
       run_once: true
@@ -604,92 +607,92 @@
       when: _rgws_test_failed
 
     # Aggregate results for report file
-    - name: Aggregate test results step one
+    - name: Aggregate test results step one # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_containers_existance_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts | 
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_containers_existance_data'
+                  '_rgws_test_containers_existance_data'\
                 )
             }}"
         _rgws_test_containers_running_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_containers_running_data'
+                  '_rgws_test_containers_running_data'\
                 )
             }}"
         _rgws_test_user_list_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_user_list_data'
-                )|
+                  '_rgws_test_user_list_data'\
+                ) |
               unique
             }}"
         _rgws_test_bucket_list_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_bucket_list_data'
-                )|
+                  '_rgws_test_bucket_list_data'\
+                ) |
               unique
             }}"
         _rgws_test_user_create_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_user_create_data'
-                )|
+                  '_rgws_test_user_create_data'\
+                ) |
               unique
             }}"
         _rgws_test_s3_functions_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_s3_functions_data'
-                )|
+                  '_rgws_test_s3_functions_data'\
+                ) |
               unique
             }}"
         _rgws_test_user_delete_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_user_delete_data'
-                )|
+                  '_rgws_test_user_delete_data'\
+                ) |
               unique
             }}"
         _rgws_reasons:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_rgws_reasons'
-                )|
-              unique|
+                  '_rgws_reasons'\
+                ) |
+              unique |
               join('\n')
               + '\nSee test data for details.'
             }}"
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Aggregate test results step two
+    - name: Aggregate test results step two # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_tests:
           - {
@@ -730,7 +733,7 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
-    - name: Aggregate test results step three
+    - name: Aggregate test results step three # noqa: run-once[task]
       ansible.builtin.set_fact:
         _validator_data:
           validator: "ceph-rgws"
@@ -744,13 +747,13 @@
         - Write report file
 
     # Flush handlers to write report file
-    - name: Flush handlers
+    - name: Flush handlers # noqa: run-once[task]
       ansible.builtin.meta: flush_handlers
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
     # Print where to find report file
-    - name: Print report file information
+    - name: Print report file information # noqa: run-once[task]
       ansible.builtin.debug:
         msg:
           - "Validator run completed."
@@ -761,9 +764,10 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
   handlers:
-    - name: Write report file
+    - name: Write report file # noqa: run-once[task]
       ansible.builtin.template:
         src: "templates/ceph-rgws-validator-report.json.j2"
         dest: "{{ _rgws_report_file }}"
+        mode: '0644'
       delegate_to: "{{ groups['manager'][0] }}"
       run_once: true
