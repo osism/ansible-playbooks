@@ -100,20 +100,23 @@ def test_read_object(bucket_name, obj_key, obj_data):
     try:
         object = client.Object(bucket_name, obj_key)
         object_data = object.get()["Body"].read()
-        if object_data.decode() == obj_data:
-            test_result = "passed"
-            test_reason = "Read data matches expected result"
-        else:
-            test_failure = True
-            test_result = "failed"
-            test_reason = "Read data does not match expected result"
+        
+        # Test if read object data matches the data written
+        # by test_create_object. Not perfect but for now it works.
+        assert object_data.decode() == obj_data,\
+            "Read object data does not match expected result. "\
+            "Expected: '{}'\nGot: '{}'"\
+            .format(obj_data, obj_data.decode())
         return {
                 "test_name": "s3-read-object",
-                "result": test_result,
+                "result": "passed",
                 "data": {
-                    "test_reason": test_reason,
-                    "object_key": obj_key,
-                    "object_data": object.get()["Body"].read()
+                    "test_reason":
+                        "Read object data matches expected result.",
+                    "object_key":
+                        obj_key,
+                    "object_data":
+                        object.get()["Body"].read()
                     }
                 }
     except Exception as err:
