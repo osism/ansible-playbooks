@@ -8,6 +8,8 @@ authors:
 description: OSISM playbooks
 license_file: LICENSE
 tags:
+  - infrastructure
+  - cloud
   - osism
   - system
 dependencies: {}

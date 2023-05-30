@@ -27,6 +27,7 @@
         remote_src: true
         src: /etc/apt/trusted.gpg
         dest: /etc/apt/trusted.gpg.d
+        mode: 0640
       when:
         - ansible_distribution_version is version('22.04', '>=')
         - result.stat.exists

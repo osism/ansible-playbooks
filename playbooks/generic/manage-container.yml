@@ -10,4 +10,4 @@
       changed_when: true
 
       # NOTE: Errors are intentionally ignored here.
-      ignore_errors: true
+      ignore_errors: true # noqa ignore-errors

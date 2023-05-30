@@ -27,7 +27,7 @@
     - name: Ensure mariadb container is running
       ansible.builtin.fail:
         msg: mariadb container is not running
-      when: not result.stdout|length
+      when: not result.stdout | length
 
     - name: Run innobackupex
       ansible.builtin.command: docker exec -t mariadb innobackupex --galera-info /tmp
@@ -51,7 +51,7 @@
     - name: Ensure mariadb_backup_directory_latest is not empty
       ansible.builtin.fail:
         msg: mariadb_backup_directory_latest is empty
-      when: not mariadb_backup_directory_latest|length
+      when: not mariadb_backup_directory_latest | length
 
     - name: Prepare backup
       ansible.builtin.command: innobackupex --apply-log {{ mariadb_backup_directory_latest }}

@@ -61,8 +61,9 @@ collections:
     type: git
     version: main
 
-  - name: debops.debops
-    source: https://galaxy.ansible.com
+  - name: https://github.com/debops/debops.git
+    type: git
+    version: master
 
   - name: https://github.com/netbox-community/ansible_modules.git
     type: git
@@ -87,3 +88,7 @@ collections:
   - name: https://github.com/stackhpc/ansible-collection-cephadm.git
     type: git
     version: master
+
+  - name: https://github.com/ansible-collections/community.docker.git
+    type: git
+    version: main

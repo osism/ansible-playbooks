@@ -11,7 +11,7 @@
   tasks:
     - name: Remove opensearch index
       ansible.builtin.uri:
-        url: "http://{{ opensearch_ip }}:{{ opensearch_port }}/{{ opensearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  opensearch_retention_time | int) ) }}"  # noqa 204
+        url: "http://{{ opensearch_ip }}:{{ opensearch_port }}/{{ opensearch_prefix }}-{{ '%Y.%m.%d' | strftime((ansible_date_time.epoch | int) - (86400 * opensearch_retention_time | int)) }}"
         method: DELETE
         return_content: true
         status_code: [200, 404]

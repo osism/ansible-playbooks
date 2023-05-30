@@ -13,7 +13,7 @@
         regexp: "^Defaults.*requiretty$"
         replace: "Defaults !requiretty"
         mode: 0440
-      ignore_errors: true
+      ignore_errors: true # noqa ignore-errors
 
 - name: Apply role operator
   hosts: manager

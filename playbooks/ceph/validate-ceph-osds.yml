@@ -19,21 +19,25 @@
 ###
 
 - name: Ceph validate OSDs
-  vars:
-    _osds_reports_directory: "/opt/reports/validator"
-  hosts:
-    - ceph-osd
+  hosts: ceph-osd
+  strategy: linear
   gather_facts: true
   force_handlers: true
+
+
+  vars:
+    _osds_reports_directory: "/opt/reports/validator"
+
   tasks:
     # ansible_date_time is cached between runs,
     # so we need to get a timestamp another way
     - name: Get timestamp for report file
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "date --iso-8601=seconds"
       register: _osds_report_timestamp
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
+      changed_when: false
 
     - name: Get extra vars for Ceph configuration
       ansible.builtin.include_vars:
@@ -60,7 +64,7 @@
         _osds_report_file:
           "{{ _osds_reports_directory }}\
            /ceph-osds-validator-\
-           {{ _osds_report_timestamp.stdout|trim }}\
+           {{ _osds_report_timestamp.stdout | trim }}\
            -report.json"
         _osds_test_failed: false
         _osds_result: "no-result"
@@ -70,11 +74,11 @@
 
     - name: Define OSD test variables
       ansible.builtin.set_fact:
-        _osds_node_count: "{{ groups['ceph-osd']|length }}"
+        _osds_node_count: "{{ groups['ceph-osd'] | length }}"
         _osds_count_total: 0
         _osds_count_by_host: 0
         _osds_num_per_device:
-          "{{ _osds_configuration_vars['osds_per_device']|default(1) }}"
+          "{{ _osds_configuration_vars['osds_per_device'] | default(1) }}"
         _osds_dmcrypt:
           "{{ _osds_configuration_vars['dmcrypt'] }}"
         _osds_container_test_data: []
@@ -83,15 +87,15 @@
     - name: Calculate OSD devices for each host
       ansible.builtin.set_fact:
         _osds_count_by_host:
-          "{{ (_osds_num_per_device|int) * (devices|length) }}"
+          "{{ (_osds_num_per_device | int) * (devices | length) }}"
 
     - name: Calculate total number of OSDs in cluster
       ansible.builtin.set_fact:
         _osds_count_total:
           "{{
-             play_hosts|
-             map('extract', hostvars, '_osds_count_by_host')|
-             map('int')|
+             play_hosts |
+             map('extract', hostvars, '_osds_count_by_host') |
+             map('int') |
              sum
            }}"
       run_once: true
@@ -107,12 +111,10 @@
     - name: Get list of ceph-osd containers on host
       ansible.builtin.set_fact:
         _osds_containers:
-          "{{ _osds_containers|default([]) +
-              [{
-                'name': item.name.split('/')[1],
+          "{{ _osds_containers | default([]) +
+              [{'name': item.name.split('/')[1],
                 'osd_id': item.name.split('-')[2],
-                'state': item.state
-              }]
+                'state': item.state}]
            }}"
       when: "item.name is match('/ceph-osd.*')"
       with_items:
@@ -121,7 +123,7 @@
     - name: Get count of ceph-osd containers on host
       ansible.builtin.set_fact:
         _osds_containers_not_running: []
-        _osds_num_containers: "{{ _osds_containers|length }}"
+        _osds_num_containers: "{{ _osds_containers | length }}"
 
     # Fail test if count does not match on a host
     - name: Set test result to failed when count of containers is wrong
@@ -136,7 +138,7 @@
           "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
            Test 'containers-count' failed on
            {{ inventory_hostname }}."
-      when: _osds_num_containers|int != (_osds_count_by_host|int)
+      when: _osds_num_containers | int != (_osds_count_by_host | int)
 
     # Pass test if count matches
     - name: Set test result to passed if count matches
@@ -146,7 +148,7 @@
           "OSD Container count matches on {{ inventory_hostname }}. \n\
            Expected count: {{ _osds_count_by_host }} \n\
            Actual count: {{ _osds_num_containers }}"
-      when: _osds_num_containers|int == (_osds_count_by_host|int)
+      when: _osds_num_containers | int == (_osds_count_by_host | int)
 
     # Test 2: Check that all OSD containers are running
     - name: Prepare test data
@@ -157,7 +159,7 @@
     - name: Get list of ceph-osd containers that are not running
       ansible.builtin.set_fact:
         _osds_containers_not_running:
-          "{{ _osds_containers_not_running + [item.name]}}"
+          "{{ _osds_containers_not_running + [item.name] }}"
       when: "item.state != 'running'"
       with_items:
         - "{{ _osds_containers }}"
@@ -165,7 +167,7 @@
     - name: Get count of ceph-osd containers that are not running
       ansible.builtin.set_fact:
         _osds_num_containers_not_running:
-          "{{ _osds_containers_not_running|length }}"
+          "{{ _osds_containers_not_running | length }}"
 
     # Singular error message
     - name: Set test result to failed if an OSD is not running
@@ -175,12 +177,12 @@
         _osds_test_containers_running_data:
           "{{ _osds_num_containers_not_running }} container
            is not running on {{ inventory_hostname }}:\n
-           {{ _osds_containers_not_running|join(',\n') }}"
+           {{ _osds_containers_not_running | join(',\n') }}"
         _osds_reasons:
           "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
            Test 'containers-running' failed on
            {{ inventory_hostname }}."
-      when: _osds_num_containers_not_running|int == 1
+      when: _osds_num_containers_not_running | int == 1
 
     # Plural error message
     - name: Set test result to failed if an OSD is not running
@@ -190,12 +192,12 @@
         _osds_test_containers_running_data:
           "{{ _osds_num_containers_not_running }} containers
            are not running on {{ inventory_hostname }}:\n
-           {{ _osds_containers_not_running|join(',\n') }}"
+           {{ _osds_containers_not_running | join(',\n') }}"
         _osds_reasons:
           "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
            Test 'containers-running' failed on
            {{ inventory_hostname }}."
-      when: _osds_num_containers_not_running|int > 1
+      when: _osds_num_containers_not_running | int > 1
 
     # Pass test if all containers are running
     - name: Set test result to passed if all containers are running
@@ -205,13 +207,13 @@
           "OSD Containers on {{ inventory_hostname }}: \n\
            Running: {{ _osds_num_containers }}\n\
            List: {{ _osds_containers }}"
-      when: _osds_num_containers_not_running|int == 0
+      when: _osds_num_containers_not_running | int == 0
 
     # I bail out early here if one of the two container tests failed
     # as it indicates a major problem and could be problematic
     # when trying to run the other tests. It's simpler to bail
     # out early than having to code around missing containers etc.
-    - name: Fail and bail out early due to critical test failure(s)
+    - name: Fail and bail out early due to critical test failure(s)  # noqa osism-fqcn
       block:
         # We need to aggregate the test data from the different nodes
         # into one variable that gets written to the report because
@@ -222,31 +224,31 @@
           ansible.builtin.set_fact:
             _osds_test_containers_count_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_osds_test_containers_count_data'
+                     '_osds_test_containers_count_data'\
                     )
                }}"
 
             _osds_test_containers_running_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_osds_test_containers_running_data'
+                     '_osds_test_containers_running_data'\
                     )
                }}"
             _osds_reasons:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_osds_reasons'
-                    )|
+                     '_osds_reasons'\
+                    ) |
                  join('\n')
                  + '\nSee test data for details.'
                }}"
@@ -326,18 +328,18 @@
 
     - name: Parse osd tree from JSON
       ansible.builtin.set_fact:
-        _osds_tree: "{{ _osds_tree_raw.stdout|from_json }}"
+        _osds_tree: "{{ _osds_tree_raw.stdout | from_json }}"
       run_once: true
 
     - name: Get OSDs that are not up or in
       ansible.builtin.set_fact:
         _osds_not_up:
-          "{{ _osds_tree|
+          "{{ _osds_tree |
               json_query('nodes[?type == `osd` && status != `up`]')
            }}"
         _osds_not_in:
           "{{
-              _osds_tree|
+              _osds_tree |
               json_query('nodes[?type == `osd` && reweight == `0`]')
            }}"
       run_once: true
@@ -349,9 +351,9 @@
         _osds_test_up_in_data:
           "Not all OSDs are up+in.\n\
            Number of OSDs not in status 'up':
-           {{ _osds_not_up|length }}\n\
+           {{ _osds_not_up | length }}\n\
            Number of OSDs with reweight 0 (equals 'out'):
-           {{ _osds_not_in|length }}\n\
+           {{ _osds_not_in | length }}\n\
            OSDs not 'up':\n\
            {{ _osds_not_up }}\n\n\n\n\
            OSDs not 'in':\n\
@@ -360,7 +362,7 @@
           "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
           Test 'osds-up-in' failed."
       run_once: true
-      when: _osds_not_up|length != 0 or _osds_not_in|length != 0
+      when: _osds_not_up | length != 0 or _osds_not_in | length != 0
 
     - name: Pass test if OSDs are all up and in
       ansible.builtin.set_fact:
@@ -368,8 +370,8 @@
         _osds_test_up_in_data: "All OSDs appear to be up+in."
       run_once: true
       when:
-        - _osds_not_up|length == 0
-        - _osds_not_in|length == 0
+        - _osds_not_up | length == 0
+        - _osds_not_in | length == 0
 
     # Test 4: Check if OSD encryption is enabled/disabled according
     # to configuration.
@@ -387,7 +389,7 @@
     - name: Parse LVM data as JSON
       ansible.builtin.set_fact:
         _osds_lvm_volumes:
-          "{{ _osds_lvm_volumes_raw.stdout|from_json }}"
+          "{{ _osds_lvm_volumes_raw.stdout | from_json }}"
         _osds_encrypted_query:
           '*[?tags."ceph.encrypted"==''1''].tags."ceph.osd_id"[]'
         _osds_unencrypted_query:
@@ -396,16 +398,16 @@
     - name: Get unencrypted and encrypted OSDs
       ansible.builtin.set_fact:
         _osds_encrypted:
-          "{{ _osds_lvm_volumes|
+          "{{ _osds_lvm_volumes |
               json_query(_osds_encrypted_query)
            }}"
         _osds_unencrypted:
-          "{{ _osds_lvm_volumes|
+          "{{ _osds_lvm_volumes |
               json_query(_osds_unencrypted_query)
            }}"
 
     # If dmcrypt is set to true check that everything is encrypted
-    - name: Check if every OSD is encrypted that is found
+    - name: Check if every OSD is encrypted that is found  # noqa osism-fqcn
       block:
         - name: Fail if count of encrypted OSDs does not match
           ansible.builtin.set_fact:
@@ -423,7 +425,7 @@
             _osds_reasons:
               "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
               Test 'osds-dmcrypt' failed."
-          when: _osds_encrypted|length != _osds_count_by_host|int
+          when: _osds_encrypted | length != _osds_count_by_host | int
 
         - name: Pass if count of encrypted OSDs equals count of OSDs
           ansible.builtin.set_fact:
@@ -431,20 +433,20 @@
             _osds_test_encryption_data:
               "All active OSDs on {{ inventory_hostname }}
                appear to use encryption.\n\
-               {% if _osds_unencrypted|length > 0 %}\
+               {% if _osds_unencrypted | length > 0 %}\
                However the following additional unencrypted OSDs
                were found:\n\
                {{ _osds_unencrypted }}
                {% endif %}\
                # of OSDs per host: {{ _osds_count_by_host }}\n\
-               # of OSDs encrypted: {{ _osds_encrypted|length }}\n\
-               # of OSDs unencrypted: {{ _osds_unencrypted|length }}"
+               # of OSDs encrypted: {{ _osds_encrypted | length }}\n\
+               # of OSDs unencrypted: {{ _osds_unencrypted | length }}"
           when:
-            - _osds_encrypted|length == _osds_count_by_host|int
+            - _osds_encrypted | length == _osds_count_by_host | int
       when: _osds_dmcrypt
 
     # If dmcrypt is set to false check that everything is not encrypted
-    - name: Check if every OSD is not encrypted that is found
+    - name: Check if every OSD is not encrypted that is found  # noqa osism-fqcn
       block:
         - name: Fail if count of unencrypted OSDs does not match
           ansible.builtin.set_fact:
@@ -462,7 +464,7 @@
             _osds_reasons:
               "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
               Test 'osds-dmcrypt' failed."
-          when: _osds_unencrypted|length != _osds_count_by_host|int
+          when: _osds_unencrypted | length != _osds_count_by_host | int
 
         - name: Pass if count of unencrypted OSDs equals count of OSDs
           ansible.builtin.set_fact:
@@ -470,16 +472,16 @@
             _osds_test_encryption_data:
               "All active OSDs on {{ inventory_hostname }}
                appear to not use encryption.\n\
-               {% if _osds_encrypted|length > 0 %}\
+               {% if _osds_encrypted | length > 0 %}\
                However the following additional encrypted OSDs
                were found:\n\
                {{ _osds_encrypted }}
                {% endif %}\
                # of OSDs per host: {{ _osds_count_by_host }}\n\
-               # of OSDs encrypted: {{ _osds_encrypted|length }}\n\
-               # of OSDs unencrypted: {{ _osds_unencrypted|length }}"
+               # of OSDs encrypted: {{ _osds_encrypted | length }}\n\
+               # of OSDs unencrypted: {{ _osds_unencrypted | length }}"
           when:
-            - _osds_unencrypted|length == _osds_count_by_host|int
+            - _osds_unencrypted | length == _osds_count_by_host | int
       when: not _osds_dmcrypt
 
     # Test 5: Check that all active OSDs are in the correct CRUSH
@@ -490,9 +492,9 @@
         _osds_test_crush_location_data: ""
         _osds_containers_osd_ids:
           "{{
-              _osds_containers|
-              json_query('[*].osd_id')|
-              map('int')|
+              _osds_containers |
+              json_query('[*].osd_id') |
+              map('int') |
               list
            }}"
         _osds_crush_node_data_query:
@@ -504,11 +506,11 @@
     - name: Get CRUSH node data of each OSD host and root node childs
       ansible.builtin.set_fact:
         _osds_crush_node_data:
-          "{{ _osds_tree|
+          "{{ _osds_tree |
               json_query(_osds_crush_node_data_query)
            }}"
         _osds_crush_root_node_data:
-          "{{ _osds_tree|
+          "{{ _osds_tree |
               json_query(_osds_crush_root_node_data_query)
            }}"
 
@@ -524,12 +526,12 @@
               _osds_crush_root_node_data[0].children }}"
         _osds_running_not_in_crushmap:
           "{{
-              _osds_containers_osd_ids|
+              _osds_containers_osd_ids |
               difference(_osds_crush_node_data[0].children)
            }}"
         _osds_crushmap_not_in_running:
           "{{
-              _osds_crush_node_data[0].children|
+              _osds_crush_node_data[0].children |
               difference(_osds_containers_osd_ids)
            }}"
 
@@ -542,12 +544,12 @@
            {% if not _osds_is_child_of_root %}
            - Host is not child of default root.
            {% endif %}
-           {% if _osds_running_not_in_crushmap|length != 0 %}
+           {% if _osds_running_not_in_crushmap | length != 0 %}
            - The following OSDs are found running on the host,\n
              but are not children of the host in CRUSH map:\n
              {{ _osds_running_not_in_crushmap }}
            {% endif %}
-           {% if _osds_crushmap_not_in_running|length != 0 %}
+           {% if _osds_crushmap_not_in_running | length != 0 %}
            - The following OSDs are found as children in CRUSH
              of the host,\n
              but are not running on the host:\n
@@ -557,8 +559,8 @@
           "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
           Test 'osds-crush-location' failed."
       when: not _osds_is_child_of_root or
-        _osds_running_not_in_crushmap|length != 0 or
-        _osds_crushmap_not_in_running|length != 0
+        _osds_running_not_in_crushmap | length != 0 or
+        _osds_crushmap_not_in_running | length != 0
 
     - name: Pass test if no sub test failed
       ansible.builtin.set_fact:
@@ -568,8 +570,8 @@
            and its OSDs appear to be in order."
       when:
         - _osds_is_child_of_root
-        - _osds_running_not_in_crushmap|length == 0
-        - _osds_crushmap_not_in_running|length == 0
+        - _osds_running_not_in_crushmap | length == 0
+        - _osds_crushmap_not_in_running | length == 0
 
     # END OF TESTS SECTION
 
@@ -596,62 +598,62 @@
       ansible.builtin.set_fact:
         _osds_test_containers_count_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_osds_test_containers_count_data'
-                )
+                  '_osds_test_containers_count_data'\
+                 )
             }}"
 
         _osds_test_containers_running_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_osds_test_containers_running_data'
-                )
+                  '_osds_test_containers_running_data'\
+                 )
             }}"
         _osds_test_up_in_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_osds_test_up_in_data'
-                )|
+                  '_osds_test_up_in_data'\
+                 ) |
               unique
             }}"
         _osds_test_encryption_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_osds_test_encryption_data'
-                )|
+                  '_osds_test_encryption_data'\
+                 ) |
               unique
             }}"
         _osds_test_crush_location_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_osds_test_crush_location_data'
-                )|
+                  '_osds_test_crush_location_data'\
+                 ) |
               unique
             }}"
         _osds_reasons:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_osds_reasons'
-                )|
-              unique|
+                  '_osds_reasons'\
+                 ) |
+              unique |
               join('\n')
               + '\nSee test data for details.'
             }}"
@@ -724,5 +726,6 @@
       ansible.builtin.template:
         src: "templates/ceph-osds-validator-report.json.j2"
         dest: "{{ _osds_report_file }}"
+        mode: 0640
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"

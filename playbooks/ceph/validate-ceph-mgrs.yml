@@ -17,20 +17,25 @@
 ###
 
 - name: Ceph validate mgrs
-  vars:
-    _mgrs_reports_directory: "/opt/reports/validator"
   hosts: ceph-mgr
+  strategy: linear
   gather_facts: true
   force_handlers: true
+
+
+  vars:
+    _mgrs_reports_directory: "/opt/reports/validator"
+
   tasks:
     # ansible_date_time is cached between runs,
     # so we need to get a timestamp another way
     - name: Get timestamp for report file
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "date --iso-8601=seconds"
       register: _mgrs_report_timestamp
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
+      changed_when: false
 
     - name: Create report output directory
       become: true
@@ -48,7 +53,7 @@
         _mgrs_report_file:
           "{{ _mgrs_reports_directory }}\
            /ceph-mgrs-validator-\
-           {{ _mgrs_report_timestamp.stdout|trim }}\
+           {{ _mgrs_report_timestamp.stdout | trim }}\
            -report.json"
         _mgrs_test_failed: false
         _mgrs_result: "no-result"
@@ -95,7 +100,7 @@
       ansible.builtin.set_fact:
         _mgrs_container_status:
           "{{
-              _mgrs_container_info.container['State']['Status']|
+              _mgrs_container_info.container['State']['Status'] |
               default('not-found')
            }}"
         _mgrs_test_containers_running_result: "no-result"
@@ -130,7 +135,7 @@
     # as it indicates a major problem and could be problematic
     # when trying to run the other tests. It's simpler to bail
     # out early than having to code around missing containers etc.
-    - name: Fail and bail out early due to critical test failure(s)
+    - name: Fail and bail out early due to critical test failure(s)  # noqa osism-fqcn
       block:
         # We need to aggregate the test data from the different nodes
         # into one variable that gets written to the report because
@@ -141,30 +146,30 @@
           ansible.builtin.set_fact:
             _mgrs_test_containers_existance_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_mgrs_test_containers_existance_data'
+                     '_mgrs_test_containers_existance_data'\
                     )
                }}"
             _mgrs_test_containers_running_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_mgrs_test_containers_running_data'
+                     '_mgrs_test_containers_running_data'\
                     )
                }}"
             _mgrs_reasons:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_mgrs_reasons'
-                    )|
+                     '_mgrs_reasons'\
+                    ) |
                  join('\n')
                  + '\nSee test data for details.'
                }}"
@@ -247,15 +252,15 @@
     - name: Parse mgr module list from json
       ansible.builtin.set_fact:
         _mgrs_test_modules_enabled_list:
-          "{{ _mgrs_module_list_raw.stdout|from_json }}"
+          "{{ _mgrs_module_list_raw.stdout | from_json }}"
       run_once: true
 
     - name: Extract list of enabled mgr modules
       ansible.builtin.set_fact:
         _mgrs_module_list_enabled:
-          "{{ _mgrs_test_modules_enabled_list|
+          "{{ _mgrs_test_modules_enabled_list |
               json_query('always_on_modules') +
-              _mgrs_test_modules_enabled_list|
+              _mgrs_test_modules_enabled_list |
               json_query('enabled_modules')
            }}"
       run_once: true
@@ -268,8 +273,8 @@
         _mgrs_test_modules_enabled_data:
           - "Disabled mgr modules that should be enabled:\n\
              {{
-               ceph_mgr_modules|
-               difference(_mgrs_module_list_enabled)|
+               ceph_mgr_modules |
+               difference(_mgrs_module_list_enabled) |
                join(',')
              }}"
         _mgrs_reasons:
@@ -285,7 +290,7 @@
         _mgrs_test_modules_enabled_result: "passed"
         _mgrs_test_modules_enabled_data:
           - "All required module are enabled. Modules enabled:\n\
-             {{ _mgrs_module_list_enabled|join(',') }}"
+             {{ _mgrs_module_list_enabled | join(',') }}"
       run_once: true
       when: ceph_mgr_modules is subset(_mgrs_module_list_enabled)
 
@@ -312,41 +317,41 @@
       ansible.builtin.set_fact:
         _mgrs_test_containers_existance_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mgrs_test_containers_existance_data'
-                )
+                  '_mgrs_test_containers_existance_data'\
+                 )
             }}"
         _mgrs_test_containers_running_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mgrs_test_containers_running_data'
-                )
+                  '_mgrs_test_containers_running_data'\
+                 )
             }}"
         _mgrs_test_modules_enabled_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mgrs_test_modules_enabled_data'
-                )|
+                  '_mgrs_test_modules_enabled_data'\
+                 ) |
               unique
             }}"
         _mgrs_reasons:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mgrs_reasons'
-                )|
-              unique|
+                  '_mgrs_reasons'\
+                 ) |
+              unique |
               join('\n')
               + '\nSee test data for details.'
             }}"
@@ -409,5 +414,6 @@
       ansible.builtin.template:
         src: "templates/ceph-mgrs-validator-report.json.j2"
         dest: "{{ _mgrs_report_file }}"
+        mode: 0640
       delegate_to: "{{ groups['manager'][0] }}"
       run_once: true

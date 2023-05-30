@@ -34,14 +34,16 @@
 ###
 
 - name: Ceph validate rgws
-  vars:
-    _rgws_reports_directory: "/opt/reports/validator"
-    _rgws_venv_directory: "/opt/validator/rgw"
-    _rgws_group_name: "{{ rgw_group_name|default('ceph-rgw') }}"
   hosts: "{{ groups[_rgws_group_name]|default('ceph-rgw') }}"
   strategy: linear
   gather_facts: true
   force_handlers: true
+
+  vars:
+    _rgws_reports_directory: "/opt/reports/validator"
+    _rgws_venv_directory: "/opt/validator/rgw"
+    _rgws_group_name: "{{ rgw_group_name|default('ceph-rgw') }}"
+
   tasks:
     # ansible_date_time is cached between runs,
     # so we need to get a timestamp another way
@@ -193,7 +195,7 @@
     # as it indicates a major problem and could be problematic
     # when trying to run the other tests. It's simpler to bail
     # out early than having to code around missing containers etc.
-    - name: Fail and bail out early due to critical test failure(s)
+    - name: Fail and bail out early due to critical test failure(s)  # noqa osism-fqcn
       when: _rgws_test_failed
       block:
         # We need to aggregate the test data from the different nodes

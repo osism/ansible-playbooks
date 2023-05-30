@@ -20,20 +20,25 @@
 ###
 
 - name: Ceph validate mons
-  vars:
-    _mons_reports_directory: "/opt/reports/validator"
   hosts: ceph-mon
+  strategy: linear
   gather_facts: true
   force_handlers: true
+
+
+  vars:
+    _mons_reports_directory: "/opt/reports/validator"
+
   tasks:
     # ansible_date_time is cached between runs,
     # so we need to get a timestamp another way
     - name: Get timestamp for report file
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "date --iso-8601=seconds"
       register: _mons_report_timestamp
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
+      changed_when: false
 
     - name: Create report output directory
       become: true
@@ -51,7 +56,7 @@
         _mons_report_file:
           "{{ _mons_reports_directory }}\
            /ceph-mons-validator-\
-           {{ _mons_report_timestamp.stdout|trim }}\
+           {{ _mons_report_timestamp.stdout | trim }}\
            -report.json"
         _mons_test_failed: false
         _mons_result: "no-result"
@@ -98,7 +103,7 @@
       ansible.builtin.set_fact:
         _mons_container_status:
           "{{
-              _mons_container_info.container['State']['Status']|
+              _mons_container_info.container['State']['Status'] |
               default('not-found')
            }}"
         _mons_test_containers_running_result: "no-result"
@@ -133,7 +138,7 @@
     # as it indicates a major problem and could be problematic
     # when trying to run the other tests. It's simpler to bail
     # out early than having to code around missing containers etc.
-    - name: Fail and bail out early due to critical test failure(s)
+    - name: Fail and bail out early due to critical test failure(s)  # noqa osism-fqcn
       block:
         # We need to aggregate the test data from the different nodes
         # into one variable that gets written to the report because
@@ -144,30 +149,30 @@
           ansible.builtin.set_fact:
             _mons_test_containers_existance_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_mons_test_containers_existance_data'
+                     '_mons_test_containers_existance_data'\
                     )
                }}"
             _mons_test_containers_running_data:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_mons_test_containers_running_data'
+                     '_mons_test_containers_running_data'\
                     )
                }}"
             _mons_reasons:
               "{{
-                 play_hosts|
-                 map(
+                 play_hosts |
+                 map(\
                      'extract',
                      hostvars,
-                     '_mons_reasons'
-                    )|
+                     '_mons_reasons'\
+                    ) |
                  join('\n')
                  + '\nSee test data for details.'
                }}"
@@ -251,9 +256,9 @@
         _mons_test_quorum_monmap_data:
           "{{ _mons_monmap.stdout }}"
         _mons_monmap_quorum_length:
-          "{{ _mons_monmap.stdout|
-              from_json|
-              json_query('quorum')|
+          "{{ _mons_monmap.stdout |
+              from_json |
+              json_query('quorum') |
               length
            }}"
       run_once: true
@@ -266,9 +271,9 @@
         _mons_test_quorum_data:
           "No quorum or not all monitors are part of the quorum.
            Mons in quorum:\n\
-           {{ _mons_monmap.stdout|
-              from_json|
-              json_query('quorum')|
+           {{ _mons_monmap.stdout |
+              from_json |
+              json_query('quorum') |
               join(',')
            }}"
         _mons_reasons:
@@ -276,7 +281,7 @@
           Test 'monitor-quorum' failed."
       run_once: true
       when:
-        _mons_monmap_quorum_length|int != groups['ceph-mon']|length
+        _mons_monmap_quorum_length | int != groups['ceph-mon'] | length
 
     # Pass quorum test if quorum size is as expected
     - name: Pass quorum test if all monitors are in quorum
@@ -285,14 +290,14 @@
         _mons_test_quorum_data:
           "All monitors are part of quorum.
            Mons in quorum:\n\
-           {{ _mons_monmap.stdout|
-              from_json|
-              json_query('quorum')|
+           {{ _mons_monmap.stdout |
+              from_json |
+              json_query('quorum') |
               join(',')
            }}"
       run_once: true
       when:
-        _mons_monmap_quorum_length|int == groups['ceph-mon']|length
+        _mons_monmap_quorum_length | int == groups['ceph-mon'] | length
 
     # Test 4: Check FSID
     - name: Set fsid test vars
@@ -300,7 +305,7 @@
         _mons_test_fsid_result: "no-result"
         _mons_test_fsid_data: ""
         _mons_monmap_fsid:
-          "{{ _mons_monmap.stdout|from_json|json_query('fsid') }}"
+          "{{ _mons_monmap.stdout | from_json | json_query('fsid') }}"
       run_once: true
 
     - name: Fail Cluster FSID test if FSID does not match configuration
@@ -345,8 +350,8 @@
       ansible.builtin.set_fact:
         _mons_health_status:
           "{{
-             _mons_status_data.stdout|
-             from_json|
+             _mons_status_data.stdout |
+             from_json |
              json_query('health.status')
            }}"
       run_once: true
@@ -432,61 +437,61 @@
       ansible.builtin.set_fact:
         _mons_test_containers_existance_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mons_test_containers_existance_data'
-                )
+                  '_mons_test_containers_existance_data'\
+                 )
             }}"
         _mons_test_containers_running_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mons_test_containers_running_data'
-                )
+                  '_mons_test_containers_running_data'\
+                 )
             }}"
         _mons_test_quorum_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mons_test_quorum_data'
-                )|
+                  '_mons_test_quorum_data'\
+                 ) |
               unique
             }}"
         _mons_test_fsid_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mons_test_fsid_data'
-                )|
+                  '_mons_test_fsid_data'\
+                 ) |
               unique
             }}"
         _mons_test_health_data:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mons_test_health_data'
-                )|
+                  '_mons_test_health_data'\
+                 ) |
               unique
             }}"
         _mons_reasons:
           "{{
-              play_hosts|
-              map(
+              play_hosts |
+              map(\
                   'extract',
                   hostvars,
-                  '_mons_reasons'
-                )|
-              unique|
+                  '_mons_reasons'\
+                 ) |
+              unique |
               join('\n')
               + '\nSee test data for details.'
             }}"
@@ -559,5 +564,6 @@
       ansible.builtin.template:
         src: "templates/ceph-mons-validator-report.json.j2"
         dest: "{{ _mons_report_file }}"
+        mode: 0640
       delegate_to: "{{ groups['manager'][0] }}"
       run_once: true

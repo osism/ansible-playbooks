@@ -81,7 +81,7 @@
         name: hardening
         apply:
           become: true
-      when: enable_hardening | default('true')|bool
+      when: enable_hardening | default('true') | bool
 
 - name: Apply bootstrap roles part 3
   ignore_unreachable: true
@@ -96,7 +96,7 @@
     - name: Include auditd role
       ansible.builtin.include_role:
         name: auditd
-      when: enable_auditd | default('true')|bool
+      when: enable_auditd | default('true') | bool
 
   roles:
     - role: journald

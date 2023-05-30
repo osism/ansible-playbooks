@@ -25,14 +25,14 @@
         enabled: false
         state: stopped
         name: netdata
-      ignore_errors: true
+      ignore_errors: true # noqa ignore-errors
 
     - name: Remove package
       become: true
       ansible.builtin.apt:
         name: netdata
         state: absent
-        lock_timeout: "{{ apt_lock_timeout|default(300) }}"
+        lock_timeout: "{{ apt_lock_timeout | default(300) }}"
 
     - name: Remove directories and files
       become: true
