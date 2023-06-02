@@ -18,7 +18,7 @@
       register: result
       changed_when: false
 
-    - name: "Stop/disable {{ obsolet_service }}-containers"
+    - name: "Stop/disable container-{{ obsolet_service }}"
       become: true
       community.docker.docker_container:
         name: "{{ item }}"
@@ -27,7 +27,7 @@
       with_items:
         - "{{ obsolet_service_containers }}"
 
-    - name: "Stop/disable {{ obsolet_service }}-volumes"
+    - name: "Stop/disable volume-{{ obsolet_service }}"
       become: true
       community.docker.docker_volume:
         name: "{{ item }}"
@@ -35,7 +35,7 @@
       with_items:
         - "{{ obsolet_service }}"
 
-    - name: "Remove {{ obsolet_service }}-images"
+    - name: "Remove image-{{ obsolet_service }}"
       become: true
       ansible.builtin.raw: "docker rmi {{ item }}"
       with_items:
@@ -50,12 +50,12 @@
         path: "/etc/kolla/{{ item }}"
         state: absent
       with_items:
-        - "{{ obsolet_service_dir}}"
+        - "{{ obsolet_service_dir }}"
 
     - name: Remove log Directory
       become: true
       ansible.builtin.file:
-        path: "/var/log/kolla/{{ obsolet_service}}"
+        path: "/var/log/kolla/{{ obsolet_service }}"
         state: absent
 
 - name: Clean up obsolet service configuration
@@ -65,13 +65,13 @@
     obsolet_service_dir: panko-api
     gather_facts: false
   tasks:
-    - name: "Remove {{ obsolet_service }} Loadbalancer Configuration"
+    - name: "Remove Loadbalancer Configuration {{ obsolet_service }}"
       become: true
       ansible.builtin.file:
         path: "/etc/kolla/haproxy/service.d/{{ item }}.cfg"
         state: absent
       with_items:
-        - "{{ obsolet_service_dir}}"
+        - "{{ obsolet_service_dir }}"
 
 - name: Clean up obsolet service endpoint
   hosts: manager
@@ -82,7 +82,7 @@
     os_cloud:
       gather_facts: false
   tasks:
-    - name: "Remove {{ obsolet_service }} Endpoints"
+    - name: "Remove Endpoints {{ obsolet_service }}"
       openstack.cloud.catalog_service:
         cloud: "{{ os_cloud }}"
         state: absent
@@ -95,6 +95,6 @@
         state: absent
         name: "{{ obsolet_service_os_indentity }}"
 
-    - name: "Database {{ obsolet_service }} already exists"
+    - name: "Already existing Database {{ obsolet_service }}"
       ansible.builtin.debug:
         msg: "The Database of {{ obsolet_service }} should remove, later"

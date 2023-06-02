@@ -18,7 +18,7 @@
       register: result
       changed_when: false
 
-    - name: "Stop/disable {{ obsolet_service }}-containers"
+    - name: "Stop/disable container-{{ obsolet_service }}"
       become: true
       community.docker.docker_container:
         name: "{{ item }}"
@@ -28,7 +28,7 @@
         - "{{ obsolet_service_containers }}"
 
     # the community.docker.docker_image module is not able handle this  
-    - name: "Remove {{ obsolet_service }}-images"
+    - name: "Remove image-{{ obsolet_service }}"
       become: true
       ansible.builtin.raw: "docker rmi {{ item }}"
       with_items:
@@ -43,14 +43,14 @@
         path: "/etc/kolla/{{ item }}"
         state: absent
       with_items:
-        - "{{ obsolet_service_dir}}"
+        - "{{ obsolet_service_dir }}"
 
     - name: Remove log Directory
       become: true
       ansible.builtin.file:
-        path: "/var/log/kolla/{{ obsolet_service}}"
+        path: "/var/log/kolla/{{ obsolet_service }}"
         state: absent
 
-    - name: "maybe some ELK relics from {{ obsolet_service }} already exists"
+    - name: "Maybe some ELK relicts already exists from {{ obsolet_service }}"
       ansible.builtin.debug:
         msg: "This {{ obsolet_service }} should remove, later"

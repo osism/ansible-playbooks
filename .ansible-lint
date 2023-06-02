@@ -4,6 +4,7 @@ exclude_paths:
   - ../home/.cache
   - library
   - .github/
+  - requirements.yml
   - playbooks/generic/common.yml
 mock_modules:
   - community.docker.docker_container
@@ -25,6 +26,10 @@ rulesdir:
   - ./.ansible-lint-rules/
 skip_list:
   - galaxy[no-changelog]
+  - yaml
+  - run-once[task]
+  - key-order[task] # disabled because we use our own rule
+  - fqcn[keyword]
 # DO NOT DELETE THE WARNLIST! It is required for our custom rules!
 # If this isn't there our custom rules will only through a warning and wont generate a failure!:
 warn_list:

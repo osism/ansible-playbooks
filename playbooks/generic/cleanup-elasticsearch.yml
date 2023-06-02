@@ -11,7 +11,7 @@
   tasks:
     - name: Remove elasticsearch index
       ansible.builtin.uri:
-        url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime( ( ansible_date_time.epoch | int ) - ( 86400 *  elasticsearch_retention_time | int) ) }}"  # noqa 204
+        url: "http://{{ elasticsearch_ip }}:{{ elasticsearch_port }}/{{ elasticsearch_prefix }}-{{ '%Y.%m.%d' | strftime((ansible_date_time.epoch | int) - (86400 * elasticsearch_retention_time | int)) }}"
         method: DELETE
         return_content: true
         status_code: [200, 404]
