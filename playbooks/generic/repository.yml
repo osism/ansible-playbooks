@@ -4,8 +4,5 @@
   serial: "{{ osism_serial['repository']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: repository
+    - role: osism.commons.repository

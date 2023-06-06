@@ -5,17 +5,11 @@
   vars:
     docker_enforce_restart: true
 
-  collections:
-    - osism.services
-
   roles:
-    - role: docker
+    - role: osism.services.docker
 
 - name: Apply role docker-compose
   hosts: manager
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: docker_compose
+    - role: osism.commons.docker_compose

@@ -4,8 +4,5 @@
   serial: "{{ osism_serial['osquery']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: osquery
+    - role: osism.services.osquery

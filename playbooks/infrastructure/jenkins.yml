@@ -3,8 +3,5 @@
   hosts: "{{ hosts_jenkins|default('jenkins') }}"
   serial: "{{ osism_serial['jenkins']|default('0') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: jenkins
+    - role: osism.services.jenkins

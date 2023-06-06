@@ -2,8 +2,6 @@
 - name: Create SCS flavors
   hosts: localhost
   connection: local
-  collections:
-    - openstack.cloud
 
   tasks:
     # vCPU:RAM ratio: 1:2

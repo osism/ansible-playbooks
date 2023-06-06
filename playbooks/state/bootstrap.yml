@@ -4,16 +4,13 @@
   serial: "{{ osism_serial['state']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.commons
-
   vars:
     state_bootstrap_status: "True"
 
   tasks:
     - name: Set is_bootstraped fact
       ansible.builtin.include_role:
-        name: state
+        name: osism.commons.state
       vars:
         state_name: osism
         state_section: bootstrap
@@ -23,7 +20,7 @@
 
     - name: Set timestamp_bootstrap fact
       ansible.builtin.include_role:
-        name: state
+        name: osism.commons.state
       vars:
         state_name: osism
         state_section: bootstrap

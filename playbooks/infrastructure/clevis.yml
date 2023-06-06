@@ -3,8 +3,5 @@
   hosts: "{{ hosts_clevis|default('clevis') }}"
   serial: "{{ osism_serial['clevis']|default(osism_serial_default)|default(0) }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: clevis
+    - role: osism.commons.clevis

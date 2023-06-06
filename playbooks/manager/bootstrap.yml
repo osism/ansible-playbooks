@@ -2,42 +2,34 @@
 - name: Bootstrap manager node - pt. 1
   hosts: manager
 
-  collections:
-    - osism.commons
-    - osism.services
-
   roles:
-    - role: hostname
+    - role: osism.commons.hostname
       tags: hostname
 
-    - role: hosts
+    - role: osism.commons.hosts
       tags: hosts
 
-    - role: proxy
+    - role: osism.commons.proxy
       tags: proxy
 
-    - role: resolvconf
+    - role: osism.commons.resolvconf
       tags: resolvconf
 
-    - role: repository
+    - role: osism.commons.repository
       tags: repository
 
 - name: Bootstrap manager node - pt. 2
   hosts: manager
 
-  collections:
-    - osism.commons
-    - osism.services
-
   roles:
-    - role: timezone
+    - role: osism.commons.timezone
       tags: timezone
 
-    - role: chrony
+    - role: osism.services.chrony
       tags: chrony
 
-    - role: docker
+    - role: osism.services.docker
       tags: docker
 
-    - role: docker_compose
+    - role: osism.commons.docker_compose
       tags: docker

@@ -4,8 +4,5 @@
   serial: "{{ osism_serial['podman']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: podman
+    - role: osism.commons.podman

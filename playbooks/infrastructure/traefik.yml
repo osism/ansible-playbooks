@@ -3,8 +3,5 @@
   hosts: "{{ hosts_traefik|default('traefik') }}"
   serial: "{{ osism_serial['traefik']|default(osism_serial_default)|default(0) }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: traefik
+    - role: osism.services.traefik

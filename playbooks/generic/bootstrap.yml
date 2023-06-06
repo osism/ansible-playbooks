@@ -39,35 +39,31 @@
   serial: "{{ osism_serial_default | default(0) }}"
   strategy: "{{ osism_strategy | default('free') }}"
 
-  collections:
-    - osism.commons
-    - osism.services
-
   roles:
-    - role: hostname
-    - role: hosts
-    - role: proxy
-    - role: resolvconf
+    - role: osism.commons.hostname
+    - role: osism.commons.hosts
+    - role: osism.commons.proxy
+    - role: osism.commons.resolvconf
       when: enable_resolvconf | default('true') | bool
-    - role: repository
-    - role: rsyslog
-    - role: systohc
-    - role: configfs
-    - role: packages
-    - role: sysctl
-    - role: services
-    - role: motd
-    - role: hddtemp
+    - role: osism.commons.repository
+    - role: osism.services.rsyslog
+    - role: osism.commons.systohc
+    - role: osism.commons.configfs
+    - role: osism.commons.packages
+    - role: osism.commons.sysctl
+    - role: osism.commons.services
+    - role: osism.commons.motd
+    - role: osism.services.hddtemp
       when: ansible_lsb.major_release|int < 22
-    - role: rng
-    - role: smartd
-    - role: cleanup
-    - role: timezone
-    - role: docker
-    - role: docker_compose
-    - role: facts
-    - role: chrony
-    - role: lldpd
+    - role: osism.services.rng
+    - role: osism.services.smartd
+    - role: osism.commons.cleanup
+    - role: osism.commons.timezone
+    - role: osism.services.docker
+    - role: osism.commons.docker_compose
+    - role: osism.commons.facts
+    - role: osism.services.chrony
+    - role: osism.services.lldpd
 
 - name: Apply bootstrap role part 2
   ignore_unreachable: true
@@ -89,17 +85,14 @@
   serial: "{{ osism_serial_default | default(0) }}"
   strategy: "{{ osism_strategy | default('free') }}"
 
-  collections:
-    - osism.services
-
   tasks:
     - name: Include auditd role
       ansible.builtin.include_role:
-        name: auditd
+        name: osism.services.auditd
       when: enable_auditd | default('true') | bool
 
   roles:
-    - role: journald
+    - role: osism.services.journald
 
 - name: Set state bootstrap
   ignore_unreachable: true
@@ -107,16 +100,13 @@
   gather_facts: false
   strategy: "{{ osism_strategy | default('linear') }}"
 
-  collections:
-    - osism.commons
-
   vars:
     state_bootstrap_status: "True"
 
   tasks:
     - name: Set osism.bootstrap.status fact
       ansible.builtin.include_role:
-        name: state
+        name: osism.commons.state
       vars:
         state_name: osism
         state_section: bootstrap
@@ -126,7 +116,7 @@
 
     - name: Set osism.bootstrap.timestamp fact
       ansible.builtin.include_role:
-        name: state
+        name: osism.commons.state
       vars:
         state_name: osism
         state_section: bootstrap

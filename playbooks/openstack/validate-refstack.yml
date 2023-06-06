@@ -2,8 +2,5 @@
 - name: Run refstack validator
   hosts: localhost
 
-  collections:
-    - osism.validations
-
   roles:
-    - role: refstack
+    - role: osism.validations.refstack
