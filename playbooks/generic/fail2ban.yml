@@ -4,8 +4,5 @@
   serial: "{{ osism_serial['fail2ban']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: fail2ban
+    - role: osism.services.fail2ban

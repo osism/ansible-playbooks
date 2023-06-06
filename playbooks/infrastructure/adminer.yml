@@ -3,8 +3,5 @@
   hosts: "{{ hosts_adminer|default('adminer') }}"
   serial: "{{ osism_serial['adminer']|default('0') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: adminer
+    - role: osism.services.adminer

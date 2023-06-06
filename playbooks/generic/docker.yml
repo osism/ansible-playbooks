@@ -19,11 +19,8 @@
   serial: "{{ osism_serial['docker']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: docker
+    - role: osism.services.docker
 
 - name: Apply role docker_compose
   hosts:
@@ -31,8 +28,5 @@
     - "&enable_docker_True"
   serial: "{{ osism_serial['docker_compose']|default('0') }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: docker_compose
+    - role: osism.commons.docker_compose

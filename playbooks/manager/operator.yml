@@ -18,10 +18,7 @@
 - name: Apply role operator
   hosts: manager
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: operator
+    - role: osism.commons.operator
       tags: operator
       ignore_errors: true

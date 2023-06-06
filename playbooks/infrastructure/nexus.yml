@@ -3,8 +3,5 @@
   hosts: "{{ hosts_nexus|default('nexus') }}"
   serial: "{{ osism_serial['nexus']|default('0') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: nexus
+    - role: osism.services.nexus

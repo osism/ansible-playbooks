@@ -4,8 +4,5 @@
   serial: "{{ osism_serial['ipmitool']|default('0') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: ipmitool
+    - role: osism.commons.ipmitool

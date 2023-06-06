@@ -18,8 +18,5 @@
     - "&enable_trivy_True"
   serial: "{{ osism_serial['trivy']|default('0') }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: trivy
+    - role: osism.commons.trivy

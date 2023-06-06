@@ -18,8 +18,5 @@
   serial: "{{ osism_serial['netdata']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: netdata
+    - role: osism.services.netdata

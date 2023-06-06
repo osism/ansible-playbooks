@@ -19,8 +19,5 @@
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: auditd
+    - role: osism.services.auditd

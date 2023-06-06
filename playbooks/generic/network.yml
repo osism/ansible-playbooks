@@ -4,8 +4,5 @@
   serial: "{{ osism_serial['network']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.commons
-
   roles:
-    - role: network
+    - role: osism.commons.network

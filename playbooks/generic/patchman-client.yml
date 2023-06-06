@@ -19,8 +19,5 @@
   serial: "{{ osism_serial['patchman_client']|default('0') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  collections:
-    - osism.services
-
   roles:
-    - role: patchman_client
+    - role: osism.services.patchman_client
