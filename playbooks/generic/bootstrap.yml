@@ -121,5 +121,5 @@
         state_name: osism
         state_section: bootstrap
         state_option: timestamp
-        state_value: "{{ ansible_date_time.iso8601 }}"
+        state_value: "{{ now(utc=True).isoformat() }}"
       when: not ansible_local.osism.bootstrap.status | default("False") | bool
