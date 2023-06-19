@@ -20,7 +20,7 @@
   strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
-    - name: Stop/disable services
+    - name: Stop/disable services  # noqa: ignore-errors
       become: true
       ansible.builtin.systemd:
         enabled: false
@@ -29,7 +29,7 @@
       loop:
         - cockpit
         - cockpit.socket
-      ignore_errors: true # noqa ignore-errors
+      ignore_errors: true
 
     - name: Remove packages
       become: true

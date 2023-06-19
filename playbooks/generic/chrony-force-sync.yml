@@ -12,9 +12,11 @@
   tasks:
     - name: Execute chronyc
       become: true
-      ansible.builtin.command: "/usr/bin/chronyc -a '{{ item }}'"  # noqa no-changed-when
+      ansible.builtin.command: "/usr/bin/chronyc -a '{{ item }}'"
       loop: "{{ chronyc_options }}"
+      changed_when: true
 
     - name: Sync hardware clock
       become: true
-      ansible.builtin.command: /sbin/hwclock --systohc --utc  # noqa no-changed-when
+      ansible.builtin.command: /sbin/hwclock --systohc --utc
+      changed_when: true
