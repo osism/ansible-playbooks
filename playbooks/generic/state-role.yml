@@ -1,0 +1,28 @@
+---
+- name: Store status and time of the last execution of a role
+  hosts: all
+  serial: 0
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  vars:
+    state_role_name: dummy
+    state_role_state: ok
+
+  tasks:
+    - name: Set fact state
+      ansible.builtin.include_role:
+        name: osism.commons.state
+      vars:
+        state_name: osism
+        state_section: "{{ state_role_name }}"
+        state_option: state
+        state_value: "{{ state_role_state }}"
+
+    - name: Set fact timestamp
+      ansible.builtin.include_role:
+        name: osism.commons.state
+      vars:
+        state_name: osism
+        state_section: "{{ state_role_name }}"
+        state_option: timestamp
+        state_value: "{{ ansible_date_time.iso8601 }}"
