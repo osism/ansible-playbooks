@@ -5,9 +5,9 @@
   strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:
-    - name: Manage container
+    - name: Manage container  # noqa: ignore-errors
       ansible.builtin.command: "docker {{ container_action }} {{ container_name }}"
       changed_when: true
 
       # NOTE: Errors are intentionally ignored here.
-      ignore_errors: true # noqa ignore-errors
+      ignore_errors: true

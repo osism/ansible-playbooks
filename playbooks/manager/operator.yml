@@ -5,7 +5,7 @@
     ansible_ssh_pipelining: false
 
   tasks:
-    - name: Do not require tty for all users
+    - name: Do not require tty for all users  # noqa: ignore-errors
       become: true
       ansible.builtin.replace:
         # NOTE: parameter changes to path after 2.3
@@ -13,7 +13,7 @@
         regexp: "^Defaults.*requiretty$"
         replace: "Defaults !requiretty"
         mode: 0440
-      ignore_errors: true # noqa ignore-errors
+      ignore_errors: true
 
 - name: Apply role operator
   hosts: manager

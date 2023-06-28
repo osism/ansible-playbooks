@@ -20,5 +20,5 @@
         mode: 0755
 
     - name: Backup netbox database
-      ansible.builtin.shell: "docker exec -t {{ netbox_postgres_container_name }} pg_dumpall -c -U postgres > {{ netbox_archive_directory }}/dump_$(date +%Y_%m_%d-%H_%M_%S).sql"  # noqa 204
+      ansible.builtin.shell: "docker exec -t {{ netbox_postgres_container_name }} pg_dumpall -c -U postgres > {{ netbox_archive_directory }}/dump_$(date +%Y_%m_%d-%H_%M_%S).sql"
       changed_when: true
