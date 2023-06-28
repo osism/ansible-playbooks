@@ -1,0 +1,9 @@
+---
+- name: Apply role tuned
+  hosts: "{{ hosts_tuned|default('compute') }}"
+  serial: "{{ osism_serial['tuned']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.services.tuned
+      when: enable_tuned | default('true') | bool
