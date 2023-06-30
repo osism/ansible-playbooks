@@ -325,6 +325,7 @@
         command: "ceph osd tree --format=json"
       register: _osds_tree_raw
       run_once: true
+      delegate_to: "groups[mon_group_name|default('ceph-mon')][0]"
 
     - name: Parse osd tree from JSON
       ansible.builtin.set_fact:
