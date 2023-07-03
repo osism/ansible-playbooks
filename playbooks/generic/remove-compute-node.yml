@@ -1,0 +1,122 @@
+---
+- name: Task 1 disable and migrate a compute node
+  hosts: manager
+  vars:
+    disable_node:
+    os_cloud:
+      gather_facts: false
+  tasks:
+
+    - name: "Disable compute node {{ disable_node }}"
+      ansible.builtin.raw: "openstack  --os-cloud {{ os_cloud }} compute service set {{ disable_node }} nova-compute --disable"
+      changed_when: false
+
+    - name: "Detect all instances on  compute node {{ disable_node }}"
+      ansible.builtin.raw: "openstack --os-cloud {{ os_cloud }} server list --all-projects --host {{ disable_node}} -f value -c ID"
+      register: result
+      changed_when: false
+
+    - name: "Migrate all instances on  compute node {{ disable_node }}"
+      ansible.builtin.raw: "openstack --os-cloud {{ os_cloud }} server migrate --live-migration {{ item }}"
+      with_items:
+        - "{{ result.stdout_lines }}"
+      changed_when: false
+
+- name: Task 2 remove a compute node from openstack environment
+  hosts: manager
+  vars:
+    disable_node:
+    os_cloud:
+      gather_facts: false
+  tasks:
+
+    - name: "Detect compute node {{ disable_node }}"
+      ansible.builtin.raw: "openstack --os-cloud {{ os_cloud }} compute service list --host {{ disable_node }} -f value -c ID"
+      register: result
+      changed_when: false
+
+    - name: "Remove compute node {{ disable_node }}"
+      ansible.builtin.raw: "openstack --os-cloud {{ os_cloud }} compute service delete --os-compute-api-version 2.53  {{ item }}"
+      with_items:
+        - "{{ result.stdout_lines }}"
+      changed_when: false
+
+- name: Task 3 decommission a compute node services
+  hosts: compute
+  vars:
+    obsolet_service:
+      - nova-compute
+      - nova-libvirt
+      - nova-ssh
+      - neutron-ovn-metadata_agent
+      - openvswitch-vswitchd
+      - openvswitch-db
+      - ovn-controller
+    obsolet_containers_volumes:
+      - nova_libvirt
+      - nova_libvirt_qemu
+      - nova_libvirt_secrets
+      - openvswitch_db
+    obsolet_service_containers:
+      - nova_compute
+      - nova_libvirt
+      - nova_ssh
+      - neutron_ovn_metadata_agent
+      - openvswitch_db
+      - openvswitch_vswitchd
+      - ovn_controller
+    obsolet_service_dir:
+      - nova-compute
+      - nova-libvirt
+      - nova-ssh
+      - neutron-ovn-metadata_agent
+      - openvswitch-vswitchd
+      - openvswitch-db
+
+    gather_facts: false
+  tasks:
+
+    - name: Get infos on container
+      ansible.builtin.raw: "docker images --filter=reference='quay.io/osism/{{ obsolet_service }}*' -q"
+      register: result
+      changed_when: false
+
+    - name: "Stop/disable container-{{ obsolet_service }}"
+      become: true
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+        stop_signal: true
+      with_items:
+        - "{{ obsolet_service_containers }}"
+
+    - name: "Stop/disable volume-{{ obsolet_service }}"
+      become: true
+      community.docker.docker_volume:
+        name: "{{ item }}"
+        state: absent
+      with_items:
+        - "{{ obsolet_service }}"
+
+    - name: "Remove image-{{ obsolet_service }}"
+      become: true
+      ansible.builtin.raw: "docker rmi {{ item }}"
+      with_items:
+        - "{{ result.stdout_lines }}"
+      register: docker_rmi_status
+      failed_when: false
+      changed_when: docker_rmi_status.rc == 0
+
+    - name: Remove etc directory
+      become: true
+      ansible.builtin.file:
+        path: "/etc/kolla/{{ item }}"
+        state: absent
+      with_items:
+        - "{{ obsolet_service_dir }}"
+
+    - name: Remove log Directory
+      become: true
+      ansible.builtin.file:
+        path: "/var/log/kolla/{{ obsolet_service }}"
+        state: absent
