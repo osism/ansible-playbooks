@@ -3,6 +3,7 @@
   hosts: all
   serial: "{{ osism_serial['ping']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
+  gather_facts: false
 
   tasks:
     - name: Ping system
