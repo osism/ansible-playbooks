@@ -1,7 +1,0 @@
----
-- name: Apply role jenkins
-  hosts: "{{ hosts_jenkins|default('jenkins') }}"
-  serial: "{{ osism_serial['jenkins']|default('0') }}"
-
-  roles:
-    - role: osism.services.jenkins
