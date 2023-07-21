@@ -1,0 +1,40 @@
+---
+- name: Prepare all k3s nodes
+  hosts: "{{ hosts_k3s_all|default('k3s_all') }}"
+  gather_facts: false
+
+  roles:
+    - name: Apply role k3s_prereq
+      become: true
+      role: k3s_prereq
+
+    - name: Apply role k3s_download
+      become: true
+      role: k3s_download
+
+- name: Deploy k3s master nodes
+  hosts: "{{ hosts_k3s_master|default('k3s_master') }}"
+  gather_facts: false
+
+  roles:
+    - name: Apply role k3s_server
+      become: true
+      role: k3s_server
+
+- name: Deploy k3s worker nodes
+  hosts: "{{ hosts_k3s_node|default('k3s_node') }}"
+  gather_facts: false
+
+  roles:
+    - name: Apply role k3s_agent
+      become: true
+      role: k3s_agent
+
+- name: Run post actions on master nodes
+  hosts: "{{ hosts_k3s_master|default('k3s_master') }}"
+  gather_facts: false
+
+  roles:
+    - name: Apply role k3s_server_post
+      become: true
+      role: k3s_server_post
