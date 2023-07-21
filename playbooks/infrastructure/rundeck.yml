@@ -1,7 +1,0 @@
----
-- name: Apply role rundeck
-  hosts: "{{ hosts_rundeck|default('rundeck') }}"
-  serial: "{{ osism_serial['rundeck']|default('0') }}"
-
-  roles:
-    - role: osism.services.rundeck
