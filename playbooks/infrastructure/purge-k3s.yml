@@ -1,0 +1,31 @@
+---
+- name: Confirm whether user really meant to purge the k3s cluster
+  hosts: localhost
+  gather_facts: false
+
+  vars_prompt:
+    - name: ireallymeanit
+      prompt: Are you sure you want to purge the k3s cluster?
+      default: 'no'
+      private: no
+
+  tasks:
+    - name: Exit playbook, if user did not mean to purge k3s cluster
+      ansible.builtin.fail:
+        msg: >
+          "Exiting purge-k3s playbook, k3s cluster was NOT purged.
+           To purge the k3s cluster, either say 'yes' on the prompt or
+           or use `-e ireallymeanit=yes` on the command line when
+           invoking the playbook"
+      when: ireallymeanit != 'yes'
+
+- name: Purge all k3s nodes
+  hosts: "{{ hosts_k3s_all|default('k3s_all') }}"
+  gather_facts: false
+
+  roles:
+    - name: Apply k3s_reset role
+      become: true
+      role: k3s_reset
+      vars:
+        proxmox_lxc_configure: false
