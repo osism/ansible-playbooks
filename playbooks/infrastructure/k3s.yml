@@ -38,3 +38,49 @@
     - name: Apply role k3s_server_post
       become: true
       role: k3s_server_post
+
+- name: Prepare use of kubectl
+  hosts: manager
+  gather_facts: false
+
+  tasks:
+    - name: Get home directory of operator user
+      become: true
+      ansible.builtin.shell: |
+        set -o pipefail
+        getent passwd {{ operator_user }} | cut -d: -f6
+      args:
+        executable: /bin/bash
+      changed_when: false
+      register: home_directory
+
+    - name: Create .kube directory
+      ansible.builtin.file:
+        path: "{{ home_directory.stdout }}/.kube"
+        state: directory
+        mode: 0700
+
+    - name: Get kubeconfig file
+      become: true
+      ansible.builtin.slurp:
+        src: /etc/rancher/k3s/k3s.yaml
+      delegate_to: "{{ groups[hosts_k3s_master | default('k3s_master')][0] }}"
+      register: kubeconfig
+
+    - name: Write kubeconfig file
+      ansible.builtin.copy:
+        content: "{{ kubeconfig['content'] | b64decode }}"
+        dest: "{{ home_directory.stdout }}/.kube/config"
+        mode: 0600
+
+    - name: Set KUBECONFIG environment variable
+      ansible.builtin.lineinfile:
+        dest: "{{ home_directory.stdout }}/.bashrc"
+        line: "export KUBECONFIG={{ home_directory.stdout }}/.kube/config"
+        create: true
+        mode: 0640
+
+    - name: Install kubectl package
+      ansible.builtin.include_role:
+        name: osism.commons.kubectl
+      when: "inventory_hostname not in groups[hosts_k3s_all | default('k3s_all')]"
