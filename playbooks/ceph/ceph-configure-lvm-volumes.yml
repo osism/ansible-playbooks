@@ -91,7 +91,7 @@
                 )
               ]
               }}
-          with_items: "{{ ceph_wal_devices }}"
+          with_dict: "{{ ceph_wal_devices }}"
           when: ceph_wal_devices is defined
 
         - name: Generate DB VG names
@@ -113,7 +113,7 @@
                 )
               ]
               }}
-          with_items: "{{ ceph_db_devices }}"
+          with_dict: "{{ ceph_db_devices }}"
           when: ceph_db_devices is defined
 
         - name: Generate shared DB/WAL VG names
@@ -135,7 +135,7 @@
                 )
               ]
               }}
-          with_items: "{{ ceph_db_wal_devices }}"
+          with_dict: "{{ ceph_db_wal_devices }}"
           when: ceph_db_wal_devices is defined
 
         - name: Generate lvm_volumes structure
@@ -192,7 +192,7 @@
               {{
                 _ceph_configure_lvm_config_data |
                 ansible.builtin.combine(
-                  {'ceph_db_devices', ceph_db_devices }
+                  {'ceph_db_devices': ceph_db_devices }
                 )
               }}
           when: ceph_db_devices is defined
@@ -203,7 +203,7 @@
               {{
                 _ceph_configure_lvm_config_data |
                 ansible.builtin.combine(
-                  {'ceph_wal_devices', ceph_wal_devices }
+                  {'ceph_wal_devices': ceph_wal_devices }
                 )
               }}
           when: ceph_wal_devices is defined
@@ -214,7 +214,7 @@
               {{
                 _ceph_configure_lvm_config_data |
                 ansible.builtin.combine(
-                  {'ceph_db_wal_devices', ceph_db_wal_devices }
+                  {'ceph_db_wal_devices': ceph_db_wal_devices }
                 )
               }}
           when: ceph_db_wal_devices is defined
