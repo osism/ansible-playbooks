@@ -54,89 +54,106 @@
 
         - name: Set UUIDs for OSD VGs/LVs
           ansible.builtin.set_fact:
-            _ceph_osd_devices: >-
+            ceph_osd_devices: >-
               {{
-                _ceph_osd_devices|default([]) +
-                [
-                  item|ansible.builtin.combine(
+                ceph_osd_devices|ansible.builtin.combine(
                   {
-                    'osd_lvm_uuid':
-                    lookup(
-                      'community.general.random_string',
-                        length = 64
-                    )|ansible.builtin.to_uuid
+                    item.key:
+                    item.value|ansible.builtin.combine(
+                    {
+                      'osd_lvm_uuid':
+                      lookup(
+                        'community.general.random_string',
+                          length = 64
+                      )|ansible.builtin.to_uuid
+                    }
+                    )
                   }
-                  )
-                ]
+                )
               }}
-          with_items: "{{ ceph_osd_devices }}"
-          when: item.osd_lvm_uuid is not defined
+          with_dict: "{{ ceph_osd_devices }}"
+          when: item.value.osd_lvm_uuid is not defined
 
         - name: Generate WAL VG names
           ansible.builtin.set_fact:
-            _ceph_wal_devices: >-
+            ceph_wal_devices: >-
               {{
-              _ceph_wal_devices|default([]) +
-              [
-                item|ansible.builtin.combine(
+                ceph_wal_devices|
+                ansible.builtin.combine(
                 {
-                  "wal_vg_name":
-                  "ceph-wal-" + (
-                    lookup(
-                      'community.general.random_string',
-                      length = 64
-                    )|ansible.builtin.to_uuid
+                  item.key:
+                  item.value|ansible.builtin.combine(
+                  {
+                    "vg_name":
+                    "ceph-wal-" + (
+                      lookup(
+                        'community.general.random_string',
+                        length = 64
+                      )|ansible.builtin.to_uuid
+                    )
+                  }
                   )
                 }
                 )
-              ]
               }}
           with_dict: "{{ ceph_wal_devices }}"
-          when: ceph_wal_devices is defined
+          when:
+            - ceph_wal_devices is defined
+            - item.value.vg_name is not defined
 
         - name: Generate DB VG names
           ansible.builtin.set_fact:
-            _ceph_db_devices: >-
+            ceph_db_devices: >-
               {{
-              _ceph_db_devices|default([]) +
-              [
-                item|combine(
+                ceph_db_devices|
+                ansible.builtin.combine(
                 {
-                  "db_vg_name":
-                  "ceph-db-" + (
-                    lookup(
-                      'community.general.random_string',
-                      length = 64
-                    )|ansible.builtin.to_uuid
+                  item.key:
+                  item.value|combine(
+                  {
+                    "vg_name":
+                    "ceph-db-" + (
+                      lookup(
+                        'community.general.random_string',
+                        length = 64
+                      )|ansible.builtin.to_uuid
+                    )
+                  }
                   )
                 }
                 )
-              ]
               }}
           with_dict: "{{ ceph_db_devices }}"
-          when: ceph_db_devices is defined
+          when:
+            - ceph_db_devices is defined
+            - item.value.vg_name is not defined
 
         - name: Generate shared DB/WAL VG names
           ansible.builtin.set_fact:
-            _ceph_db_wal_devices: >-
+            ceph_db_wal_devices: >-
               {{
-              _ceph_db_wal_devices|default([]) +
-              [
-                item|ansible.builtin.combine(
+                ceph_db_wal_devices|
+                ansible.builtin.combine(
                 {
-                  "db_wal_vg_name":
-                  "ceph-db-wal-" + (
-                    lookup(
-                      'community.general.random_string',
-                      length = 64
-                    )|ansible.builtin.to_uuid
+                  item.key:
+                  item.value|ansible.builtin.combine(
+                  {
+                    "vg_name":
+                    "ceph-db-wal-" + (
+                      lookup(
+                        'community.general.random_string',
+                        length = 64
+                      )|ansible.builtin.to_uuid
+                    )
+                  }
                   )
                 }
                 )
-              ]
               }}
           with_dict: "{{ ceph_db_wal_devices }}"
-          when: ceph_db_wal_devices is defined
+          when:
+            - ceph_db_wal_devices is defined
+            - item.value.vg_name is not defined
 
         - name: Generate lvm_volumes structure
           ansible.builtin.set_fact:
@@ -162,28 +179,28 @@
 
         - name: Print ceph_osd_devices
           ansible.builtin.debug:
-            var: _ceph_osd_devices
-          when: _ceph_osd_devices is defined
+            var: ceph_osd_devices
+          when: ceph_osd_devices is defined
 
         - name: Print WAL devices
           ansible.builtin.debug:
-            var: _ceph_wal_devices
-          when: _ceph_wal_devices is defined
+            var: ceph_wal_devices
+          when: ceph_wal_devices is defined
 
         - name: Print DB devices
           ansible.builtin.debug:
-            var: _ceph_db_devices
-          when: _ceph_db_devices is defined
+            var: ceph_db_devices
+          when: ceph_db_devices is defined
 
         - name: Print shared DB/WAL devices
           ansible.builtin.debug:
-            var: _ceph_db_wal_devices
-          when: _ceph_db_wal_devices is defined
+            var: ceph_db_wal_devices
+          when: ceph_db_wal_devices is defined
 
         - name: Set OSD devices config data
           ansible.builtin.set_fact:
             _ceph_configure_lvm_config_data:
-              ceph_osd_devices: "{{ _ceph_osd_devices }}"
+              ceph_osd_devices: "{{ ceph_osd_devices }}"
               lvm_volumes: "{{ _lvm_volumes }}"
 
         - name: Set DB devices config data
