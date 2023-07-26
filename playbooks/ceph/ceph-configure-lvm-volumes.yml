@@ -155,47 +155,134 @@
             - ceph_db_wal_devices is defined
             - item.value.vg_name is not defined
 
-        - name: Generate lvm_volumes structure
+        - name: Define lvm_volumes structures
           ansible.builtin.set_fact:
-            _lvm_volumes:
-              - data: osd-block-foo
-                data_vg: ceph-foo
-                db: osd-db-foo
-                db_vg: ceph-db-foo
-                wal: osd-wal-foo
-                wal_vg: ceph-wal-foo
-              - data: osd-block-bar
-                data_vg: ceph-bar
-                db: osd-db-bar
-                db_vg: ceph-db-bar
-                wal: osd-wal-bar
-                wal_vg: ceph-wal-bar
-              - data: osd-block-baz
-                data_vg: ceph-baz
-                db: osd-db-baz
-                db_vg: ceph-db-baz
-                wal: osd-wal-baz
-                wal_vg: ceph-wal-baz
+            _lvm_volumes_block: []
+            _lvm_volumes_block_db: []
+            _lvm_volumes_block_wal: []
+            _lvm_volumes_block_db_wal: []
 
-        - name: Print ceph_osd_devices
-          ansible.builtin.debug:
-            var: ceph_osd_devices
-          when: ceph_osd_devices is defined
+        - name: Generate lvm_volumes structure (block only)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block: >-
+              {{
+                _lvm_volumes_block +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is not defined
+            - item.value.wal_pv is not defined
 
-        - name: Print WAL devices
-          ansible.builtin.debug:
-            var: ceph_wal_devices
-          when: ceph_wal_devices is defined
+        - name: Generate lvm_volumes structure (block + db)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block_db: >-
+              {{
+                _lvm_volumes_block_db +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid,
+                  "db": "osd-db-" + item.value.osd_lvm_uuid,
+                  "db_vg": (ceph_db_devices[item.value.db_pv].vg_name
+                           if item.value.db_pv in ceph_db_devices
+                           else ceph_db_wal_devices[item.value.db_pv]).vg_name
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is defined
+            - item.value.wal_pv is not defined
 
-        - name: Print DB devices
-          ansible.builtin.debug:
-            var: ceph_db_devices
-          when: ceph_db_devices is defined
+        - name: Generate lvm_volumes structure (block + wal)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block_wal: >-
+              {{
+                _lvm_volumes_block_wal +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid,
+                  "wal": "osd-wal-" + item.value.osd_lvm_uuid,
+                  "wal_vg": (ceph_wal_devices[item.value.wal_pv].vg_name
+                           if item.value.wal_pv in ceph_wal_devices
+                           else ceph_db_wal_devices[item.value.wal_pv].vg_name)
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is defined
+            - item.value.wal_pv is not defined
 
-        - name: Print shared DB/WAL devices
+        - name: Generate lvm_volumes structure (block + db + wal)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block_db_wal: >-
+              {{
+                _lvm_volumes_block_db_wal +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid,
+                  "db": "osd-db-" + item.value.osd_lvm_uuid,
+                  "db_vg":(ceph_db_devices[item.value.db_pv].vg_name
+                           if item.value.db_pv in ceph_db_devices
+                           else ceph_db_wal_devices[item.value.db_pv].vg_name),
+                  "wal": "osd-wal-" + item.value.osd_lvm_uuid,
+                  "wal_vg": (ceph_wal_devices[item.value.wal_pv].vg_name
+                           if item.value.wal_pv in ceph_wal_devices
+                           else ceph_db_wal_devices[item.value.wal_pv].vg_name)
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is defined
+            - item.value.wal_pv is defined
+
+        - name: Compile lvm_volumes
+          ansible.builtin.set_fact:
+            _lvm_volumes: >-
+              {{
+                _lvm_volumes_block +
+                _lvm_volumes_block_db +
+                _lvm_volumes_block_wal +
+                _lvm_volumes_block_db_wal
+              }}
+
+        - name: Print _lvm_volumes_block_db_wal
           ansible.builtin.debug:
-            var: ceph_db_wal_devices
-          when: ceph_db_wal_devices is defined
+            var: _lvm_volumes_block_db_wal
+
+        #  _lvm_volumes:
+        #    - data: osd-block-foo
+        #      data_vg: ceph-foo
+        #      db: osd-db-foo
+        #      db_vg: ceph-db-foo
+        #      wal: osd-wal-foo
+        #      wal_vg: ceph-wal-foo
+        #    - data: osd-block-bar
+        #      data_vg: ceph-bar
+        #      db: osd-db-bar
+        #      db_vg: ceph-db-bar
+        #      wal: osd-wal-bar
+        #      wal_vg: ceph-wal-bar
+        #    - data: osd-block-baz
+        #      data_vg: ceph-baz
+        #      db: osd-db-baz
+        #      db_vg: ceph-db-baz
+        #      wal: osd-wal-baz
+        #      wal_vg: ceph-wal-baz
 
         - name: Set OSD devices config data
           ansible.builtin.set_fact:
@@ -234,6 +321,26 @@
                   {'ceph_db_wal_devices': ceph_db_wal_devices }
                 )
               }}
+          when: ceph_db_wal_devices is defined
+
+        - name: Print ceph_osd_devices
+          ansible.builtin.debug:
+            var: ceph_osd_devices
+          when: ceph_osd_devices is defined
+
+        - name: Print WAL devices
+          ansible.builtin.debug:
+            var: ceph_wal_devices
+          when: ceph_wal_devices is defined
+
+        - name: Print DB devices
+          ansible.builtin.debug:
+            var: ceph_db_devices
+          when: ceph_db_devices is defined
+
+        - name: Print shared DB/WAL devices
+          ansible.builtin.debug:
+            var: ceph_db_wal_devices
           when: ceph_db_wal_devices is defined
 
         - name: Print configuration data
