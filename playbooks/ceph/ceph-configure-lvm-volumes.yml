@@ -260,30 +260,6 @@
                 _lvm_volumes_block_db_wal
               }}
 
-        - name: Print _lvm_volumes_block_db_wal
-          ansible.builtin.debug:
-            var: _lvm_volumes_block_db_wal
-
-        #  _lvm_volumes:
-        #    - data: osd-block-foo
-        #      data_vg: ceph-foo
-        #      db: osd-db-foo
-        #      db_vg: ceph-db-foo
-        #      wal: osd-wal-foo
-        #      wal_vg: ceph-wal-foo
-        #    - data: osd-block-bar
-        #      data_vg: ceph-bar
-        #      db: osd-db-bar
-        #      db_vg: ceph-db-bar
-        #      wal: osd-wal-bar
-        #      wal_vg: ceph-wal-bar
-        #    - data: osd-block-baz
-        #      data_vg: ceph-baz
-        #      db: osd-db-baz
-        #      db_vg: ceph-db-baz
-        #      wal: osd-wal-baz
-        #      wal_vg: ceph-wal-baz
-
         - name: Set OSD devices config data
           ansible.builtin.set_fact:
             _ceph_configure_lvm_config_data:
