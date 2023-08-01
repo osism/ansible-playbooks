@@ -274,52 +274,97 @@
           ansible.builtin.debug:
             var: _num_osds_wanted_per_db_wal_vg
 
-      # TODO: Calculate DB LV sizes for LVs on ceph_db_devices
-      #       considering "db_size" if specified manually either in
-      #       "ceph_osd_devices" or in "ceph_db_devices", also
-      #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
-      #       if not set to false
+        # TODO: Calculate DB LV sizes for LVs on ceph_db_devices
+        #       considering "db_size" if specified manually either in
+        #       "ceph_osd_devices" or in "ceph_db_devices", also
+        #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
+        #       if not set to false
 
-      # TODO: Calculate WAL LV sizes for LVs on ceph_wal_devices
-      #       considering "wal_size" if specified manually either in
-      #       "ceph_osd_devices" or in "ceph_wal_devices", also
-      #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
-      #       if not set to false
+        # TODO: Calculate WAL LV sizes for LVs on ceph_wal_devices
+        #       considering "wal_size" if specified manually either in
+        #       "ceph_osd_devices" or in "ceph_wal_devices", also
+        #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
+        #       if not set to false
 
-      # TODO: Calculate DB LV sizes for LVs on ceph_db_wal_devices
-      #       considering "db_size" if specified manually either in
-      #       "ceph_osd_devices" or in "ceph_db_wal_devices", also
-      #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
-      #       if not set to false
+        # TODO: Calculate DB LV sizes for LVs on ceph_db_wal_devices
+        #       considering "db_size" if specified manually either in
+        #       "ceph_osd_devices" or in "ceph_db_wal_devices", also
+        #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
+        #       if not set to false
 
-      # TODO: Calculate WAL LV sizes for LVs on ceph_db_wal_devices
-      #       considering "wal_size" if specified manually either in
-      #       "ceph_osd_devices" or in "ceph_db_wal_devices", also
-      #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
-      #       if not set to false
+        # TODO: Calculate WAL LV sizes for LVs on ceph_db_wal_devices
+        #       considering "wal_size" if specified manually either in
+        #       "ceph_osd_devices" or in "ceph_db_wal_devices", also
+        #       considering "ceph_osd_db_wal_devices_buffer_space_percent"
+        #       if not set to false
 
-      # TODO: Check that combined size of DB LVs on ceph_db_devies
-      #       won't exceed available space and abort play
-      #       if it would exceed available space.
+        # TODO: Check that combined size of DB LVs on ceph_db_devies
+        #       won't exceed available space and abort play
+        #       if it would exceed available space.
 
-      # TODO: Check that combined size of WAL LVs on ceph_wal_devies
-      #       won't exceed available space and abort play
-      #       if it would exceed available space.
+        # TODO: Check that combined size of WAL LVs on ceph_wal_devies
+        #       won't exceed available space and abort play
+        #       if it would exceed available space.
 
-      # TODO: Check that combined size of DB+WAL LVs on ceph_db_wal_devices
-      #       won't exceed available space of the VG and abort play
-      #       if it would exceed available space.
+        # TODO: Check that combined size of DB+WAL LVs on ceph_db_wal_devices
+        #       won't exceed available space of the VG and abort play
+        #       if it would exceed available space.
 
-      # TODO: Create DB LVs for ceph_db_devices
+        # TODO: Create DB LVs for ceph_db_devices
 
-      # TODO: Create WAL LVs for ceph_wal_devices
+        # TODO: Create WAL LVs for ceph_wal_devices
 
-      # TODO: Create WAL LVs for ceph_db_wal_devices
+        # TODO: Create WAL LVs for ceph_db_wal_devices
 
-      # TODO: Create DB LVs for ceph_db_wal_devices
+        # TODO: Create DB LVs for ceph_db_wal_devices
 
-      # TODO: Check that all defined LVs and VGs in lvm_volumes exist
-      #       and warn the operator if something is missing.
+        # TODO: Check that all defined LVs and VGs in lvm_volumes exist
+        #       and warn the operator if something is missing.
+        - name: Get list of Ceph LVs with associated VGs
+          become: true
+          ansible.builtin.command:
+            argv:
+              - "lvs"
+              - "--options"
+              - "lv_name,vg_name"
+              - "--quiet"
+              - "--noheadings"
+              - "--reportformat"
+              - "json"
+              - "--select"
+              - 'vg_name =~ ceph-.*'
+          changed_when: false
+          register: _lvs_cmd_output
+
+        - name: Get list of Ceph PVs with associated VGs
+          become: true
+          ansible.builtin.command:
+            argv:
+              - "pvs"
+              - "--options"
+              - "pv_name,vg_name"
+              - "--quiet"
+              - "--noheadings"
+              - "--reportformat"
+              - "json"
+              - "--select"
+              - 'vg_name =~ ceph-.*'
+          changed_when: false
+          register: _pvs_cmd_output
+
+        - name: Combine JSON from _lvs_cmd_output/_pvs_cmd_output
+          ansible.builtin.set_fact:
+            lvm_report: >-
+              {{
+                (_lvs_cmd_output.stdout | from_json).report|
+                ansible.builtin.combine(
+                  (_pvs_cmd_output.stdout | from_json).report
+                )
+              }}
+
+        - name: Print LVM report data
+          ansible.builtin.debug:
+            var: lvm_report
 
       # condition is for entire block
       when:
