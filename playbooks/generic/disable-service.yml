@@ -1,0 +1,18 @@
+---
+- name: Disable service
+  hosts: "{{ hosts_disable_service | default('all') }}"
+  vars:
+    service: auditd
+
+  tasks:
+    - name: "Stop service {{ service }}"
+      become: true
+      ansible.builtin.service:
+        name: "{{ service }}"
+        state: stopped
+
+    - name: "Disable service {{ service }}"
+      become: true
+      ansible.builtin.service:
+        name: "{{ service }}"
+        enabled: false
