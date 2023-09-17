@@ -1,0 +1,426 @@
+---
+###
+# This playbook creates lvm_volumes key for ceph-ansible
+# inside a OSISM-deployed Ceph cluster:
+# As an operator you provide the following config and the playbook will
+# configure LVM (create PVs, VGs, LVs and ceph lvm_volumes config) for you:
+# <SNIP> (remove # prefix until </SNIP>)
+# # optional percentage of VGs to leave free,
+# # defaults to false
+# # Can be helpful for SSD performance of some older SSD models
+# # or to extend lifetime of SSDs in general
+# ceph_osd_db_wal_devices_buffer_space_percent: 10
+#
+# ceph_db_devices:
+#   nvme0n1: # required, PV for a DB VG
+#            # Will be prefixed by /dev/ and can also be specified
+#            # like "by-path/foo" or other things under /dev/
+#     num_osds: 6 # required, number of OSDs that shall be
+#                 # maximum deployed to this device
+#     db_size: 30 GB # optional, if not set, defaults to
+#                    # (VG size - buffer space (if enabled)) / num_osds
+# ceph_wal_devices:
+#   nvme1n1: # See above, PV for a WAL VG
+#     num_osds: 6 # See above
+#     wal_size: 2 GB # optional, if not set, defaults to 2 GiB
+#
+# ceph_db_wal_devices:
+#   nvme2n1: # See above, PV for combined WAL+DB VG
+#     num_osds: 3 # See above
+#     db_size: 30 GB # See above, except that it also considers
+#                    # total WAL size when calculating LV sizes
+#     wal_size: 2 GB # See above
+#
+# ceph_osd_devices:
+#   sda: # Device name, will be prefixed by /dev/, see above conventions
+#        # This would create a "block only" OSD without DB/WAL
+#   sdb: # Create an OSD with dedicated DB
+#     db_pv: nvme0n1 # Must be one device configured in ceph_db_devices
+#                    # or ceph_db_wal_devices
+#   sdc: # Create an OSD with dedicated WAL
+#     wal_pv: nvme1n1 # Must be one device configured in ceph_wal_devices
+#                     # or ceph_db_wal_devices
+#   sdb: # Create an OSD with dedicated DB/WAL residing on different devices
+#     db_pv: nvme0n1 # See above
+#     wal_pv: nvme1n1 # See above
+#   sdc: # Create an OSD with dedicated DB/WAL residing on the same VG/PV
+#     db_pv: nvme2n1 # Must be one device configured in ceph_db_wal_devices
+#     wal_pv: nvme2n1 # Must be the same device configured in ceph_db_wal_devices
+# </SNIP>
+
+# Be warned that you can mix things up here. There is some logic to
+# try and stop some errors, but still /dev/brain should be put
+# to good use when considering the use of this deployment method.
+
+# For all flash clusters without special configurations
+# the "devices" method would probably be sufficient.
+# For all HDD clusters the same rule applies.
+
+# It is however very flexible in creating config for
+# complex OSD scenarios and will spare the operator from having to
+# fill the lvm_volumes key manually, also it will - with the help of
+# the ceph-configure-lvm-volumes playbook - create required PVs,
+# VGs and LVs for you, which ceph-ansible will not do when using lvm_volumes.
+
+# USAGE:
+# 1. Provide config stanza like above either in group_vars or host_vars
+# 2. Do `osism reconciler sync` and `osism apply facts` or, if you
+#    use an external configuration repo add the stanza to your repo and
+#    then do: `osism apply configuration` followed by the two commands before.
+# 3. Run this configuration playbook for the hosts you wish to configure:
+#    `osism apply ceph-configure-lvm-volumes -e ireallymeanit=yes`
+# 4. The configuration generated for the hosts can be found on the
+#    first manager node of your setup in
+#    /tmp/<inventory_hostname>-ceph-lvm-configuration.yml
+# 5. Add this configuration to your host_vars for the nodes (see step 2)
+# 6. Notice that the old config stanza has been expanded with UUIDs,
+#    if you use group_vars for config stanza, you should leave the group_vars
+#    untouched and integrate the entire generated configuration into host_vars
+#    for the nodes, as UUIDs are generated _for each host_.
+# 7. After making sure that configuration is okay and synced + applied,
+#    you can run the ceph-create-lvm-devices playbook:
+#    `osism apply ceph-create-lvm-devices -e ireallymeanit=yes`
+###
+
+# TODO: Add support for multiple OSDs on one device
+
+- name: Ceph configure LVM
+  hosts:
+    - ceph-osd
+  gather_facts: true
+  force_handlers: true
+  strategy: linear
+  serial: 1
+  vars:
+    _ceph_configure_lvm_config_path: "/tmp/"
+    _ceph_configure_lvm_config_file: "ceph-lvm-configuration.yml"
+  vars_prompt:
+    - name: ireallymeanit
+      prompt: >
+        Are you sure you want to configure Ceph LVM?
+        Do you want to continue?
+      default: 'no'
+      private: false
+  tasks:
+    - name: Exit playbook, if user did not mean to configure LVM
+      ansible.builtin.fail:
+        msg: >-
+          Exiting ceph-configure-lvm-volumes playbook,
+          LVM was NOT configured.
+          To configure Ceph LVM the node,
+          either say 'yes' on the prompt
+          or use `-e ireallymeanit=yes` on the command line when
+          invoking the playbook
+      when: ireallymeanit != 'yes'
+
+    - name: Get extra vars for Ceph configuration
+      run_once: true
+      ansible.builtin.include_vars:
+        file:
+          "{{ configuration_directory }}\
+          /environments/ceph/configuration.yml"
+        name: _osds_configuration_vars
+      delegate_to: "{{ groups['manager'][0] }}"
+
+    - name: Ceph configure LVM
+      block:  # noqa: osism-fqcn
+        - name: Get block devices
+          ansible.builtin.set_fact:
+            block_devices: "{{ hostvars[inventory_hostname].ansible_devices }}"
+
+        - name: Set UUIDs for OSD VGs/LVs
+          ansible.builtin.set_fact:
+            ceph_osd_devices: >-
+              {{
+                ceph_osd_devices|ansible.builtin.combine(
+                  {
+                    item.key:
+                    item.value|ansible.builtin.combine(
+                    {
+                      'osd_lvm_uuid':
+                      lookup(
+                        'community.general.random_string',
+                          length = 64
+                      )|ansible.builtin.to_uuid
+                    }
+                    )
+                  }
+                )
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when: item.value.osd_lvm_uuid is not defined
+
+        - name: Generate WAL VG names
+          ansible.builtin.set_fact:
+            ceph_wal_devices: >-
+              {{
+                ceph_wal_devices|
+                ansible.builtin.combine(
+                {
+                  item.key:
+                  item.value|ansible.builtin.combine(
+                  {
+                    "vg_name":
+                    "ceph-wal-" + (
+                      lookup(
+                        'community.general.random_string',
+                        length = 64
+                      )|ansible.builtin.to_uuid
+                    )
+                  }
+                  )
+                }
+                )
+              }}
+          with_dict: "{{ ceph_wal_devices }}"
+          when:
+            - ceph_wal_devices is defined
+            - item.value.vg_name is not defined
+
+        - name: Generate DB VG names
+          ansible.builtin.set_fact:
+            ceph_db_devices: >-
+              {{
+                ceph_db_devices|
+                ansible.builtin.combine(
+                {
+                  item.key:
+                  item.value|combine(
+                  {
+                    "vg_name":
+                    "ceph-db-" + (
+                      lookup(
+                        'community.general.random_string',
+                        length = 64
+                      )|ansible.builtin.to_uuid
+                    )
+                  }
+                  )
+                }
+                )
+              }}
+          with_dict: "{{ ceph_db_devices }}"
+          when:
+            - ceph_db_devices is defined
+            - item.value.vg_name is not defined
+
+        - name: Generate shared DB/WAL VG names
+          ansible.builtin.set_fact:
+            ceph_db_wal_devices: >-
+              {{
+                ceph_db_wal_devices|
+                ansible.builtin.combine(
+                {
+                  item.key:
+                  item.value|ansible.builtin.combine(
+                  {
+                    "vg_name":
+                    "ceph-db-wal-" + (
+                      lookup(
+                        'community.general.random_string',
+                        length = 64
+                      )|ansible.builtin.to_uuid
+                    )
+                  }
+                  )
+                }
+                )
+              }}
+          with_dict: "{{ ceph_db_wal_devices }}"
+          when:
+            - ceph_db_wal_devices is defined
+            - item.value.vg_name is not defined
+
+        - name: Define lvm_volumes structures
+          ansible.builtin.set_fact:
+            _lvm_volumes_block: []
+            _lvm_volumes_block_db: []
+            _lvm_volumes_block_wal: []
+            _lvm_volumes_block_db_wal: []
+
+        - name: Generate lvm_volumes structure (block only)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block: >-
+              {{
+                _lvm_volumes_block +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is not defined
+            - item.value.wal_pv is not defined
+
+        - name: Generate lvm_volumes structure (block + db)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block_db: >-
+              {{
+                _lvm_volumes_block_db +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid,
+                  "db": "osd-db-" + item.value.osd_lvm_uuid,
+                  "db_vg": (ceph_db_devices[item.value.db_pv].vg_name
+                           if item.value.db_pv in ceph_db_devices
+                           else ceph_db_wal_devices[item.value.db_pv]).vg_name
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is defined
+            - item.value.wal_pv is not defined
+
+        - name: Generate lvm_volumes structure (block + wal)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block_wal: >-
+              {{
+                _lvm_volumes_block_wal +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid,
+                  "wal": "osd-wal-" + item.value.osd_lvm_uuid,
+                  "wal_vg": (ceph_wal_devices[item.value.wal_pv].vg_name
+                           if item.value.wal_pv in ceph_wal_devices
+                           else ceph_db_wal_devices[item.value.wal_pv].vg_name)
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is defined
+            - item.value.wal_pv is not defined
+
+        - name: Generate lvm_volumes structure (block + db + wal)
+          ansible.builtin.set_fact:
+            _lvm_volumes_block_db_wal: >-
+              {{
+                _lvm_volumes_block_db_wal +
+                [
+                {
+                  "data": "osd-block-" + item.value.osd_lvm_uuid,
+                  "data_vg": "ceph-" + item.value.osd_lvm_uuid,
+                  "db": "osd-db-" + item.value.osd_lvm_uuid,
+                  "db_vg": (ceph_db_devices[item.value.db_pv].vg_name
+                           if item.value.db_pv in ceph_db_devices
+                           else ceph_db_wal_devices[item.value.db_pv].vg_name),
+                  "wal": "osd-wal-" + item.value.osd_lvm_uuid,
+                  "wal_vg": (ceph_wal_devices[item.value.wal_pv].vg_name
+                           if item.value.wal_pv in ceph_wal_devices
+                           else ceph_db_wal_devices[item.value.wal_pv].vg_name)
+                }
+                ]
+              }}
+          with_dict: "{{ ceph_osd_devices }}"
+          when:
+            - item.key in block_devices
+            - item.value.db_pv is defined
+            - item.value.wal_pv is defined
+
+        - name: Compile lvm_volumes
+          ansible.builtin.set_fact:
+            _lvm_volumes: >-
+              {{
+                _lvm_volumes_block +
+                _lvm_volumes_block_db +
+                _lvm_volumes_block_wal +
+                _lvm_volumes_block_db_wal
+              }}
+
+        - name: Set OSD devices config data
+          ansible.builtin.set_fact:
+            _ceph_configure_lvm_config_data:
+              ceph_osd_devices: "{{ ceph_osd_devices }}"
+              lvm_volumes: "{{ _lvm_volumes }}"
+
+        - name: Set DB devices config data
+          ansible.builtin.set_fact:
+            _ceph_configure_lvm_config_data: >-
+              {{
+                _ceph_configure_lvm_config_data |
+                ansible.builtin.combine(
+                  {'ceph_db_devices': ceph_db_devices }
+                )
+              }}
+          when: ceph_db_devices is defined
+
+        - name: Set WAL devices config data
+          ansible.builtin.set_fact:
+            _ceph_configure_lvm_config_data: >-
+              {{
+                _ceph_configure_lvm_config_data |
+                ansible.builtin.combine(
+                  {'ceph_wal_devices': ceph_wal_devices }
+                )
+              }}
+          when: ceph_wal_devices is defined
+
+        - name: Set DB+WAL devices config data
+          ansible.builtin.set_fact:
+            _ceph_configure_lvm_config_data: >-
+              {{
+                _ceph_configure_lvm_config_data |
+                ansible.builtin.combine(
+                  {'ceph_db_wal_devices': ceph_db_wal_devices }
+                )
+              }}
+          when: ceph_db_wal_devices is defined
+
+        - name: Print ceph_osd_devices
+          ansible.builtin.debug:
+            verbosity: "{{ debug_verbosity | default(1) }}"
+            var: ceph_osd_devices
+          when: ceph_osd_devices is defined
+
+        - name: Print WAL devices
+          ansible.builtin.debug:
+            verbosity: "{{ debug_verbosity | default(1) }}"
+            var: ceph_wal_devices
+          when: ceph_wal_devices is defined
+
+        - name: Print DB devices
+          ansible.builtin.debug:
+            verbosity: "{{ debug_verbosity | default(1) }}"
+            var: ceph_db_devices
+          when: ceph_db_devices is defined
+
+        - name: Print shared DB/WAL devices
+          ansible.builtin.debug:
+            verbosity: "{{ debug_verbosity | default(1) }}"
+            var: ceph_db_wal_devices
+          when: ceph_db_wal_devices is defined
+
+        - name: Print configuration data
+          ansible.builtin.debug:
+            verbosity: "{{ debug_verbosity | default(1) }}"
+            var: _ceph_configure_lvm_config_data
+          changed_when: true
+          notify:
+            - Write configuration file
+      # condition is for entire block
+      when:
+        - ceph_osd_devices is defined
+
+  handlers:
+    - name: Write configuration file
+      run_once: true
+      ansible.builtin.template:
+        src: "templates/ceph-configure-lvm-volumes.yml.j2"
+        dest: >-
+          {{
+             _ceph_configure_lvm_config_path +
+             inventory_hostname +
+             "-" +
+             _ceph_configure_lvm_config_file
+          }}
+        mode: "u=rw,g=r,o=r"
+      delegate_to: "{{ groups['manager'][0] }}"
