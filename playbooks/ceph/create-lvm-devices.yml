@@ -55,7 +55,7 @@
       delegate_to: "{{ groups['manager'][0] }}"
 
     - name: Ceph create LVM devices
-      block:
+      block:  # noqa: osism-fqcn
         - name: Get block devices present on host
           ansible.builtin.set_fact:
             block_devices:
