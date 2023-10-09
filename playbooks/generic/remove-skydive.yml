@@ -27,7 +27,7 @@
       with_items:
         - "{{ obsolet_service_containers }}"
 
-    # the community.docker.docker_image module is not able handle this  
+    # the community.docker.docker_image module is not able handle this
     - name: "Remove image-{{ obsolet_service }}"
       become: true
       ansible.builtin.raw: "docker rmi {{ item }}"
