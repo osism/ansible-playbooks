@@ -7,7 +7,7 @@
     - name: ireallymeanit
       prompt: Are you sure you want to purge the k3s cluster?
       default: 'no'
-      private: no
+      private: false
 
   tasks:
     - name: Exit playbook, if user did not mean to purge k3s cluster
