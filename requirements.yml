@@ -43,21 +43,11 @@ collections:
     type: git
     version: main
 
-  - name: arista.cvp
-    source: https://galaxy.ansible.com
-
-  - name: arista.eos
-    source: https://galaxy.ansible.com
-
   - name: https://github.com/ansible-collections/community.general.git
     type: git
     version: main
 
   - name: https://github.com/ansible-collections/community.network.git
-    type: git
-    version: main
-
-  - name: https://github.com/ansible-collections/community.zabbix.git
     type: git
     version: main
 
