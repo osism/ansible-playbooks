@@ -1,0 +1,4 @@
+---
+features:
+  - |
+    The old Ansible roles `arista.cvp`, `arista.eos`, and `community.zabbix` were removed.
