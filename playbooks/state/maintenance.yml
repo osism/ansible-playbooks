@@ -1,0 +1,43 @@
+---
+- name: Set maintenance state
+  hosts: "{{ hosts_maintenance|default('all') }}"
+
+  vars:
+    status: "True"
+
+  tasks:
+    - name: Set status fact
+      ansible.builtin.include_role:
+        name: osism.commons.state
+      vars:
+        state_name: osism
+        state_section: maintenance
+        state_option: status
+        state_value: "{{ status }}"
+
+    - name: Set timestamp fact
+      ansible.builtin.include_role:
+        name: osism.commons.state
+      vars:
+        state_name: osism
+        state_section: maintenance
+        state_option: timestamp
+        state_value: "{{ now(utc=True).isoformat() }}"
+
+    - name: Create osism directory
+      become: true
+      ansible.builtin.file:
+        path: /etc/osism
+        state: "directory"
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Create maintenance file
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/osism/maintenance
+        content: "{{ '1' if status == 'True' else '0' }}\n"
+        owner: root
+        group: root
+        mode: 0644
