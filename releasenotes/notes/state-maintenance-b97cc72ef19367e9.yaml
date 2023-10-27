@@ -1,5 +1,5 @@
 ---
 features:
   - |
-    With the `state/maintenance` play it is possible to set and unset the
+    With the `generic/state-maintenance` play it is possible to set and unset the
     maintenance state of a host.
