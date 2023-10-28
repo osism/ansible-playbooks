@@ -23,3 +23,21 @@
         state_section: bootstrap
         state_option: timestamp
         state_value: "{{ now(utc=True).isoformat() }}"
+
+    - name: Create osism directory
+      become: true
+      ansible.builtin.file:
+        path: /etc/osism
+        state: "directory"
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Create bootstrap file
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/osism/bootstrap
+        content: "{{ '1' if status == 'True' else '0' }}\n"
+        owner: root
+        group: root
+        mode: 0644
