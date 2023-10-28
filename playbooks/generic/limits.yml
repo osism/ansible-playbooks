@@ -1,6 +1,6 @@
 ---
 - name: Apply role limits
-  hosts: "{{ hosts_limits|default('limits') }}"
+  hosts: "{{ hosts_limits|default('all') }}"
   serial: "{{ osism_serial['limits']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
