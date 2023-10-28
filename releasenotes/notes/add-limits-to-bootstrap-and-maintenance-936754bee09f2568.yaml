@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    osism.commons.limits is now part of the generic/bootstrap
+    and generic/maintenance plays.
