@@ -75,6 +75,7 @@
     - role: osism.commons.configfs
     - role: osism.commons.packages
     - role: osism.commons.sysctl
+    - role: osism.commons.limits
     - role: osism.commons.services
     - role: osism.commons.motd
     - role: osism.services.hddtemp
