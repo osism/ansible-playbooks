@@ -1,0 +1,25 @@
+---
+- name: Set bootstrap state
+  hosts: "{{ hosts_bootstrap|default('all') }}"
+
+  vars:
+    status: "True"
+
+  tasks:
+    - name: Set status fact
+      ansible.builtin.include_role:
+        name: osism.commons.state
+      vars:
+        state_name: osism
+        state_section: bootstrap
+        state_option: status
+        state_value: "{{ status }}"
+
+    - name: Set timestamp fact
+      ansible.builtin.include_role:
+        name: osism.commons.state
+      vars:
+        state_name: osism
+        state_section: bootstrap
+        state_option: timestamp
+        state_value: "{{ now(utc=True).isoformat() }}"
