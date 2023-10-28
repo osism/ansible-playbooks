@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    With the `generic/limits` play it is possible to set the
+    PAM limits of a host with the help of the osism.commons.limits
+    role.
