@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Use linear as default Ansible strategy everywhere. This avoids especially issue
+    in ARA.
