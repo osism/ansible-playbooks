@@ -41,7 +41,7 @@
   ignore_unreachable: true
   hosts: state_bootstrap_False
   serial: "{{ osism_serial_default | default(0) }}"
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   roles:
     - role: osism.commons.hostname
@@ -74,7 +74,7 @@
   ignore_unreachable: true
   hosts: state_bootstrap_False
   serial: "{{ osism_serial_default | default(0) }}"
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Include hardening role
@@ -88,7 +88,7 @@
   ignore_unreachable: true
   hosts: state_bootstrap_False
   serial: "{{ osism_serial_default | default(0) }}"
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Include auditd role

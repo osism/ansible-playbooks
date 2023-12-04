@@ -61,7 +61,7 @@
 - name: Apply maintenance roles part 1
   hosts: reachable
   serial: "{{ osism_serial_default | default(0) }}"
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   roles:
     - role: osism.commons.hostname
@@ -93,7 +93,7 @@
 - name: Apply maintenance roles part 2
   hosts: reachable
   serial: "{{ osism_serial_default | default(0) }}"
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Include hardening role
@@ -106,7 +106,7 @@
 - name: Apply maintenance roles part 3
   hosts: reachable
   serial: "{{ osism_serial_default | default(0) }}"
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Include auditd role
@@ -121,7 +121,7 @@
   hosts: reachable
   serial: "{{ osism_serial_default | default(0) }}"
   gather_facts: false
-  strategy: "{{ osism_strategy | default('free') }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   vars:
     state_maintenance_status: "False"
