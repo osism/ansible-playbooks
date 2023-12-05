@@ -26,25 +26,7 @@
   serial: 1
   vars:
     _ceph_block_vgs: {}
-  vars_prompt:
-    - name: ireallymeanit
-      prompt: >
-        Are you sure you want to create Ceph LVM devices?
-        Do you want to continue?
-      default: 'no'
-      private: false
   tasks:
-    - name: Exit playbook, if user did not mean to create LVM devices
-      ansible.builtin.fail:
-        msg: >-
-          Exiting ceph-create-lvm-volumes playbook,
-          LVM devices were NOT created.
-          To create Ceph LVM devices on the node,
-          either say 'yes' on the prompt
-          or use `-e ireallymeanit=yes` on the command line when
-          invoking the playbook
-      when: ireallymeanit != 'yes'
-
     - name: Get extra vars for Ceph configuration
       run_once: true
       ansible.builtin.include_vars:
@@ -266,17 +248,14 @@
 
         - name: Print number of OSDs wanted per DB VG
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: _num_osds_wanted_per_db_vg
 
         - name: Print number of OSDs wanted per WAL VG
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: _num_osds_wanted_per_wal_vg
 
         - name: Print number of OSDs wanted per DB+WAL VG
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: _num_osds_wanted_per_db_wal_vg
 
         - name: Gather DB VGs with total and available size in bytes
@@ -393,12 +372,10 @@
 
         - name: Print LVM VGs report data
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: vgs_report
 
         - name: Print LVM VG sizes
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: vg_sizes
           when: vg_sizes is defined
 
@@ -432,7 +409,6 @@
         # Print size needed for LVs on ceph_db_devices
         - name: Print size needed for LVs on ceph_db_devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: db_lv_sizes
           when: db_lv_sizes is defined
 
@@ -487,7 +463,6 @@
         # Print size needed for LVs on ceph_wal_devices
         - name: Print size needed for LVs on ceph_wal_devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: wal_lv_sizes
           when: wal_lv_sizes is defined
 
@@ -542,7 +517,6 @@
         # Print size needed for WAL LVs on ceph_db_wal_devices
         - name: Print size needed for WAL LVs on ceph_db_wal_devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: db_wal_wal_lv_sizes
           when: db_wal_wal_lv_sizes is defined
 
@@ -584,7 +558,6 @@
         # Print size needed for DB LVs on ceph_db_wal_devices
         - name: Print size needed for DB LVs on ceph_db_wal_devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: db_wal_db_lv_sizes
           when: db_wal_db_lv_sizes is defined
 
@@ -779,6 +752,7 @@
               Missing DB LV {{ item.db }} on VG {{ item.db_vg }}
           with_items: "{{ lvm_volumes }}"
           when:
+            - item.db_vg is defined
             - item.db_vg + "/" + item.db not in _vg_lv_names
 
         - name: Fail if WAL LV defined in lvm_volumes is missing
@@ -787,11 +761,11 @@
               Missing WAL LV {{ item.wal }} on VG {{ item.wal_vg }}
           with_items: "{{ lvm_volumes }}"
           when:
+            - item.wal_vg is defined
             - item.wal_vg + "/" + item.wal not in _vg_lv_names
 
         - name: Print LVM report data
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: lvm_report
 
       # condition is for entire block
