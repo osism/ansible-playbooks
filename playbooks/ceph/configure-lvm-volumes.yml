@@ -359,31 +359,26 @@
 
         - name: Print ceph_osd_devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: ceph_osd_devices
           when: ceph_osd_devices is defined
 
         - name: Print WAL devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: ceph_wal_devices
           when: ceph_wal_devices is defined
 
         - name: Print DB devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: ceph_db_devices
           when: ceph_db_devices is defined
 
         - name: Print shared DB/WAL devices
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: ceph_db_wal_devices
           when: ceph_db_wal_devices is defined
 
         - name: Print configuration data
           ansible.builtin.debug:
-            verbosity: "{{ debug_verbosity | default(1) }}"
             var: _ceph_configure_lvm_config_data
           changed_when: true
           notify:
