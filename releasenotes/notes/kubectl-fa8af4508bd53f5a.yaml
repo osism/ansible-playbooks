@@ -1,0 +1,4 @@
+---
+features:
+  - |
+    Add `kubectl` play in the `infrastructure` environment.

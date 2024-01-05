@@ -1,0 +1,7 @@
+---
+- name: Apply role kubectl
+  hosts: "{{ hosts_kubectl|default('kubectl') }}"
+  serial: "{{ osism_serial['kubectl']|default('0') }}"
+
+  roles:
+    - role: osism.commons.kubectl
