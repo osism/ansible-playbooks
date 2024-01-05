@@ -83,4 +83,3 @@
     - name: Install kubectl package
       ansible.builtin.include_role:
         name: osism.commons.kubectl
-      when: "inventory_hostname not in groups[hosts_k3s_all | default('k3s_all')]"
