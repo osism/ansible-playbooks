@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    Add playbook to copy generated octavia certificates from the `/share`
+    volume to the configuration repository. Certificates can be generated
+    with `osism apply octavia-certificates`.
