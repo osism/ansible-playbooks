@@ -1,0 +1,21 @@
+---
+- name: Copy octavia certificates to the configuration repository
+  hosts: manager
+
+  vars:
+    kolla_ansible_container_name: kolla-ansible
+    octavia_certificates:
+      - src: client_ca/client.cert-and-key.pem
+        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/octavia/client.cert-and-key.pem"
+      - src: client_ca/client_ca.cert.pem
+        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/octavia/client_ca.cert.pem"
+      - src: server_ca/server_ca.cert.pem
+        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/octavia/server_ca.cert.pem"
+      - src: server_ca/server_ca.key.pem
+        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/octavia/server_ca.key.pem"
+
+  tasks:
+    - name: Copy octavia certificates keys to the configuration repository
+      ansible.builtin.command: "docker cp {{ kolla_ansible_container_name }}:/share/{{ item.src }} {{ item.dest }}"
+      changed_when: true
+      loop: "{{ octavia_certificates }}"
