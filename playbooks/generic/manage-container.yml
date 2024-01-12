@@ -4,6 +4,9 @@
   serial: "{{ osism_serial['manage_container']|default(1) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
+  vars:
+    container_action: restart
+
   tasks:
     - name: Manage container  # noqa: ignore-errors
       ansible.builtin.command: "docker {{ container_action }} {{ container_name }}"
