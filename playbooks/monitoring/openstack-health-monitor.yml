@@ -4,5 +4,11 @@
   serial: "{{ osism_serial['openstack_health_monitor']|default('0') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
-  roles:
-    - role: osism.services.openstack_health_monitor
+  tasks:
+    - name: Point out the SovereignCloudStack/openstack-health-monitor repository
+      ansible.builtin.debug:
+        msg: |
+          The osism.services.openstack_health_monitor role is currently being
+          converted into a play and is currently not usable. Until then, the
+          installation can be done as documented in repository
+          SovereignCloudStack/openstack-health-monitor on GitHub.
