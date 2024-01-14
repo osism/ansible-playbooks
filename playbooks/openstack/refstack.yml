@@ -1,0 +1,6 @@
+---
+- name: Install refstack
+  hosts: localhost
+
+  roles:
+    - role: osism.validations.refstack
