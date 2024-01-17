@@ -12,10 +12,6 @@ mock_modules:
   - community.docker.docker_container_info
   - community.docker.docker_prune
   - community.docker.docker_volume
-  - hashivault_secret
-  - hashivault_secret_engine
-  - hashivault_auth_method
-  - hashivault_policy
 mock_roles:
   - containerd
   - k3s_agent
