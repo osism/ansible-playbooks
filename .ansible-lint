@@ -6,6 +6,7 @@ exclude_paths:
   - .github/
   - requirements.yml
   - playbooks/generic/common.yml
+  - playbooks/infrastructure/kubernetes.yml
 mock_modules:
   - community.docker.docker_container
   - community.docker.docker_container_exec
