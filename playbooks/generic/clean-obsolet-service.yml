@@ -1,6 +1,8 @@
 ---
 - name: Clean up obsolet service configuration
   hosts: all
+  gather_facts: false
+
   vars:
     obsolet_service:
     obsolet_service_os_name:
@@ -8,7 +10,6 @@
     obsolet_service_containers:
     obsolet_service_dir:
 
-    gather_facts: false
   tasks:
 
     - name: Get infos on container
@@ -56,10 +57,12 @@
 
 - name: Clean up obsolet service configuration
   hosts: loadbalancer
+  gather_facts: false
+
   vars:
     obsolet_service:
     obsolet_service_dir:
-    gather_facts: false
+
   tasks:
     - name: "Remove Loadbalancer Configuration {{ obsolet_service }}"
       become: true

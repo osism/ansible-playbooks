@@ -1,6 +1,8 @@
 ---
 - name: Clean up obsolet service configuration
   hosts: all
+  gather_facts: false
+
   vars:
     obsolet_service: skydive
     obsolet_containers_volumes:
@@ -10,7 +12,7 @@
     obsolet_service_dir:
       - skydive-agent
       - skydive-analyzer
-    gather_facts: false
+
   tasks:
 
     - name: Get infos on container
