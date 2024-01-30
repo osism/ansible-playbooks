@@ -1,5 +1,4 @@
 ---
-# NOTE: This is the old osism.common role, divided into separate roles
 - import_playbook: generic-systohc.yml
 - import_playbook: generic-configfs.yml
 - import_playbook: generic-packages.yml

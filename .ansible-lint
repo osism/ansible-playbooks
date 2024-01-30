@@ -1,6 +1,8 @@
 ---
 exclude_paths:
+  - playbooks/generic-common.yml
   - playbooks/generic/common.yml
+  - playbooks/infrastructure-kubernetes.yml
   - playbooks/infrastructure/kubernetes.yml
 mock_modules:
   - community.docker.docker_container
@@ -21,5 +23,6 @@ mock_roles:
   - squid
 skip_list:
   - galaxy[no-changelog]
-  - run-once[task]
   - key-order[task] # disabled because we use our own rule
+  - run-once[task]
+  - var-naming[no-role-prefix]

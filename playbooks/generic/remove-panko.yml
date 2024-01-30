@@ -1,6 +1,8 @@
 ---
 - name: Clean up obsolet service configuration
   hosts: all
+  gather_facts: false
+
   vars:
     obsolet_service: panko
     obsolet_service_os_name: panko
@@ -10,7 +12,7 @@
       - panko_api
     obsolet_service_dir:
       - panko-api
-    gather_facts: false
+
   tasks:
 
     - name: Get infos on container
@@ -60,10 +62,12 @@
 
 - name: Clean up obsolet service configuration
   hosts: loadbalancer
+  gather_facts: false
+
   vars:
     obsolet_service: panko
     obsolet_service_dir: panko-api
-    gather_facts: false
+
   tasks:
     - name: "Remove Loadbalancer Configuration {{ obsolet_service }}"
       become: true
