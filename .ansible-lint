@@ -21,6 +21,7 @@ mock_roles:
   - runc
   - scaphandre
   - squid
+  - ubuntu22_cis
 skip_list:
   - galaxy[no-changelog]
   - key-order[task] # disabled because we use our own rule
