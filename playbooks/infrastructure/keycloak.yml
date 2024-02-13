@@ -1,6 +1,7 @@
 ---
 - name: Apply role keycloak
-  hosts: "{{ hosts_keycloak|default('keycloak') }}"
+  hosts: localhost
+  connection: local
   serial: "{{ osism_serial['keycloak']|default('0') }}"
 
   roles:
