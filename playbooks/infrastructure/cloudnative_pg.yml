@@ -1,7 +1,7 @@
 ---
 - name: Apply role cloudnative_pg
-  hosts: "{{ hosts_cloudnative_pg|default('cloudnative_pg') }}"
-  serial: "{{ osism_serial['cloudnative_pg']|default('0') }}"
+  hosts: localhost
+  connection: local
 
   roles:
     - role: osism.services.cloudnative_pg
