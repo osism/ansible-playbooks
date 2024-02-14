@@ -4,13 +4,14 @@
   gather_facts: false
 
   vars:
-    configuration_directory: /opt/configuration
+    keycloak_namespace: "keycloak"
+    operator_user: dragon
 
-    keycloak_kcadm_binary: "/opt/jboss/keycloak/bin/kcadm.sh"
+    keycloak_kcadm_binary: "/opt/keycloak/bin/kcadm.sh"
     keycloak_realm: "osism"
-    keycloak_url: "https://keycloak.testbed.osism.xyz/"
-    keycloak_url_internal: "http://localhost:8080"
-    keycloak_service_container_name: "keycloak"
+    keycloak_url: "https://keycloak.testbed.osism.xyz/auth/"
+    keycloak_url_internal: "http://localhost:8080/auth/"
+    keycloak_service_container_name: "keycloak-keycloakx-0"
 
     keycloak_ldap_storage_provider_component_name: "ldap-provider"
     keycloak_ldap_user: "keycloak-user"
@@ -25,12 +26,6 @@
       - "https://api.testbed.osism.xyz"
       - "https://192.168.16.254:5000/redirect_uri"
       - "https://192.168.16.254"
-
-    keycloak_private_key_file_path: "{{ configuration_directory }}/environments/custom/files/keycloak/private_key.pem"
-    keycloak_private_key_data: "{{ lookup('file', keycloak_private_key_file_path)| regex_replace('\n', '\\\\n') }}"
-
-    keycloak_certificate_file_path: "{{ configuration_directory }}/environments/custom/files/keycloak/cert.crt"
-    keycloak_certificate_data: "{{ lookup('file', keycloak_certificate_file_path)| regex_replace('\n', '\\\\n') }}"
 
     keystone_logout_url: https://api.testbed.osism.xyz:5000/redirect_uri?logout=backchannel
     keystone_logout_redirect_url: https://api.testbed.osism.xyz:5000/redirect_uri?logout=https://api.testbed.osism.xyz:5000/logout
@@ -50,19 +45,25 @@
 
     - name: Log in to Keycloak
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
-          config credentials --server "{{ keycloak_url_internal }}/auth"
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          config credentials --server "{{ keycloak_url_internal }}"
                              --realm master
                              --user "{{ keycloak_admin_id }}"
                              --password "{{ keycloak_admin_secret }}"
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       changed_when: false
       run_once: true
       no_log: true
 
     - name: Get available realms
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           get realms --fields id
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       register: available_realms_json
       changed_when: false
       run_once: true
@@ -74,21 +75,27 @@
 
     - name: Create target realm if it doesn't exist
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           create realms
             --set id="{{ keycloak_realm }}"
             --set realm="{{ keycloak_realm }}"
             --set enabled=true
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: keycloak_realm not in available_realms
       run_once: true
       changed_when: true
 
     - name: Get available clients in realm
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           get clients --target-realm {{ keycloak_realm }}
                 --query clientId={{ keystone_client_id }}
                 --fields id,clientId
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       register: available_clients_json
       changed_when: false
       run_once: true
@@ -100,7 +107,8 @@
 
     - name: Create OIDC client configuration
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           create clients --target-realm "{{ keycloak_realm }}"
             --set clientId={{ keystone_client_id }}
             --set protocol=openid-connect
@@ -115,6 +123,8 @@
             --set 'attributes."backchannel.logout.revoke.offline.tokens"="true"'
             --set 'attributes."backchannel.logout.session.required"="true"'
             --set 'attributes."backchannel.logout.url"="{{ keystone_logout_url }}"'
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: keystone_client_id not in available_clients
       run_once: true
       no_log: true
@@ -122,12 +132,15 @@
 
     - name: "Get internal ID for client {{ keystone_client_id }}"
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           get clients --target-realm {{ keycloak_realm }}
                 --query clientId={{ keystone_client_id }}
                 --fields id
                 --format csv
                 --noquotes
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       register: internal_client_id_json
       changed_when: false
       run_once: true
@@ -139,10 +152,13 @@
 
     - name: Get available mappers for client
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           get "clients/{{ internal_client_id }}/protocol-mappers/models"
                  --target-realm {{ keycloak_realm }}
                  --fields name
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       register: available_mappers_json
       changed_when: false
       run_once: true
@@ -154,7 +170,8 @@
 
     - name: Create mappers for client
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           create clients/{{ internal_client_id }}/protocol-mappers/models
             --target-realm "{{ keycloak_realm }}"
             --set protocol=openid-connect
@@ -167,6 +184,8 @@
             --set 'config."aggregate.attrs"=""'
             --set 'config."user.attribute"="{{ item }}"'
             --set 'config."claim.name"="{{ item }}"'
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: item not in available_mappers
       loop:
         - "openstack-user-domain"
@@ -176,10 +195,13 @@
 
     - name: Get available components in realm
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           get components --target-realm {{ keycloak_realm }}
                 --query name="{{ keycloak_key_provider_component_name }}"
                 --fields name
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       register: available_components_json
       changed_when: false
       run_once: true
@@ -191,7 +213,8 @@
 
     - name: Add privateKey and certificate to realm
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           create components --target-realm "{{ keycloak_realm }}"
             --set name="{{ keycloak_key_provider_component_name }}"
             --set providerId=rsa
@@ -203,6 +226,8 @@
             --set "config.algorithm=[\"RS256\"]"
             --set "config.privateKey=[\"{{ keycloak_private_key_data }}\"]"
             --set "config.certificate=[\"{{ keycloak_certificate_data }}\"]"
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: keycloak_key_provider_component_name not in available_components
       run_once: true
       no_log: true
@@ -210,9 +235,12 @@
 
     - name: Get available users in realm
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           get users --target-realm {{ keycloak_realm }}
                 --fields username
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       register: available_users_json
       changed_when: false
       run_once: true
@@ -224,37 +252,38 @@
 
     - name: Create sample user
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           create users --target-realm "{{ keycloak_realm }}"
             --set username=alice
             --set email=alice@testbed.osism.xyz
             --set emailVerified=true
             --set enabled=true
             --set "attributes.openstack-default-project=test"
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: "'alice' not in available_users"
       changed_when: true
 
     - name: Set password of sample user
       ansible.builtin.command: >-
-        docker exec {{ keycloak_service_container_name }} {{ keycloak_kcadm_binary }}
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
           set-password --target-realm "{{ keycloak_realm }}"
             --username=alice
             --new-password=password
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: "'alice' not in available_users"
       changed_when: true
 
-
-    - name: Copy testbed cert to Keycloak container
+    - name: Keytool import custom ca cert
       ansible.builtin.command: >-
-        docker cp /opt/traefik/certificates/default.cert {{ keycloak_service_container_name }}:/traefik.cert
-      when: "'alice' not in available_users"
-      changed_when: true
-
-
-    - name: Keytool import traefik cert
-      ansible.builtin.command: >-
-        docker exec -u root {{ keycloak_service_container_name }} keytool
-          -cacerts -importcert -alias traefik -file /traefik.cert
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          keytool
+          -cacerts -importcert -alias custom-ca-cert -file /etc/pki/ca-trust/extracted/pem/custom-ca-cert.pem
           -storepass "changeit" -noprompt
+      environment:
+        KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
       when: "'alice' not in available_users"
       changed_when: true
