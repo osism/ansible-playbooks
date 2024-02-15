@@ -1,4 +1,7 @@
 ---
+- name: Apply role cloudnative_pg
+  ansible.builtin.import_playbook: cloudnative_pg.yml
+
 - name: Apply role keycloak
   hosts: localhost
   connection: local
