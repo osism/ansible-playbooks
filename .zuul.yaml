@@ -1,4 +1,38 @@
 ---
+- secret:
+    name: SECRET_ANSIBLE_PLAYBOOKS
+    data:
+      DOCKER_USERNAME: !encrypted/pkcs1-oaep
+        - IegKa6b0PRhOrHe7zXfxSRFdqR3xhquPnzvYhz26XqRvZvMl1YWeJeWi/Tut2u9mf3sQV
+          rT3OJOUNXJd1TmRhe1vYweFx/2ICUnnFNzTY5xkg2ZphKXi03Ukq4mruL2V2OtqfANe7z
+          8Dj8+uHoIJyCF9ao1R3Dguy+ZlcYzOoGufRe4eTmCRaIYBxvR6XBZ46O36+mdS1pp7ZW6
+          6LHRhWDbkdvCZnu/AVH/1u328FObZyE4hGh9OCsniJ4PwMIk8FDhscz1tGXBrp3f3K8vh
+          THSqLBZ7rLKhlTVD6Zsbw4V9ezZWb7UVTdlZzRPw2x4UvfDEMXM2vN3TCAwrrjjjNGKmO
+          Z9Ksq83YI5K8kbV+fmxXWG10qrxvO23dOSdZCtoZqHHqXyW+Xs4g6bNxqVIBjpWXLIOCe
+          tgOWcFLMVlExH3CGEXOzU3XWUSxdl3Kg9W6rVzJtgYQ3CGMLTOReMNAU3Y1O2Ux1k4E2A
+          G2gtUW/UVgL+7d8+qFKTDKc7jwBCtI9rxQks8lIHbXytfsJXQlk/EdgiWfSZ3WCo5dyUi
+          kKz4v8n5e64oFp4X5nDPBpOtRwGb66Head5sGNhzDx0mKNlwpfaTuHcnA3QtR/9jmOp3F
+          XfgszjnWkOqiO60ggQvfHLd7Z8c/NAGemf0WTiWsAHpNb+cQx7yQbgy5m71Ii8=
+      DOCKER_PASSWORD: !encrypted/pkcs1-oaep
+        - HqcG6eX1iKYkUCFID7E02w+0NHb99wkyhGEG10P3TlCbIAJVISCh/dX3UBbIa97vcKuAt
+          NtQGSC0cYwOTDmPvSzUd5xtKTIOSgvOco7zL12PMMTYPmg9q0ePfFMp3nSas2+Kzy5gvQ
+          bbwPEWahMwx1xwwxXTNR4tFQ7BxKqcXZfhI7JYgmIRqldBEt3tJUqNRZGtACI2f8hrlSr
+          qHXK7CHbdjp+3MGIh0vxYVzonI6Hya12VwNFK5Jwn+xuQiUqt/wuYD/xBxoMoZeuTSNv/
+          dRHaoXzWaq6lnpvChKrH2rNTv5R1yN1Vb1qi/7tUVx1JZImQTAIJl8cloHDsuqLTEy9OH
+          Szck2Z4ok74vJN7Puhp+q78IUYCIjQnUEsA8a421iBWF7AjM9dU7evpOdKKL4p2hZEGnx
+          eAjw6ytRAV3oVLpaU/+jB1FiOOf/2M//asFR7wQtYZy5ZOthdM+zYauQgMxnuE9vjXUDi
+          y9rz9kJ7UJNIkIiUBtyxxSEP/BM4kqle+gZDQKYLedHOWUpTYHPtYPHEwXH0cOh5gi69v
+          gNqzh9qunygY/zqYy51qqJjPMc3Xdh0YncisBThIg91QiaRrP8d+XUF9hrzS06v1iFimL
+          9r/p1qubv3EwObMBc08yvBbUSHpcfy34cZnrpY6mNVgmwen28HzAtgzUCeQZHs=
+
+- job:
+    name: ansible-playbooks-container-image-osism-ansible-push
+    parent: abstract-container-image-osism-ansible-push
+    secrets:
+      - name: secret
+        secret: SECRET_ANSIBLE_PLAYBOOKS
+        pass-to-parent: true
+
 - project:
     merge-mode: squash-merge
     default-branch: main
@@ -14,3 +48,7 @@
       jobs:
         - ansible-lint
         - yamllint
+    post:
+      jobs:
+        - ansible-playbooks-container-image-osism-ansible-push:
+            branches: main
