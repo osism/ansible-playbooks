@@ -30,6 +30,12 @@
     keystone_logout_url: https://api.testbed.osism.xyz:5000/redirect_uri?logout=backchannel
     keystone_logout_redirect_url: https://api.testbed.osism.xyz:5000/redirect_uri?logout=https://api.testbed.osism.xyz:5000/logout
 
+    keycloak_private_key_file_path: "{{ configuration_directory }}/environments/infrastructure/files/keycloak/private_key.pem"
+    keycloak_private_key_data: "{{ lookup('file', keycloak_private_key_file_path)| regex_replace('\n', '\\\\n') }}"
+
+    keycloak_certificate_file_path: "{{ configuration_directory }}/environments/infrastructure/files/keycloak/cert.crt"
+    keycloak_certificate_data: "{{ lookup('file', keycloak_certificate_file_path)| regex_replace('\n', '\\\\n') }}"
+
   tasks:
     - name: Wait until service is available
       ansible.builtin.uri:
@@ -277,11 +283,11 @@
       when: "'alice' not in available_users"
       changed_when: true
 
-    - name: Keytool import custom ca cert
+    - name: Keytool import ca cert
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           keytool
-          -cacerts -importcert -alias custom-ca-cert -file /etc/pki/ca-trust/extracted/pem/custom-ca-cert.pem
+          -cacerts -importcert -alias ca-cert -file /etc/pki/ca-trust/extracted/pem/ca-cert.pem
           -storepass "changeit" -noprompt
       environment:
         KUBECONFIG: "/home/{{ operator_user }}/.kube/config"
