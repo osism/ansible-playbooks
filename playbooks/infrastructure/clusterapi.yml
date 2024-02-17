@@ -1,0 +1,60 @@
+---
+- name: Label nodes
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Add openstack-control-plane label to all hosts labeled control-plane
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+
+        OS_CONTROL_PLANE_NODES=$(kubectl get nodes | grep control-plane | awk '{print $1}')
+        for NODE in $OS_CONTROL_PLANE_NODES; do
+            kubectl label node "${NODE}" openstack-control-plane=enabled
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Add worker node-role label to all hosts without a role
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+
+        NODES_WITHOUT_ROLE=$(kubectl get nodes | grep '<none>' | awk '{print $1}')
+        for NODE in $NODES_WITHOUT_ROLE; do
+            kubectl label node "${NODE}" node-role.kubernetes.io/worker=worker
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+- name: Initialize the CAPI management cluster
+  hosts: localhost
+  connection: local
+
+  vars:
+    capi_version: 1.6.1
+    capo_version: 0.9.0
+
+  tasks:
+    - name: Initialize the CAPI management cluster
+      ansible.builtin.shell:
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+        export EXP_CLUSTER_RESOURCE_SET=true
+        export CLUSTER_TOPOLOGY=true
+
+        clusterctl init \
+          --core cluster-api:v{{ capi_version }} \
+          --bootstrap kubeadm:v{{ capi_version }} \
+          --control-plane kubeadm:v{{ capi_version }} \
+          --infrastructure openstack:v{{ capo_version }}
+      args:
+        executable: /bin/bash
+      register: result
+      changed_when: "'Your management cluster has been initialized successfully' in result.stdout"
