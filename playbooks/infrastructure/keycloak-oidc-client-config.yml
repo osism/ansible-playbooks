@@ -277,15 +277,3 @@
         KUBECONFIG: /share/kubeconfig
       when: "'alice' not in available_users"
       changed_when: true
-
-    - name: Keytool import ca cert
-      ansible.builtin.command: >-
-        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
-          keytool
-          -cacerts -importcert -alias ca-cert -file /etc/pki/ca-trust/extracted/pem/ca-cert.pem
-          -storepass "changeit" -noprompt
-      environment:
-        KUBECONFIG: /share/kubeconfig
-      when: "'alice' not in available_users"
-      changed_when: true
-      ignore_errors: true  # noqa: ignore-errors
