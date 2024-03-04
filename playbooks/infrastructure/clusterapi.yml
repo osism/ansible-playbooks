@@ -41,7 +41,7 @@
     capo_version: 0.9.0
 
   tasks:
-    - name: Initialize the CAPI management cluster
+    - name: Initialize or upgrade the CAPI management cluster
       ansible.builtin.shell:
         set -o pipefail
 
@@ -49,11 +49,19 @@
         export EXP_CLUSTER_RESOURCE_SET=true
         export CLUSTER_TOPOLOGY=true
 
-        clusterctl init \
-          --core cluster-api:v{{ capi_version }} \
-          --bootstrap kubeadm:v{{ capi_version }} \
-          --control-plane kubeadm:v{{ capi_version }} \
-          --infrastructure openstack:v{{ capo_version }}
+        if [[ $(kubectl get ns capi-system -o json | jq .status.phase -r) == "Active" ]]; then
+          clusterctl upgrade apply \
+            --core cluster-api:v{{ capi_version }} \
+            --bootstrap kubeadm:v{{ capi_version }} \
+            --control-plane kubeadm:v{{ capi_version }} \
+            --infrastructure openstack:v{{ capo_version }};
+        else
+          clusterctl init \
+            --core cluster-api:v{{ capi_version }} \
+            --bootstrap kubeadm:v{{ capi_version }} \
+            --control-plane kubeadm:v{{ capi_version }} \
+            --infrastructure openstack:v{{ capo_version }};
+        fi
       args:
         executable: /bin/bash
       register: result
