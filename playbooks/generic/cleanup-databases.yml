@@ -59,7 +59,9 @@
       ansible.builtin.command: "docker exec nova_api nova-manage db purge --before {{ '%Y-%m-%d' | strftime((ansible_date_time.epoch | int) - (86400 * database_nova_retention_time | int)) }}"
       register: result
       changed_when: result.rc == 0
-      failed_when: result.rc > 0
+      failed_when:
+        - result.rc > 0
+        - result.rc != 3
       async: "{{ database_cleanup_timeout }}"
       poll: 5
       tags: nova
