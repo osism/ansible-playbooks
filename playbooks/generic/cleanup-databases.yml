@@ -68,13 +68,3 @@
       when:
         - container_nova_api.exists
         - database_nova_cleanup | bool
-
-    - name: Delete nova database records where instance_uuid is NULL
-      ansible.builtin.command: docker exec nova_api nova-manage db null_instance_uuid_scan --delete
-      async: "{{ database_cleanup_timeout }}"
-      poll: 5
-      tags: nova
-      changed_when: true
-      when:
-        - container_nova_api.exists
-        - database_nova_cleanup | bool
