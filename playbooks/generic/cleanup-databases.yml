@@ -4,24 +4,34 @@
   gather_facts: false
 
   vars:
+    database_cinder_retention_time: 180
     database_heat_retention_time: 30
     database_nova_retention_time: 180
 
+    database_cinder_cleanup: true
     database_heat_cleanup: true
     database_nova_cleanup: true
 
     database_cleanup_timeout: 1200
 
   tasks:
+    - name: Get infos on cinder_api container
+      community.docker.docker_container_info:
+        name: cinder_api
+      register: container_cinder_api
+      tags: cinder
+
     - name: Get infos on heat_api container
       community.docker.docker_container_info:
         name: heat_api
       register: container_heat_api
+      tags: heat
 
     - name: Get infos on nova_api container
       community.docker.docker_container_info:
         name: nova_api
       register: container_nova_api
+      tags: nova
 
     - name: "Purge heat db entries older than number of days: {{ database_heat_retention_time }}"
       ansible.builtin.command: "docker exec heat_api heat-manage purge_deleted -g days {{ database_heat_retention_time }}"
@@ -68,3 +78,15 @@
       when:
         - container_nova_api.exists
         - database_nova_cleanup | bool
+
+    - name: "Delete rows from cinder tables older than number of days: {{ database_cinder_retention_time }}"
+      ansible.builtin.command: "docker exec cinder_api cinder-manage db purge {{ database_cinder_retention_time }}"
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc > 0
+      async: "{{ database_cleanup_timeout }}"
+      poll: 5
+      tags: cinder
+      when:
+        - container_cinder_api.exists
+        - database_cinder_cleanup | bool
