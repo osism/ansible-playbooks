@@ -13,13 +13,25 @@
     database_cleanup_timeout: 1200
 
   tasks:
+    - name: Get infos on heat_api container
+      community.docker.docker_container_info:
+        name: heat_api
+      register: container_heat_api
+
+    - name: Get infos on nova_api container
+      community.docker.docker_container_info:
+        name: nova_api
+      register: container_nova_api
+
     - name: "Purge heat db entries older than number of days: {{ database_heat_retention_time }}"
       ansible.builtin.command: "docker exec heat_api heat-manage purge_deleted -g days {{ database_heat_retention_time }}"
       async: "{{ database_cleanup_timeout }}"
       poll: 5
       tags: heat
       changed_when: true
-      when: database_heat_cleanup | bool
+      when:
+        - container_heat_api.exists
+        - database_heat_cleanup | bool
 
     - name: Clean dead heat engine records
       ansible.builtin.command: docker exec heat_api heat-manage service clean
@@ -27,7 +39,9 @@
       poll: 5
       tags: heat
       changed_when: true
-      when: database_heat_cleanup | bool
+      when:
+        - container_heat_api.exists
+        - database_heat_cleanup | bool
 
     - name: Move deleted rows from nova production tables to shadow tables
       ansible.builtin.command: docker exec nova_api nova-manage db archive_deleted_rows --until-complete
@@ -37,7 +51,9 @@
       async: "{{ database_cleanup_timeout }}"
       poll: 5
       tags: nova
-      when: database_nova_cleanup | bool
+      when:
+        - container_nova_api.exists
+        - database_nova_cleanup | bool
 
     - name: "Delete rows from nova shadow tables older than number of days: {{ database_nova_retention_time }}"
       ansible.builtin.command: "docker exec nova_api nova-manage db purge --before {{ '%Y-%m-%d' | strftime((ansible_date_time.epoch | int) - (86400 * database_nova_retention_time | int)) }}"
@@ -47,7 +63,9 @@
       async: "{{ database_cleanup_timeout }}"
       poll: 5
       tags: nova
-      when: database_nova_cleanup | bool
+      when:
+        - container_nova_api.exists
+        - database_nova_cleanup | bool
 
     - name: Delete nova database records where instance_uuid is NULL
       ansible.builtin.command: docker exec nova_api nova-manage db null_instance_uuid_scan --delete
@@ -55,4 +73,6 @@
       poll: 5
       tags: nova
       changed_when: true
-      when: database_nova_cleanup | bool
+      when:
+        - container_nova_api.exists
+        - database_nova_cleanup | bool
