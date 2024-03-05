@@ -9,7 +9,6 @@
 
     database_heat_cleanup: true
     database_nova_cleanup: true
-    database_panko_cleanup: true
 
     database_cleanup_timeout: 1200
 
@@ -29,14 +28,6 @@
       tags: heat
       changed_when: true
       when: database_heat_cleanup | bool
-
-    - name: Delete expired panko events
-      ansible.builtin.command: docker exec panko_api panko-expirer
-      async: "{{ database_cleanup_timeout }}"
-      poll: 5
-      tags: panko
-      changed_when: true
-      when: database_panko_cleanup | bool
 
     - name: Move deleted rows from nova production tables to shadow tables
       ansible.builtin.command: docker exec nova_api nova-manage db archive_deleted_rows --until-complete
