@@ -4,10 +4,10 @@
 
   vars:
     ceph_ansible_container_name: ceph-ansible
-    ceph_keys:
+    ceph_infrastructure_keys:
       - src: ceph.client.admin.keyring
         dest: "{{ configuration_directory }}/environments/infrastructure/files/ceph/ceph.client.admin.keyring"
-
+    ceph_kolla_keys:
       - src: ceph.client.cinder.keyring
         dest: "{{ configuration_directory }}/environments/kolla/files/overlays/cinder/cinder-volume/ceph.client.cinder.keyring"
 
@@ -39,11 +39,20 @@
         INTERACTIVE: "false"
       changed_when: true
 
-    - name: Copy ceph keys to the configuration repository  # noqa: ignore-errors
+    - name: Copy ceph infrastructure keys to the configuration repository
+      ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"
+      changed_when: true
+      loop: "{{ ceph_infrastructure_keys }}"
+      tags:
+        - infrastructure
+
+    - name: Copy ceph kolla keys to the configuration repository  # noqa: ignore-errors
       ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"
       changed_when: true
       # It is possible that certain keys are not available in an environment
       # or certain services have not been activated. In this case, errors are
       # ignored.
       ignore_errors: true
-      loop: "{{ ceph_keys }}"
+      loop: "{{ ceph_kolla_keys }}"
+      tags:
+        - kolla
