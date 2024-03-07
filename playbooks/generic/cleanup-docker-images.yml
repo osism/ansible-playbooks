@@ -22,7 +22,7 @@
       community.docker.docker_prune:
         images: true
         images_filters:
-          dangling: true
+          dangling: false
       tags: images
       async: 600
       poll: 10
