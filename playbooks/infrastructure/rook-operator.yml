@@ -1,0 +1,7 @@
+---
+- name: Apply role ceph_rook_operator
+  hosts: localhost
+  connection: local
+
+  roles:
+    - role: osism.services.ceph_rook_operator
