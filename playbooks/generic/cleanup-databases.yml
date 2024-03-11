@@ -27,10 +27,10 @@
       register: container_heat_api
       tags: heat
 
-    - name: Get infos on nova_api container
+    - name: Get infos on nova_conductor container
       community.docker.docker_container_info:
-        name: nova_api
-      register: container_nova_api
+        name: nova_conductor
+      register: container_nova_conductor
       tags: nova
 
     - name: "Purge heat db entries older than number of days: {{ database_heat_retention_time }}"
@@ -54,7 +54,7 @@
         - database_heat_cleanup | bool
 
     - name: Move deleted rows from nova production tables to shadow tables
-      ansible.builtin.command: docker exec nova_api nova-manage db archive_deleted_rows --until-complete
+      ansible.builtin.command: docker exec nova_conductor nova-manage db archive_deleted_rows --until-complete
       register: result
       changed_when: result.rc == 1
       failed_when: result.rc > 1
@@ -62,11 +62,11 @@
       poll: 5
       tags: nova
       when:
-        - container_nova_api.exists
+        - container_nova_conductor.exists
         - database_nova_cleanup | bool
 
     - name: "Delete rows from nova shadow tables older than number of days: {{ database_nova_retention_time }}"
-      ansible.builtin.command: "docker exec nova_api nova-manage db purge --before {{ '%Y-%m-%d' | strftime((ansible_date_time.epoch | int) - (86400 * database_nova_retention_time | int)) }}"
+      ansible.builtin.command: "docker exec nova_conductor nova-manage db purge --before {{ '%Y-%m-%d' | strftime((ansible_date_time.epoch | int) - (86400 * database_nova_retention_time | int)) }}"
       register: result
       changed_when: result.rc == 0
       failed_when:
@@ -76,7 +76,7 @@
       poll: 5
       tags: nova
       when:
-        - container_nova_api.exists
+        - container_nova_conductor.exists
         - database_nova_cleanup | bool
 
     - name: "Delete rows from cinder tables older than number of days: {{ database_cinder_retention_time }}"
