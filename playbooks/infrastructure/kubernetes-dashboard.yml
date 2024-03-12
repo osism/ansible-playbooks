@@ -1,0 +1,13 @@
+---
+- name: Apply kubernetes_dashboard role
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Deploy kubernetes-dashboard helm chart
+      kubernetes.core.helm:
+        release_name: kubernetes-dashboard
+        chart_ref: kubernetes-dashboard/kubernetes-dashboard
+        release_namespace: kubernetes-dashboard
+        create_namespace: true
+        wait: true
