@@ -1,0 +1,7 @@
+---
+- name: Apply role rook_operator
+  hosts: localhost
+  connection: local
+
+  roles:
+    - role: osism.services.rook_operator
