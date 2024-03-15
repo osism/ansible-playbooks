@@ -6,7 +6,8 @@
 # Tests:
 # - All containers with OSDs are existing
 # - All containers with OSDs are running
-# - Count of OSDs on each ceph-osd node == devices * osds_per_device
+# - Old LVM2 approach: Count of OSDs on each ceph-osd node == devices * osds_per_device
+# - New LVM2 approach: Count of OSDs on each ceph-osd node == ceph_osd_devices
 # - OSDs are up+in
 # - OSDs are encrypted if dmcrypt is true and not encrypted otherwise
 # - OSDs are placed correctly in OSD tree
@@ -72,22 +73,46 @@
         _osds_tests: []
       run_once: true
 
-    - name: Define OSD test variables
-      ansible.builtin.set_fact:
-        _osds_node_count: "{{ groups['ceph-osd'] | length }}"
-        _osds_count_total: 0
-        _osds_count_by_host: 0
-        _osds_num_per_device:
-          "{{ _osds_configuration_vars['osds_per_device'] | default(1) }}"
-        _osds_dmcrypt:
-          "{{ _osds_configuration_vars['dmcrypt'] }}"
-        _osds_container_test_data: []
-      run_once: true
+    - name: Prepare OSD test variables for old LVM2 approach  # noqa osism-fqcn
+      block:
+        - name: Define OSD test variables
+          ansible.builtin.set_fact:
+            _osds_node_count: "{{ groups['ceph-osd'] | length }}"
+            _osds_count_total: 0
+            _osds_count_by_host: 0
+            _osds_num_per_device:
+              "{{ _osds_configuration_vars['osds_per_device'] | default(1) }}"
+            _osds_dmcrypt:
+              "{{ _osds_configuration_vars['dmcrypt'] }}"
+            _osds_container_test_data: []
+          run_once: true
 
-    - name: Calculate OSD devices for each host
-      ansible.builtin.set_fact:
-        _osds_count_by_host:
-          "{{ (_osds_num_per_device | int) * (devices | length) }}"
+        - name: Calculate OSD devices for each host
+          ansible.builtin.set_fact:
+            _osds_count_by_host:
+              "{{ (_osds_num_per_device | int) * (devices | length) }}"
+      when:
+        - devices is defined
+
+    - name: Prepare OSD test variables for new LVM2 approach  # noqa osism-fqcn
+      block:
+        - name: Define OSD test variables
+          ansible.builtin.set_fact:
+            _osds_node_count: "{{ groups['ceph-osd'] | length }}"
+            _osds_count_total: 0
+            _osds_count_by_host: 0
+            _osds_num_per_device: 1
+            _osds_dmcrypt:
+              "{{ _osds_configuration_vars['dmcrypt'] }}"
+            _osds_container_test_data: []
+          run_once: true
+
+        - name: Calculate OSD devices for each host
+          ansible.builtin.set_fact:
+            _osds_count_by_host:
+              "{{ (_osds_num_per_device | int) * (ceph_osd_devices | length) }}"
+      when:
+        - devices is not defined
 
     - name: Calculate total number of OSDs in cluster
       ansible.builtin.set_fact:
