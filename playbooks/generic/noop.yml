@@ -1,0 +1,9 @@
+---
+- name: Do nothing
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Print a noop message
+      ansible.builtin.debug:
+        msg: noop
