@@ -1,0 +1,28 @@
+---
+- name: Apply kubernetes monitoring role
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Deploy kubernetes-monitoring helm chart
+      kubernetes.core.helm:
+        release_name: kubernetes-monitoring
+        chart_ref: dnationcloud/dnation-kubernetes-monitoring-stack
+        release_namespace: kubernetes-monitoring
+        create_namespace: true
+        wait: true
+        values:
+          # Disable loki, promtail, and related dashboards
+          loki:
+            enabled: false
+          promtail:
+            enabled: false
+          dnation-kubernetes-monitoring:
+            grafanaDashboards:
+              isLoki: false
+          # Reconfigure node exporter default port
+          kube-prometheus-stack:
+            prometheus-node-exporter:
+              service:
+                port: 9111
+                targetPort: 9111
