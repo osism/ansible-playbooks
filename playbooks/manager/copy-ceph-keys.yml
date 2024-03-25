@@ -4,7 +4,7 @@
 
   vars:
     ceph_ansible_container_name: ceph-ansible
-    ceph_custom_keys: {}
+    ceph_custom_keys: []
     ceph_infrastructure_keys:
       - src: ceph.client.admin.keyring
         dest: "{{ configuration_directory }}/environments/infrastructure/files/ceph/ceph.client.admin.keyring"
