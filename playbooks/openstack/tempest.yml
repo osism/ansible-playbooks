@@ -1,0 +1,6 @@
+---
+- name: Run tempest
+  hosts: localhost
+
+  roles:
+    - role: osism.validations.tempest
