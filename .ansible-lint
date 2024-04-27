@@ -4,13 +4,6 @@ exclude_paths:
   - playbooks/generic/common.yml
   - playbooks/infrastructure-kubernetes.yml
   - playbooks/infrastructure/kubernetes.yml
-mock_modules:
-  - community.docker.docker_container
-  - community.docker.docker_container_exec
-  - community.docker.docker_container_info
-  - community.docker.docker_prune
-  - community.docker.docker_volume
-  - kubernetes.core.helm
 mock_roles:
   - containerd
   - k3s_agent
