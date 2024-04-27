@@ -5,6 +5,14 @@
   serial: "{{ osism_serial['reboot']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
+  vars:
+    reboot_connect_timeout: 5
+    reboot_msg: "Reboot initiated by OSISM"
+    reboot_post_reboot_delay: 120
+    reboot_pre_reboot_delay: 2
+    reboot_timeout: 900
+    reboot_wait: false
+
   vars_prompt:
     - name: ireallymeanit
       prompt: Are you sure you want to reboot the systems?
@@ -20,8 +28,18 @@
            invoking the playbook"
       when: ireallymeanit != 'yes'
 
-    - name: Reboot system
-      ansible.builtin.shell: sleep 2 && /sbin/shutdown -r now
+    - name: Reboot system - do not wait for the reboot to complete
+      ansible.builtin.shell: "sleep {{ reboot_pre_reboot_delay }} && /sbin/shutdown -r now '{{ reboot_msg }}'"
       async: 1
       poll: 0
       changed_when: true
+      when: not reboot_wait | bool
+
+    - name: Reboot system - wait for the reboot to complete
+      ansible.builtin.reboot:
+        connect_timeout: "{{ reboot_connect_timeout }}"
+        msg: "{{ reboot_msg }}"
+        post_reboot_delay: "{{ reboot_post_reboot_delay }}"
+        pre_reboot_delay: "{{ reboot_pre_reboot_delay }}"
+        reboot_timeout: "{{ reboot_timeout }}"
+      when: reboot_wait | bool
