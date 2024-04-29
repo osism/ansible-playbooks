@@ -12,6 +12,7 @@ mock_roles:
   - k3s_reset
   - k3s_server
   - k3s_server_post
+  - osism.validations.tempest
   - runc
   - scaphandre
   - squid
