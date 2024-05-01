@@ -7,3 +7,6 @@
 
 - name: Run kubeconfig play
   ansible.builtin.import_playbook: /ansible/infrastructure/kubeconfig.yml
+
+- name: Run kubernetes-label-nodes play
+  ansible.builtin.import_playbook: /ansible/infrastructure/kubernetes-label-nodes.yml
