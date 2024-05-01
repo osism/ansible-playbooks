@@ -1,0 +1,60 @@
+---
+- name: Label nodes
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Add control-plane label to all hosts in group control
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/control-plane=true
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop: "{{ groups['control'] }}"
+
+    - name: Add compute-plane label to all hosts in group compute
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/compute-plane=true
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop: "{{ groups['compute'] }}"
+
+    - name: Add network-plane label to all hosts in group network
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/network-plane=true
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop: "{{ groups['network'] }}"
+
+    - name: Add management-plane label to all hosts in group manager
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/management-plane=true
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop: "{{ groups['manager'] }}"
+
+    - name: Add monitoring-plane label to all hosts in group monitoring
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        export KUBECONFIG=/share/kubeconfig
+        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/monitoring-plane=true
+      args:
+        executable: /bin/bash
+      changed_when: false
+      loop: "{{ groups['monitoring'] }}"
