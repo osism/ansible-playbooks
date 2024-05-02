@@ -1,0 +1,40 @@
+# https://github.com/osism/issues/issues/973
+# https://bugs.launchpad.net/kolla-ansible/+bug/2048130
+# https://review.opendev.org/c/openstack/kolla-ansible/+/904805
+---
+- name: Fix for osism/issues#973
+  hosts: "{{ hosts_fix_973|default('common') }}"
+
+  vars:
+    unit_files:
+      - kolla-cron-container.service
+      - kolla-designate_producer-container.service
+      - kolla-keystone_fernet-container.service
+      - kolla-letsencrypt_lego-container.service
+      - kolla-magnum_api-container.service
+      - kolla-mariadb_clustercheck-container.service
+      - kolla-neutron_l3_agent-container.service
+      - kolla-openvswitch_db-container.service
+      - kolla-openvswitch_vswitchd-container.service
+      - kolla-proxysql-container.service
+
+  tasks:
+    - name: Check the unit files to be repaired
+      ansible.builtin.stat:
+        path: "/etc/systemd/system/{{ item }}"
+      loop: "{{ unit_files }}"
+      register: result
+
+    - name: Repair unit file
+      become: true
+      ansible.builtin.lineinfile:
+        path: "/etc/systemd/system/{{ item.item }}"
+        insertafter: "^RestartSec="
+        line: "SuccessExitStatus=143"
+      loop: "{{ result.results }}"
+      when: item["stat"].exists | bool
+
+    - name: Reload systemd daemon
+      become: true
+      ansible.builtin.systemd:
+        daemon_reload: true
