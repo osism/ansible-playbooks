@@ -33,7 +33,9 @@
         line: "SuccessExitStatus=143"
       loop: "{{ result.results }}"
       when: item["stat"].exists | bool
+      notify: Reload systemd daemon
 
+  handlers:
     - name: Reload systemd daemon
       become: true
       ansible.builtin.systemd:
