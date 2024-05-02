@@ -10,6 +10,7 @@
       - kolla-cron-container.service
       - kolla-designate_producer-container.service
       - kolla-keystone_fernet-container.service
+      - kolla-kolla_toolbox-container.service
       - kolla-letsencrypt_lego-container.service
       - kolla-magnum_api-container.service
       - kolla-mariadb_clustercheck-container.service
