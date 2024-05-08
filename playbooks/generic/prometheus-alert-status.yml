@@ -1,0 +1,7 @@
+---
+- name: Run prometheus_alert_status
+  hosts: localhost
+  gather_facts: false
+
+  roles:
+    - role: osism.validations.prometheus_alert_status
