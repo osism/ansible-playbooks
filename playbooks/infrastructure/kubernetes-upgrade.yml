@@ -1,7 +1,7 @@
 ---
 - name: Upgrade k3s cluster
-  hosts: localhost
-  connection: local
+  hosts: "{{ hosts_k3s_all|default('k3s_all') }}"
+  gather_facts: false
 
   tasks:
     - name: Get k3s installed version
