@@ -1,0 +1,35 @@
+---
+- name: Ensure no instances
+  hosts: "{{ hosts_check_for_instances | default('compute') }}"
+
+  tasks:
+    - name: Get all instances defined in Libvirt
+      community.docker.docker_container_exec:
+        container: nova_libvirt
+        command: virsh list --all --uuid
+      register: defined_instances
+
+    - name: Assert no instances are defined in Libvirt
+      ansible.builtin.assert:
+        that:
+          - defined_instances.stdout | length == 0
+        fail_msg: "{{ defined_instances.stdout | length }} are still defined in Libvirt"
+        success_msg: No instances defined in Libvirt
+
+    # source: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
+    # NOTE: We use /bin/sh here as the default for the shell, so
+    #       set -o pipefail is not usable (Illegal option). Therefore,
+    #       we ignore the ansible-lint rule risky-shell-pipe at this
+    #       point.
+    - name: Get running qemu processes
+      ansible.builtin.shell:  # noqa: risky-shell-pipe
+        cmd: ps -ef | grep -v grep | grep -w qemu | awk '{print $2}'
+      register: running_processes
+      changed_when: false
+
+    - name: Assert no qemu processes running
+      ansible.builtin.assert:
+        that:
+          - running_processes.stdout | length == 0
+        fail_msg: "{{ running_processes.stdout | length }} qemu processes are still running"
+        success_msg: No qemu processes running
