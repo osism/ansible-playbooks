@@ -9,10 +9,10 @@
     - name: Get all kolla unit files
       ansible.builtin.find:
         paths: /etc/systemd/system
-        recurse: no
+        recurse: false
         patterns: "kolla-.*-container.service"
         file_type: file
-        use_regex: yes
+        use_regex: true
       register: result
 
     - name: Repair unit file
