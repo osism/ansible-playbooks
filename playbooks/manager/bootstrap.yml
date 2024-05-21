@@ -12,6 +12,13 @@
     - role: osism.commons.proxy
       tags: proxy
 
+    - role: osism.commons.sshconfig
+      # This ensures that only any extra SSH configuration configured
+      # is written to the Manager at this point.
+      vars:
+        sshconfig_private_key_file: ""
+      tags: sshconfig
+
     - role: osism.commons.resolvconf
       tags: resolvconf
 
