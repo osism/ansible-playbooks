@@ -19,6 +19,9 @@
         sshconfig_private_key_file: ""
       tags: sshconfig
 
+    - role: osism.commons.certificates
+      tags: certificates
+
     - role: osism.commons.resolvconf
       tags: resolvconf
 
