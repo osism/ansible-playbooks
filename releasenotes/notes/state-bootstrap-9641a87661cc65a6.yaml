@@ -1,5 +1,0 @@
----
-features:
-  - |
-    With the `generic/state-bootstrap` play it is possible to set and unset the
-    bootstrap state of a host.
