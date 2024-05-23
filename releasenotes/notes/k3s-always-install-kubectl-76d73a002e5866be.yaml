@@ -1,4 +1,0 @@
----
-features:
-  - |
-    In the `k3s` play always install the `kubectl` package.
