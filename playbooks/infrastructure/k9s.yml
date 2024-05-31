@@ -1,0 +1,7 @@
+---
+- name: Apply role k9s
+  hosts: "{{ hosts_k9s|default('k9s') }}"
+  serial: "{{ osism_serial['k9s']|default('0') }}"
+
+  roles:
+    - role: osism.commons.k9s

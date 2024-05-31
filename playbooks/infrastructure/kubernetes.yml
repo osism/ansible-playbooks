@@ -5,6 +5,9 @@
 - name: Run kubectl play
   ansible.builtin.import_playbook: /ansible/infrastructure/kubectl.yml
 
+- name: Run k9s play
+  ansible.builtin.import_playbook: /ansible/infrastructure/k9s.yml
+
 - name: Run kubeconfig play
   ansible.builtin.import_playbook: /ansible/infrastructure/kubeconfig.yml
 
