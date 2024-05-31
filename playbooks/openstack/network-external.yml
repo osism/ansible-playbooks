@@ -1,0 +1,36 @@
+- name: Manage an external OpenStack network
+  hosts: localhost
+  connection: local
+
+  vars:
+    network_external_allocation_pool_end: "192.168.112.200"
+    network_external_allocation_pool_start: "192.168.112.100"
+    network_external_cidr: "192.168.112.0/20"
+    network_external_cloud: admin
+    network_external_gateway_ip: "192.168.112.5"
+    network_external_name: public
+    network_external_provider_network_type: flat
+    network_external_provider_physical_network: physnet1
+    network_external_state: present
+
+  tasks:
+    - name: "Manage network {{ network_external_name }}"
+      openstack.cloud.network:
+        cloud: "{{ network_external_cloud }}"
+        state: "{{ network_external_state }}"
+        name: "{{ network_external_name }}"
+        external: true
+        provider_network_type: "{{ network_external_provider_network_type }}"
+        provider_physical_network: "{{ network_external_provider_physical_network }}"
+
+    - name: "Manage subnet {{ network_external_name }}"
+      openstack.cloud.subnet:
+        cloud: "{{ network_external_cloud }}"
+        state: "{{ network_external_state }}"
+        name: "subnet-{{ network_external_name }}"
+        network_name: "{{ network_external_name }}"
+        cidr: "{{ network_external_cidr }}"
+        enable_dhcp: false
+        allocation_pool_start: "{{ network_external_allocation_pool_start }}"
+        allocation_pool_end: "{{ network_external_allocation_pool_end }}"
+        gateway_ip: "{{ network_external_gateway_ip }}"
