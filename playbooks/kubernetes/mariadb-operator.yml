@@ -1,0 +1,7 @@
+---
+- name: Apply role mariadb_operator
+  hosts: localhost
+  connection: local
+
+  roles:
+    - role: osism.services.mariadb_operator
