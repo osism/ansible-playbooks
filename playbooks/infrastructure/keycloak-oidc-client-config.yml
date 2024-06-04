@@ -7,20 +7,30 @@
     keycloak_namespace: "keycloak"
 
     keycloak_kcadm_binary: "/opt/keycloak/bin/kcadm.sh"
-    keycloak_realm: "osism"
+    keycloak_proxy_realm: "osism"
+    keycloak_customer_realm: "customerA"
     keycloak_url: "https://keycloak.testbed.osism.xyz/auth/"
     keycloak_url_internal: "http://localhost:8080/auth/"
     keycloak_service_container_name: "keycloak-keycloakx-0"
+    proxy_federation: "OIDC-proxy"
+    idp_login_flow: "IdP-discovery-flow"
+    subflow_name: "subflow"
 
     keycloak_admin_id: "admin"
     keycloak_key_provider_component_name: "rsa-for-keystone"
 
     keystone_client_id: "keystone"
+    proxy_client_id: "proxy-realm-client"
     keystone_redirect_uris:
       - "https://api.testbed.osism.xyz:5000/redirect_uri"
       - "https://api.testbed.osism.xyz"
       - "https://192.168.16.254:5000/redirect_uri"
       - "https://192.168.16.254"
+    customer_redirect_uris:
+      - "https://keycloak.testbed.osism.xyz/*"
+
+    customer_logout_redirect_url: "https://api.testbed.osism.xyz:5000/redirect_uri##https://keycloak.testbed.osism.xyz/*"
+
 
     keystone_logout_url: https://api.testbed.osism.xyz:5000/redirect_uri?logout=backchannel
     keystone_logout_redirect_url: https://api.testbed.osism.xyz:5000/redirect_uri?logout=https://api.testbed.osism.xyz:5000/logout
@@ -30,6 +40,14 @@
 
     keycloak_certificate_file_path: /opt/configuration/environments/infrastructure/files/keycloak/cert.crt
     keycloak_certificate_data: "{{ lookup('file', keycloak_certificate_file_path)| regex_replace('\n', '\\\\n') }}"
+
+    proxy_authorization_url: "http://keycloak.testbed.osism.xyz/auth/realms/{{ keycloak_customer_realm }}/protocol/openid-connect/auth"
+    proxy_issuer: "http://keycloak.testbed.osism.xyz/auth/realms/{{ keycloak_customer_realm }}"
+    proxy_jwks_url: "http://keycloak.testbed.osism.xyz/auth/realms/{{ keycloak_customer_realm }}/protocol/openid-connect/certs"
+    proxy_logout_url: "http://keycloak.testbed.osism.xyz/auth/realms/{{ keycloak_customer_realm }}/protocol/openid-connect/logout"
+    proxy_token_url: "http://keycloak.testbed.osism.xyz/auth/realms/{{ keycloak_customer_realm }}/protocol/openid-connect/token"
+    proxy_user_info_url: "http://keycloak.testbed.osism.xyz/auth/realms/{{ keycloak_customer_realm }}/protocol/openid-connect/userinfo"
+
 
   tasks:
     - name: Wait until service is available
@@ -79,12 +97,12 @@
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
           create realms
-            --set id="{{ keycloak_realm }}"
-            --set realm="{{ keycloak_realm }}"
+            --set id="{{ keycloak_proxy_realm }}"
+            --set realm="{{ keycloak_proxy_realm }}"
             --set enabled=true
       environment:
         KUBECONFIG: /share/kubeconfig
-      when: keycloak_realm not in available_realms
+      when: keycloak_proxy_realm not in available_realms
       run_once: true
       changed_when: true
 
@@ -92,7 +110,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          get clients --target-realm {{ keycloak_realm }}
+          get clients --target-realm {{ keycloak_proxy_realm }}
                 --query clientId={{ keystone_client_id }}
                 --fields id,clientId
       environment:
@@ -110,7 +128,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          create clients --target-realm "{{ keycloak_realm }}"
+          create clients --target-realm "{{ keycloak_proxy_realm }}"
             --set clientId={{ keystone_client_id }}
             --set protocol=openid-connect
             --set 'redirectUris={{ keystone_redirect_uris | tojson }}'
@@ -135,7 +153,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          get clients --target-realm {{ keycloak_realm }}
+          get clients --target-realm {{ keycloak_proxy_realm }}
                 --query clientId={{ keystone_client_id }}
                 --fields id
                 --format csv
@@ -156,7 +174,7 @@
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
           get "clients/{{ internal_client_id }}/protocol-mappers/models"
-                 --target-realm {{ keycloak_realm }}
+                 --target-realm {{ keycloak_proxy_realm }}
                  --fields name
       environment:
         KUBECONFIG: /share/kubeconfig
@@ -174,7 +192,7 @@
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
           create clients/{{ internal_client_id }}/protocol-mappers/models
-            --target-realm "{{ keycloak_realm }}"
+            --target-realm "{{ keycloak_proxy_realm }}"
             --set protocol=openid-connect
             --set name={{ item }}
             --set protocolMapper=oidc-usermodel-attribute-mapper
@@ -198,7 +216,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          get components --target-realm {{ keycloak_realm }}
+          get components --target-realm {{ keycloak_proxy_realm }}
                 --query name="{{ keycloak_key_provider_component_name }}"
                 --fields name
       environment:
@@ -216,7 +234,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          create components --target-realm "{{ keycloak_realm }}"
+          create components --target-realm "{{ keycloak_proxy_realm }}"
             --set name="{{ keycloak_key_provider_component_name }}"
             --set providerId=rsa
             --set providerType=org.keycloak.keys.KeyProvider
@@ -234,11 +252,480 @@
       no_log: true
       changed_when: true
 
-    - name: Get available users in realm
+    - name: Get available realms
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          get users --target-realm {{ keycloak_realm }}
+          get realms --fields id
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_realms_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available realms
+      ansible.builtin.set_fact:
+        available_realms: "{{ available_realms_json.stdout | from_json | map(attribute='id') | list }}"
+      run_once: true
+
+    - name: Create customer realm if it doesn't exist
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create realms
+            --set id="{{ keycloak_customer_realm }}"
+            --set realm="{{ keycloak_customer_realm }}"
+            --set enabled=true
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: keycloak_customer_realm not in available_realms
+      run_once: true
+      changed_when: true
+
+    - name: Get available clients in customer realm
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get clients --target-realm {{ keycloak_customer_realm }}
+                --query clientId={{ proxy_client_id }}
+                --fields id,clientId
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_clients_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available clients in customer realm
+      ansible.builtin.set_fact:
+        available_clients: "{{ available_clients_json.stdout | from_json | map(attribute='clientId') | list }}"
+      run_once: true
+
+    # client configuration in customer realm
+    - name: Create OIDC client configuration in customer realm
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create clients --target-realm "{{ keycloak_customer_realm }}"
+            --set clientId={{ proxy_client_id }}
+            --set protocol=openid-connect
+            --set 'redirectUris={{ customer_redirect_uris | tojson }}'
+            --set standardFlowEnabled=true
+            --set implicitFlowEnabled=true
+            --set directAccessGrantsEnabled=true
+            --set publicClient=true
+            --set frontchannelLogout=true
+            --set secret="{{ keystone_container_federation_oidc_client_secret }}"
+            --set 'attributes."pkce.code.challenge.method"="S256"'
+            --set 'attributes."post.logout.redirect.uris"="{{ customer_logout_redirect_url }}"'
+            --set 'attributes."backchannel.logout.revoke.offline.tokens"="false"'
+            --set 'attributes."backchannel.logout.session.required"="true"'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: proxy_client_id not in available_clients
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    # mappers configuration for customer realm
+    - name: "Get internal ID for client {{ keystone_client_id }}"
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get clients --target-realm {{ keycloak_customer_realm }}
+                --query clientId={{ proxy_client_id }}
+                --fields id
+                --format csv
+                --noquotes
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: internal_client_id_json
+      changed_when: false
+      run_once: true
+
+    - name: "Filter internal ID for client {{ keystone_client_id }}"
+      ansible.builtin.set_fact:
+        internal_client_id: "{{ internal_client_id_json.stdout }}"
+      run_once: true
+
+    - name: Get available mappers for client
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get "clients/{{ internal_client_id }}/protocol-mappers/models"
+                 --target-realm {{ keycloak_customer_realm }}
+                 --fields name
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_mappers_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available mappers for client
+      ansible.builtin.set_fact:
+        available_mappers: "{{ available_mappers_json.stdout | from_json | map(attribute='name') | list }}"
+      run_once: true
+
+    - name: Create mappers for client
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create clients/{{ internal_client_id }}/protocol-mappers/models
+            --target-realm "{{ keycloak_customer_realm }}"
+            --set protocol=openid-connect
+            --set name={{ item }}
+            --set protocolMapper=oidc-usermodel-attribute-mapper
+            --set 'config."id.token.claim"="true"'
+            --set 'config."access.token.claim"="true"'
+            --set 'config."userinfo.token.claim"="true"'
+            --set 'config.multivalued=""'
+            --set 'config."aggregate.attrs"=""'
+            --set 'config."user.attribute"="{{ item }}"'
+            --set 'config."claim.name"="{{ item }}"'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: item not in available_mappers
+      loop:
+        - "openstack-default-project"
+      run_once: true
+      changed_when: true
+
+    #check + create Identity federation
+    - name: Get available identity providers in proxy realm for IdP creation
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get identity-provider/instances --target-realm {{ keycloak_proxy_realm }}
+                --query alias={{ keycloak_customer_realm }}
+                --fields id,providerId,alias
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_idp_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available IdP in proxy realm
+      ansible.builtin.set_fact:
+        available_clients: "{{ available_idp_json.stdout | from_json | map(attribute='alias') | list }}"
+      run_once: true
+
+    - name: Create IdP in proxy realm
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create identity-provider/instances --target-realm "{{ keycloak_proxy_realm }}"
+            --set providerId=keycloak-oidc
+            --set alias={{ keycloak_customer_realm }}
+            --set enabled=true
+            --set 'config.clientId={{ proxy_client_id }}'
+            --set 'config.clientSecret={{ keystone_container_federation_oidc_client_secret }}'
+            --set 'config.authorizationUrl={{ proxy_authorization_url }}'
+            --set 'config.issuer={{ proxy_issuer }}'
+            --set 'config.jwksUrl={{ proxy_jwks_url }}'
+            --set 'config.logoutUrl={{ proxy_logout_url }}'
+            --set 'config.tokenUrl={{ proxy_token_url }}'
+            --set 'config.userInfoUrl={{ proxy_user_info_url }}'
+            --set 'config.useJwksUrl=true'
+            --set 'config.validateSignature=true'
+            --set 'config.pkceEnabled=true'
+            --set 'config.pkceMethod=S256'
+            --set 'config.backchannelSupported=true'
+            --set 'config.hideOnLoginPage=true'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: keycloak_customer_realm not in available_clients
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    # check + create mappers for the IdP
+    - name: Get available identity providers in proxy realm for mapper creation
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get identity-provider/instances --target-realm {{ keycloak_proxy_realm }}
+                --query alias={{ keycloak_customer_realm }}
+                --fields id,providerId,alias
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_idp_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available IdP in proxy realm
+      ansible.builtin.set_fact:
+        available_clients: "{{ available_idp_json.stdout | from_json | map(attribute='alias') | list }}"
+      run_once: true
+
+    - name: Get available mappers for IdP
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get "identity-provider/instances/{{ keycloak_customer_realm }}/mappers"
+                 --target-realm {{ keycloak_proxy_realm }}
+                 --fields name
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_mappers_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available mappers for client
+      ansible.builtin.set_fact:
+        available_mappers: "{{ available_mappers_json.stdout | from_json | map(attribute='name') | list }}"
+      run_once: true
+
+    - name: Create mappers for IdP
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create "identity-provider/instances/{{ keycloak_customer_realm }}/mappers"
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set name={{ item }}
+            --set identityProviderMapper=oidc-user-attribute-idp-mapper
+            --set identityProviderAlias={{ keycloak_customer_realm }}
+            --set 'config."user.attribute"="{{ item }}"'
+            --set 'config."syncMode"="INHERIT"'
+            --set 'config."claim"="{{ item }}"'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: item not in available_mappers
+      loop:
+        - "openstack-default-project"
+      run_once: true
+      changed_when: true
+
+    - name: Create hardcoded mapper for IdP
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create identity-provider/instances/{{ keycloak_customer_realm }}/mappers
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set name={{ item }}
+            --set identityProviderMapper=hardcoded-attribute-idp-mapper
+            --set identityProviderAlias={{ keycloak_customer_realm }}
+            --set 'config."attribute"="{{ item }}"'
+            --set 'config."syncMode"="INHERIT"'
+            --set 'config."attribute.value"="{{ keycloak_customer_realm }}"'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: item not in available_mappers
+      loop:
+        - "openstack-user-domain"
+      run_once: true
+      changed_when: true
+
+    # Create username mapper for IdP, avoid name collision
+    - name: Create username importer mapper for IdP
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create identity-provider/instances/{{ keycloak_customer_realm }}/mappers
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set name={{ item }}
+            --set identityProviderMapper=oidc-username-idp-mapper
+            --set identityProviderAlias={{ keycloak_customer_realm }}
+            --set 'config."template"="${ALIAS}.${CLAIM.preferred_username}"'
+            --set 'config."syncMode"="INHERIT"'
+            --set 'config."target"="LOCAL"'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: item not in available_mappers
+      loop:
+        - "username-import"
+      run_once: true
+      changed_when: true
+
+    # check + create + set new login flow that uses the Home IdP discovery plugin
+    - name: Get available login flows for proxy realm
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get "authentication/flows"
+                 --target-realm {{ keycloak_proxy_realm }}
+                 --fields alias
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_flows_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available flows
+      ansible.builtin.set_fact:
+        available_mappers: "{{ available_flows_json.stdout | from_json | map(attribute='alias') | list }}"
+      run_once: true
+
+    - name: Create flow in proxy realm
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create authentication/flows
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set builtIn=false
+            --set topLevel=true
+            --set alias={{ idp_login_flow }}
+            --set providerId="basic-flow"
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: idp_login_flow not in available_flows_json
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Add cookie to flow
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create authentication/flows/{{ idp_login_flow }}/executions/execution
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set provider="auth-cookie"
+            --set requirement="ALTERNATIVE"
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: idp_login_flow not in available_flows_json
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Add plugin to flow
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create authentication/flows/{{ idp_login_flow }}/executions/execution
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set provider="home-idp-discovery"
+            --set requirement="ALTERNATIVE"
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: idp_login_flow not in available_flows_json
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Add subflow to flow
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create authentication/flows/{{ idp_login_flow }}/executions/flow
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set alias={{ subflow_name }}
+            --set provider="registration-page-form"
+            --set type="basic-flow"
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: idp_login_flow not in available_flows_json
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Add execution to subflow
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          create authentication/flows/{{ subflow_name }}/executions/execution
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set provider="auth-username-password-form"
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: idp_login_flow not in available_flows_json
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Get executions in login flows
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get "authentication/flows/{{ idp_login_flow }}/executions"
+                 --target-realm {{ keycloak_proxy_realm }}
+                 --fields id
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_executions_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available flows
+      ansible.builtin.set_fact:
+        available_executions: "{{ available_executions_json.stdout | from_json | map(attribute='id') | list }}"
+      run_once: true
+
+    - name: Create JSONs ALTERNATIVE status in KC
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          /requirement-file {{ item }}
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      loop: "{{ available_executions_json.stdout | from_json | map(attribute='id') | list }}"
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Update subflow ALTERNATIVE status
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          update authentication/flows/{{ idp_login_flow }}/executions
+            --target-realm "{{ keycloak_proxy_realm }}"
+            -f "/tmp/{{ item }}.json"
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      loop: "{{ available_executions_json.stdout | from_json | map(attribute='id') | list }}"
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    - name: Change bind of browser flow
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          update realms/{{ keycloak_proxy_realm }}
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set browserFlow={{ idp_login_flow }}
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      run_once: true
+      no_log: true
+      changed_when: true
+
+    # configure Home IdP discovery pluging for the IdentityProvider
+    - name: Get available identity providers in proxy realm for pluging conf
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get identity-provider/instances --target-realm {{ keycloak_proxy_realm }}
+                --query alias={{ keycloak_customer_realm }}
+                --fields id,providerId,alias
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      register: available_idp_json
+      changed_when: false
+      run_once: true
+
+    - name: Filter available IdP in proxy realm
+      ansible.builtin.set_fact:
+        available_clients: "{{ available_idp_json.stdout | from_json | map(attribute='alias') | list }}"
+      run_once: true
+
+    - name: Configure IdP discovery plugin
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          update identity-provider/instances/{{ keycloak_customer_realm }}
+            --target-realm "{{ keycloak_proxy_realm }}"
+            --set 'config."home.idp.discovery.domains"="example.com##example.net"'
+      environment:
+        KUBECONFIG: /share/kubeconfig
+      when: keycloak_customer_realm in available_clients
+      run_once: true
+      no_log: false
+      changed_when: true
+
+    # Create user in customer realm
+    - name: Get available users in customer realm
+      ansible.builtin.command: >-
+        kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
+          {{ keycloak_kcadm_binary }}
+          get users --target-realm {{ keycloak_customer_realm }}
                 --fields username
       environment:
         KUBECONFIG: /share/kubeconfig
@@ -255,7 +742,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          create users --target-realm "{{ keycloak_realm }}"
+          create users --target-realm "{{ keycloak_customer_realm }}"
             --set username=alice
             --set email=alice@testbed.osism.xyz
             --set emailVerified=true
@@ -270,7 +757,7 @@
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
           {{ keycloak_kcadm_binary }}
-          set-password --target-realm "{{ keycloak_realm }}"
+          set-password --target-realm "{{ keycloak_customer_realm }}"
             --username=alice
             --new-password=password
       environment:
