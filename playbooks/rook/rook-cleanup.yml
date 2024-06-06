@@ -5,6 +5,6 @@
 
   tasks:
     - name: Include cleanup.yml from osism.services.rook role
-      include_role:
+      ansible.builtin.include_role:
         name: osism.services.rook
         tasks_from: cleanup.yml
