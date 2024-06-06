@@ -3,5 +3,7 @@
   hosts: localhost
   connection: local
 
-  roles:
-    - role: osism.services.rook
+  tasks:
+    - name: Include osism.services.rook role
+      include_role:
+        name: osism.services.rook
