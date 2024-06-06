@@ -1,9 +1,0 @@
----
-- name: Apply role kompose
-  hosts:
-    - "{{ hosts_kompose|default('kompose') }}"
-  serial: "{{ osism_serial['kompose']|default('0') }}"
-  strategy: "{{ osism_strategy|default('linear') }}"
-
-  roles:
-    - role: osism.commons.kompose
