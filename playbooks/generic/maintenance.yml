@@ -78,7 +78,6 @@
     - role: osism.commons.limits
     - role: osism.commons.services
     - role: osism.commons.motd
-    - role: osism.services.hddtemp
     - role: osism.services.rng
     - role: osism.services.smartd
     - role: osism.commons.cleanup
