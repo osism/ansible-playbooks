@@ -1,6 +1,6 @@
 ---
 - name: Ensure no instances
-  hosts: "{{ hosts_check_for_instances | default('compute') }}"
+  hosts: "{{ hosts_ensure_no_instances | default('compute') }}"
 
   tasks:
     - name: Get all instances defined in Libvirt
