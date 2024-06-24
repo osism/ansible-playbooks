@@ -34,15 +34,37 @@
         dest: "{{ configuration_directory }}/environments/kolla/files/overlays/manila/ceph.client.manila.keyring"
 
   tasks:
+
+    - name: Check ceph keys
+      ansible.builtin.stat:
+        path: "/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }}"
+      loop: "{{ ceph_infrastructure_keys + ceph_kolla_keys + ceph_custom_keys }}"
+      register: result
+      delegate_to: localhost
+      loop_control:
+        label: "{{ item.src }}"
+
+    - name: Set _fetch_ceph_keys fact
+      ansible.builtin.set_fact:
+        _fetch_ceph_keys: true
+      when:
+        - item.stat.islnk is not defined
+      loop: "{{ result.results }}"
+      delegate_to: localhost
+      loop_control:
+        label: "{{ item.item.src }}"
+
     - name: Point out that the following task takes some time and does not give any output
       ansible.builtin.debug:
         msg: "The task 'Fetch ceph keys from the first monitor node' runs an Ansible playbook on the manager. There is no further output of this here. It takes a few minutes for this task to complete."
+      when: _fetch_ceph_keys | default(false)
 
     - name: Fetch ceph keys from the first monitor node
       ansible.builtin.command: "osism apply ceph-fetch-keys"
       environment:
         INTERACTIVE: "false"
       changed_when: true
+      when: _fetch_ceph_keys | default(false)
       tags:
         - fetch
 
