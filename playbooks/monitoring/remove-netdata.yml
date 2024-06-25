@@ -1,6 +1,6 @@
 ---
 - name: Group hosts based on configuration
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
 
   tasks:
@@ -13,7 +13,7 @@
 
 - name: Remove netdata
   hosts:
-    - "{{ hosts_netdata|default('all') }}"
+    - "{{ hosts_netdata|default(hosts_default_group|default('generic')) }}"
     - "&enable_netdata_True"
   serial: "{{ osism_serial['netdata']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"

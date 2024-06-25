@@ -1,6 +1,6 @@
 ---
 - name: Group hosts based on configuration
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
 
   tasks:
@@ -14,7 +14,7 @@
 
 - name: Apply role runc
   hosts:
-    - "{{ hosts_runc|default('all') }}"
+    - "{{ hosts_runc|default(hosts_default_group|default('generic')) }}"
     - "&enable_runc_True"
   serial: "{{ osism_serial['runc']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"

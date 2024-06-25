@@ -1,6 +1,6 @@
 ---
 - name: Check if system reboot is required
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
   tasks:

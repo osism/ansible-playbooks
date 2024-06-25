@@ -1,6 +1,6 @@
 ---
 - name: Store status and time of the last execution of a role
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: 0
   strategy: "{{ osism_strategy|default('linear') }}"
 

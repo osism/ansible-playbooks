@@ -1,6 +1,6 @@
 ---
 - name: Apply role network
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['network']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

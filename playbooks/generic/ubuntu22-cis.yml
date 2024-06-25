@@ -1,6 +1,6 @@
 ---
 - name: Apply role ubuntu22-cis
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['ubuntu22-cis']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

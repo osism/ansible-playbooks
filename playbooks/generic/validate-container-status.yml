@@ -1,6 +1,6 @@
 ---
 - name: Run container_status validator
-  hosts: "{{ hosts_container_status|default('all') }}"
+  hosts: "{{ hosts_container_status|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['container_status']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

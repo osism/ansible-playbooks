@@ -1,6 +1,6 @@
 ---
 - name: Make ssh pipelining working
-  hosts: "{{ hosts_operator|default('all') }}"
+  hosts: "{{ hosts_operator|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['pipelining']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -17,7 +17,7 @@
         mode: 0440
 
 - name: Apply role operator
-  hosts: "{{ hosts_operator|default('all') }}"
+  hosts: "{{ hosts_operator|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['operator']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

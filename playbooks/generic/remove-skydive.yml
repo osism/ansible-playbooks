@@ -1,6 +1,6 @@
 ---
 - name: Clean up obsolet service configuration
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
 
   vars:

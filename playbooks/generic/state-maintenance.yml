@@ -1,6 +1,6 @@
 ---
 - name: Set maintenance state
-  hosts: "{{ hosts_maintenance|default('all') }}"
+  hosts: "{{ hosts_maintenance|default(hosts_default_group|default('generic')) }}"
 
   vars:
     status: "True"

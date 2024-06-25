@@ -1,6 +1,6 @@
 ---
 - name: Manage service
-  hosts: "{{ hosts_manage_service|default('all') }}"
+  hosts: "{{ hosts_manage_service|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['manage_service']|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

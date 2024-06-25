@@ -1,6 +1,6 @@
 ---
 - name: Apply role repository
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['repository']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

@@ -1,6 +1,6 @@
 ---
 - name: Install python environment
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
   strategy: "{{ osism_strategy|default('linear') }}"
 

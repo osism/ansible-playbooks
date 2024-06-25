@@ -1,6 +1,6 @@
 ---
 - name: Ping systems
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['ping']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
   gather_facts: false

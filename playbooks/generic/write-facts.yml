@@ -1,7 +1,7 @@
 ---
 - name: Gather facts for all hosts
   ignore_unreachable: true
-  hosts: "{{ hosts_facts|default('all') }}"
+  hosts: "{{ hosts_facts|default(hosts_default_group|default('generic')) }}"
   gather_facts: false
 
   tasks:
@@ -9,7 +9,7 @@
       ansible.builtin.setup:
 
 - name: Write all available facts
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
 
   vars:

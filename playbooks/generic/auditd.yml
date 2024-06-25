@@ -1,6 +1,6 @@
 ---
 - name: Group hosts based on configuration
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
 
   tasks:
@@ -14,7 +14,7 @@
 
 - name: Apply role auditd
   hosts:
-    - "{{ hosts_auditd|default('all') }}"
+    - "{{ hosts_auditd|default(hosts_default_group|default('generic')) }}"
     - "&enable_auditd_True"
   serial: "{{ osism_serial['auditd']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
