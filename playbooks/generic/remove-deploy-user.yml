@@ -1,6 +1,6 @@
 ---
 - name: Remove deploy user
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['remove_deploy_user']|default('0') }}"
 
   vars:

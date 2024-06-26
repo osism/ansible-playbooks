@@ -1,6 +1,6 @@
 ---
 - name: Apply role sosreport
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   gather_facts: false
   serial: "{{ osism_serial['sosreport']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"

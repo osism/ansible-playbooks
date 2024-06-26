@@ -1,6 +1,6 @@
 ---
 - name: Apply role user
-  hosts: "{{ hosts_user|default('all') }}"
+  hosts: "{{ hosts_user|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['user']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

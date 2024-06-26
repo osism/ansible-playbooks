@@ -1,6 +1,6 @@
 ---
 - name: Set bootstrap state
-  hosts: "{{ hosts_bootstrap|default('all') }}"
+  hosts: "{{ hosts_bootstrap|default(hosts_default_group|default('generic')) }}"
 
   vars:
     status: "True"

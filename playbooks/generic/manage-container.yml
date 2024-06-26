@@ -1,6 +1,6 @@
 ---
 - name: Manage container
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['manage_container']|default(1) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

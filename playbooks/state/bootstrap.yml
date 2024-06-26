@@ -1,6 +1,6 @@
 ---
 - name: Set bootstrap state
-  hosts: "{{ hosts_state_status_bootstrap|default('all') }}"
+  hosts: "{{ hosts_state_status_bootstrap|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['state']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 

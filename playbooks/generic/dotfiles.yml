@@ -1,6 +1,6 @@
 ---
 - name: Apply role geerlingguy.dotfiles
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
   roles:

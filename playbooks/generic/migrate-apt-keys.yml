@@ -10,7 +10,7 @@
 # https://github.com/osism/issues/issues/381
 ---
 - name: Fix "Key is stored in legacy trusted.gpg keyring" warning
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
 
   tasks:
     - name: Check /etc/apt/trusted.gpg file

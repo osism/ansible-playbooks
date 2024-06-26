@@ -1,6 +1,6 @@
 ---
 - name: Reboot systems
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   become: true
   serial: "{{ osism_serial['halt']|default('1') }}"
   strategy: "{{ osism_strategy|default('linear') }}"

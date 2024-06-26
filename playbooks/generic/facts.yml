@@ -1,7 +1,7 @@
 ---
 - name: Apply role facts
   ignore_unreachable: true
-  hosts: "{{ hosts_facts|default('all') }}"
+  hosts: "{{ hosts_facts|default(hosts_default_group|default('generic')) }}"
   serial: "{{ osism_serial['facts']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
@@ -10,7 +10,7 @@
 
 - name: Gather facts for all hosts
   ignore_unreachable: true
-  hosts: "{{ hosts_facts|default('all') }}"
+  hosts: "{{ hosts_facts|default(hosts_default_group|default('generic')) }}"
   gather_facts: false
 
   tasks:

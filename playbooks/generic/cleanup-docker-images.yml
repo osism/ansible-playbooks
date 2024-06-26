@@ -1,6 +1,6 @@
 ---
 - name: Cleanup docker images
-  hosts: all
+  hosts: "{{ hosts_default_group|default('generic') }}"
   serial: "{{ osism_serial['docker_cleanup']|default('0') }}"
 
   vars_prompt:
