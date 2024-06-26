@@ -3,7 +3,8 @@
   ansible.builtin.import_playbook: cloudnative_pg.yml
 
 - name: Apply role keycloak
-  hosts: localhost
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
   connection: local
 
   roles:

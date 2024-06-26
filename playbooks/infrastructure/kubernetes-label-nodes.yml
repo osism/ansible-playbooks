@@ -1,7 +1,9 @@
 ---
 - name: Label nodes
-  hosts: localhost
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
   connection: local
+  gather_facts: false
 
   tasks:
     - name: Add openstack-control-plane label to all hosts labeled control-plane

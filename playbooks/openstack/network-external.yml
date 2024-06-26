@@ -1,7 +1,9 @@
 ---
 - name: Manage an external OpenStack network
-  hosts: localhost
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
   connection: local
+  gather_facts: false
 
   vars:
     network_external_allocation_pool_end: "192.168.112.200"
