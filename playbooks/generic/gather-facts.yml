@@ -1,0 +1,11 @@
+---
+- name: Gather facts for all hosts
+  ignore_unreachable: true
+  hosts: "{{ hosts_gather_facts|default(hosts_default_group|default('generic')) }}"
+  gather_facts: false
+
+  tasks:
+    - name: Gathers facts about hosts
+      ansible.builtin.setup:
+        filter: "{{ osism_setup_filter | default('') }}"
+        gather_subset: "{{ osism_setup_gather_subset | default('all') }}"
