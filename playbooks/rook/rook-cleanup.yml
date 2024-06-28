@@ -1,7 +1,9 @@
 ---
 - name: Apply task cleanup from role rook
-  hosts: localhost
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
   connection: local
+  gather_facts: false
 
   tasks:
     - name: Include cleanup.yml from osism.services.rook role

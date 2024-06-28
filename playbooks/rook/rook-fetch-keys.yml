@@ -1,6 +1,8 @@
 ---
 - name: Apply task fetch-keys from role rook
-  hosts: "{{ groups[hosts_manager | default('manager')] }}"
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('manager') }}"
+  gather_facts: false
 
   tasks:
     - name: Include fetch-keys.yml from osism.services.rook role

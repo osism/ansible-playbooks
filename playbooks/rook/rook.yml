@@ -1,7 +1,9 @@
 ---
 - name: Apply role rook
-  hosts: localhost
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
   connection: local
+  gather_facts: false
 
   tasks:
     - name: Include osism.services.rook role
