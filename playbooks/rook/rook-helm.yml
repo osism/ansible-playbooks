@@ -1,0 +1,12 @@
+---
+- name: Apply task deploy-helm from role rook
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Include deploy-helm.yml from osism.services.rook role
+      ansible.builtin.include_role:
+        name: osism.services.rook
+        tasks_from: deploy-helm.yml
