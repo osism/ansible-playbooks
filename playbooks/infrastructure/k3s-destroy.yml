@@ -24,5 +24,3 @@
       ansible.builtin.include_role:
         name: k3s_reset
       when: ireallymeanit == 'yes'
-
-
