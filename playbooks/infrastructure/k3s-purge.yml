@@ -1,6 +1,7 @@
 ---
 - name: Confirm whether user really meant to purge the k3s cluster
-  hosts: localhost
+  hosts:
+    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
   gather_facts: false
 
   vars_prompt:

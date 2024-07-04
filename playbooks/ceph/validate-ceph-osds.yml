@@ -83,7 +83,7 @@
             _osds_num_per_device:
               "{{ _osds_configuration_vars['osds_per_device'] | default(1) }}"
             _osds_dmcrypt:
-              "{{ _osds_configuration_vars['dmcrypt'] }}"
+              "{{ _osds_configuration_vars['dmcrypt'] | default(false) }}"
             _osds_container_test_data: []
           run_once: true
 
@@ -103,7 +103,7 @@
             _osds_count_by_host: 0
             _osds_num_per_device: 1
             _osds_dmcrypt:
-              "{{ _osds_configuration_vars['dmcrypt'] }}"
+              "{{ _osds_configuration_vars['dmcrypt'] | default(false) }}"
             _osds_container_test_data: []
           run_once: true
 
