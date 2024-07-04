@@ -1,0 +1,28 @@
+---
+- name: Destroy k3s cluster
+  hosts: "{{ hosts_k3s_upgrade|default('k3s_all') }}"
+  gather_facts: false
+  become: true
+
+  vars_prompt:
+    - name: ireallymeanit
+      prompt: Are you sure you want to destroy the entire k3s cluster setup with all of its contents?
+      default: 'no'
+      private: false
+
+  tasks:
+    - name: Exit playbook, if user did not want to destroy the k3s cluster
+      ansible.builtin.fail:
+        msg: >
+          "To destroy k3s, either say 'yes' on the prompt or
+           use `-e ireallymeanit=yes` on the command line when
+           invoking the playbook"
+      when: ireallymeanit != 'yes'
+    - name: Apply role k3s_reset
+      vars:
+        proxmox_lxc_configure: false
+      ansible.builtin.include_role:
+        name: k3s_reset
+      when: ireallymeanit == 'yes'
+
+
