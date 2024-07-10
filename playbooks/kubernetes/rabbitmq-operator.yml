@@ -1,9 +1,0 @@
----
-- name: Apply role rabbitmq_operator
-  hosts:
-    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
-  connection: local
-  gather_facts: false
-
-  roles:
-    - role: osism.services.rabbitmq_operator
