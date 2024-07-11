@@ -1,8 +1,6 @@
 ---
 - name: Run tempest
-  hosts:
-    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
-  connection: local
+  hosts: "{{ hosts_tempest|default('manager') }}"
   gather_facts: false
 
   roles:
