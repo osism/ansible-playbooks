@@ -12,6 +12,11 @@
       become: true
       role: k3s_download
 
+    - name: Apply role k3s_custom_registries
+      role: k3s_custom_registries
+      become: true
+      when: k3s_custom_registries | default(false)
+
 - name: Deploy k3s master nodes
   hosts: "{{ hosts_k3s_master|default('k3s_master') }}"
   gather_facts: false
