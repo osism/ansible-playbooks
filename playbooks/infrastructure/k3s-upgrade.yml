@@ -2,6 +2,7 @@
 - name: Upgrade k3s cluster
   hosts: "{{ hosts_k3s_upgrade|default('k3s_all') }}"
   gather_facts: false
+  environment: "{{ k3s_proxy_env | default({}) }}"
 
   vars:
     k3s_throttle_restart: 1
