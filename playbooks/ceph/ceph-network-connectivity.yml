@@ -1,0 +1,25 @@
+---
+###
+# This playbook checks the network coonectivity
+# inside a OSISM-deployed Ceph cluster:
+
+- name: Validate network connectivity
+  hosts: ceph
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Checking ceph public network for all ceph nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        group: "{{  groups['ceph'] }}"
+        network_cidr: "{{ public_network }}"
+    - name: Checking ceph cluster network for ceph OSD nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        group: "{{  groups['ceph-osd'] }}"
+        network_cidr: "{{ cluster_network }}"
+      when:
+        - cluster_network | ansible.utils.ipaddr != public_network | ansible.utils.ipaddr
