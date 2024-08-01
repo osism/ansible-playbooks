@@ -4,7 +4,7 @@
 # inside a OSISM-deployed Ceph cluster:
 
 - name: Validate network connectivity
-  hosts: ceph
+  hosts: "{{ ceph_group_name | default('ceph') }}"
   strategy: linear
   gather_facts: true
 
@@ -13,13 +13,14 @@
       ansible.builtin.include_role:
         name: osism.validations.network_connectivity
       vars:
-        group: "{{  groups['ceph'] }}"
-        network_cidr: "{{ public_network }}"
-    - name: Checking ceph cluster network for ceph OSD nodes
+        network_connectivity_group: "{{  groups[ceph_group_name | default('ceph')] }}"
+        network_connectivity_network_cidr: "{{ public_network }}"
+
+    - name: Checking ceph cluster network for all ceph OSD nodes
       ansible.builtin.include_role:
         name: osism.validations.network_connectivity
       vars:
-        group: "{{  groups['ceph-osd'] }}"
-        network_cidr: "{{ cluster_network }}"
+        network_connectivity_group: "{{  groups[osd_group_name | default('ceph-osd')] }}"
+        network_connectivity_network_cidr: "{{ cluster_network }}"
       when:
         - cluster_network | ansible.utils.ipaddr != public_network | ansible.utils.ipaddr
