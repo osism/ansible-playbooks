@@ -20,11 +20,10 @@
 ###
 
 - name: Ceph validate OSDs
-  hosts: ceph-osd
+  hosts: "{{ osd_group_name|default('ceph-osd') }}"
   strategy: linear
   gather_facts: true
   force_handlers: true
-
 
   vars:
     _osds_reports_directory: "/opt/reports/validator"
@@ -747,6 +746,7 @@
           - "{{ groups['manager'][0] }}"
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
+
   handlers:
     - name: Write report file
       ansible.builtin.template:

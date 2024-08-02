@@ -20,11 +20,10 @@
 ###
 
 - name: Ceph validate mons
-  hosts: ceph-mon
+  hosts: "{{ mon_group_name|default('ceph-mon') }}"
   strategy: linear
   gather_facts: true
   force_handlers: true
-
 
   vars:
     _mons_reports_directory: "/opt/reports/validator"
@@ -559,6 +558,7 @@
           - "{{ groups['manager'][0] }}"
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
+
   handlers:
     - name: Write report file
       ansible.builtin.template:
