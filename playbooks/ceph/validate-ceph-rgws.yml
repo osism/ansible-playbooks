@@ -763,6 +763,7 @@
           - "{{ groups['manager'][0] }}"
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
+
   handlers:
     - name: Write report file  # noqa: run-once[task]
       ansible.builtin.template:
