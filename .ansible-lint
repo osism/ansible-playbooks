@@ -2,7 +2,9 @@
 exclude_paths:
   - playbooks/generic-common.yml
   - playbooks/generic/common.yml
+  - playbooks/infrastructure-k3s.yml
   - playbooks/infrastructure-kubernetes.yml
+  - playbooks/infrastructure/k3s.yml
   - playbooks/infrastructure/kubernetes.yml
 mock_roles:
   - containerd
