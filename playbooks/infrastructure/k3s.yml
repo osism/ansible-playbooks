@@ -38,6 +38,9 @@
       become: true
       role: k3s_agent
 
+- name: Run kubectl play
+  ansible.builtin.import_playbook: /ansible/infrastructure/kubectl.yml
+
 - name: Run post actions on master nodes
   hosts: "{{ hosts_k3s_master|default('k3s_master') }}"
   gather_facts: false
