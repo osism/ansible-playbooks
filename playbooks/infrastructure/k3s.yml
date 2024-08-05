@@ -45,5 +45,4 @@
 
   roles:
     - name: Apply role k3s_server_post
-      become: true
       role: k3s_server_post
