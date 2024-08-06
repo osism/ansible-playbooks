@@ -38,6 +38,9 @@
       become: true
       role: k3s_agent
 
+- name: Run kubeconfig play
+  ansible.builtin.import_playbook: /ansible/infrastructure/kubeconfig.yml
+
 - name: Run kubectl play
   ansible.builtin.import_playbook: /ansible/infrastructure/kubectl.yml
 
