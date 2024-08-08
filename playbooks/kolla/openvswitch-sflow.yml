@@ -1,0 +1,42 @@
+---
+- name: Manage Open vSwitch sFlow collector
+  hosts: "{{ hosts_openvswitch_sflow | default('openvswitch') }}"
+
+  vars:
+    openvswitch_sflow_state: present
+    openvswitch_sflow_collector_address: 127.0.0.1
+    openvswitch_sflow_collector_port: 6343
+    openvswitch_sflow_agent: lo
+    openvswitch_sflow_header_bytes: 128
+    openvswitch_sflow_sampling_n: 64
+    openvswitch_sflow_polling_secs: 10
+    openvswitch_sflow_bridge: br-ex
+
+  tasks:
+    - name: Add Open vSwitch sFlow collector
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          ovs-vsctl -- --id=@sflow create sflow
+            agent={{ openvswitch_sflow_agent }}
+            target=\"{{ openvswitch_sflow_collector_address }}:{{ openvswitch_sflow_collector_port }}\"
+            header={{ openvswitch_sflow_header_bytes }}
+            sampling={{ openvswitch_sflow_sampling_n }}
+            polling={{ openvswitch_sflow_polling_secs }}
+          -- set bridge {{ openvswitch_sflow_bridge }} sflow=@sflow
+      when: openvswitch_sflow_state == "present"
+
+    - name: Get sFlow from Open vSwitch
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          bash -c "ovs-vsctl list sflow {{ openvswitch_sflow_bridge }} | grep _uuid | awk -F : '{print $2 }'"
+      register: result
+      when: openvswitch_sflow_state == "absent"
+
+    - name: Delete Open vSwitch sFlow collector
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          ovs-vsctl remove bridge {{ openvswitch_sflow_bridge }} sflow {{ result.stdout }}
+      when: openvswitch_sflow_state == "absent"
