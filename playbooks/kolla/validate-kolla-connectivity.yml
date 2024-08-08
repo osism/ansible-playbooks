@@ -1,0 +1,223 @@
+---
+###
+# This playbook checks the network connectivity
+# inside a OSISM-deployed OpenStack cluster:
+
+- name: Validate API network connectivity
+  hosts: "{{ kolla_api_network_group_name | default('common') }}"
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Find CIDR for API network
+      ansible.builtin.set_fact:
+        network_connectivity_api_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[api_interface | replace('-', '_')][api_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[api_interface | replace('-', '_')][api_address_family]['prefix'] }}"
+
+    - name: Checking API network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{  groups[kolla_api_network_group_name | default('common')] }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_api_network_cidr }}"
+
+- name: Validate tunnel network connectivity
+  hosts: "{{ kolla_tunnel_network_group_name_list | default(kolla_tunnel_network_default_group_name_list) }}"
+  vars:
+    kolla_tunnel_network_default_group_name_list: ['compute', 'ovn-controller', 'neutron-l3-agent', 'neutron-dhcp-agent', 'neutron-metadata-agent']
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Find CIDR for tunnel network
+      ansible.builtin.set_fact:
+        network_connectivity_tunnel_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[tunnel_interface | replace('-', '_')][tunnel_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[tunnel_interface | replace('-', '_')][tunnel_address_family]['prefix'] }}"
+      when: tunnel_interface != api_interface or tunnel_address_family != api_address_family
+
+    - name: Checking tunnel network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ kolla_tunnel_network_group_name_list | default(kolla_tunnel_network_default_group_name_list) | map('extract', groups) | list | flatten | unique }}"
+
+        network_connectivity_network_cidr: "{{ network_connectivity_tunnel_network_cidr }}"
+      when: tunnel_interface != api_interface or tunnel_address_family != api_address_family
+
+- name: Validate migration network connectivity
+  hosts: "{{ kolla_migration_network_group_name_list | default(kolla_migration_network_default_group_name_list) }}"
+  vars:
+    kolla_migration_network_default_group_name_list: ['compute', 'masakari-instancemonitor', 'masakari-hostmonitor']
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Find CIDR for migration network
+      ansible.builtin.set_fact:
+        network_connectivity_migration_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[migration_interface | replace('-', '_')][migration_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[migration_interface | replace('-', '_')][migration_address_family]['prefix'] }}"
+      when: migration_interface != api_interface or migration_address_family != api_address_family
+
+    - name: Checking migration network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ kolla_migration_network_group_name_list | default(kolla_migration_network_default_group_name_list) | map('extract', groups) | list | flatten | unique }}"
+
+        network_connectivity_network_cidr: "{{ network_connectivity_migration_network_cidr }}"
+      when: migration_interface != api_interface or migration_address_family != api_address_family
+
+- name: Validate octavia network connectivity
+  hosts: "{{ kolla_octavia_network_group_name | default('octavia-health-manager') }}"
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Find CIDR for octavia network
+      ansible.builtin.set_fact:
+        network_connectivity_octavia_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[octavia_network_interface | replace('-', '_')][octavia_network_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[octavia_network_interface | replace('-', '_')][octavia_network_address_family]['prefix'] }}"
+      when:
+        - not octavia_network_type == 'tenant'
+        - octavia_network_interface != api_interface or octavia_network_address_family != api_address_family
+
+    - name: Checking octavia network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ groups[kolla_octavia_network_group_name | default('octavia-health-manager')] }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_octavia_network_cidr }}"
+      when:
+        - not octavia_network_type == 'tenant'
+        - octavia_network_interface != api_interface or octavia_network_address_family != api_address_family
+
+- name: Validate swift storage network connectivity
+  hosts: "{{ kolla_swift_storage_network_group_name_list | default(kolla_swift_storage_network_default_group_name_list) }}"
+  strategy: linear
+  gather_facts: true
+  vars:
+    kolla_swift_storage_network_default_group_name_list: ['swift-account-server', 'swift-container-server', 'swift-object-server']
+  tasks:
+    - name: Find CIDR for swift storage network
+      ansible.builtin.set_fact:
+        network_connectivity_swift_storage_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[swift_storage_interface | replace('-', '_')][swift_storage_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[swift_storage_interface | replace('-', '_')][swift_storage_address_family]['prefix'] }}"
+      when:
+        - swift_storage_interface != api_interface or swift_storage_address_family != api_address_family
+
+    - name: Checking swift storage network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ kolla_swift_storage_network_group_name_list | default(kolla_swift_storage_network_default_group_name_list) | map('extract', groups) | list | flatten | unique }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_swift_storage_network_cidr }}"
+      when:
+        - swift_storage_interface != api_interface or swift_storage_address_family != api_address_family
+
+- name: Validate swift replication network connectivity
+  hosts: "{{ kolla_swift_replication_network_group_name_list | default(kolla_swift_replication_network_default_group_name_list) }}"
+  strategy: linear
+  gather_facts: true
+  vars:
+    kolla_swift_replication_network_default_group_name_list: ['swift-account-server', 'swift-container-server', 'swift-object-server']
+  tasks:
+    - name: Find CIDR for swift replication network
+      ansible.builtin.set_fact:
+        network_connectivity_swift_replication_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[swift_replication_interface | replace('-', '_')][swift_replication_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[swift_replication_interface | replace('-', '_')][swift_replication_address_family]['prefix'] }}"
+      when:
+        - swift_replication_interface != api_interface or swift_replication_address_family != api_address_family
+
+    - name: Checking swift replication network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ kolla_swift_replication_network_group_name_list | default(kolla_swift_replication_network_default_group_name_list) | map('extract', groups) | list | flatten | unique }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_swift_replication_network_cidr }}"
+      when:
+        - swift_replication_interface != swift_storage_interface or swift_replication_address_family != swift_storage_address_family
+
+- name: Validate dns network connectivity
+  hosts: "{{ kolla_dns_network_group_name_list | default(kolla_dns_network_default_group_name_list) }}"
+  strategy: linear
+  gather_facts: true
+  vars:
+    kolla_dns_network_default_group_name_list: ['designate-backend-bind9', 'designate-worker', 'designate-mdns']
+  tasks:
+    - name: Find CIDR for dns network
+      ansible.builtin.set_fact:
+        network_connectivity_dns_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[dns_interface | replace('-', '_')][dns_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[dns_interface | replace('-', '_')][dns_address_family]['prefix'] }}"
+      when:
+        - dns_interface != api_interface or dns_address_family != api_address_family
+
+    - name: Checking dns network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ kolla_dns_network_group_name_list | default(kolla_dns_network_default_group_name_list) | map('extract', groups) | list | flatten | unique }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_dns_network_cidr }}"
+      when:
+        - dns_interface != api_interface or dns_address_family != api_address_family
+
+- name: Validate ironic http network connectivity
+  hosts: "{{ kolla_ironic_http_network_group_name | default('ironic-http') }}"
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Find CIDR for ironic http network
+      ansible.builtin.set_fact:
+        network_connectivity_ironic_http_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[ironic_http_interface | replace('-', '_')][ironic_http_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[ironic_http_interface | replace('-', '_')][ironic_http_address_family]['prefix'] }}"
+      when:
+        - ironic_http_interface != api_interface or ironic_http_address_family != api_address_family
+
+    - name: Checking ironic_http network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ groups[kolla_ironic_http_network_group_name | default('ironic-http')] }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_ironic_http_network_cidr }}"
+      when:
+        - ironic_http_interface != api_interface or ironic_http_address_family != api_address_family
+
+- name: Validate ironic tftp network connectivity
+  hosts: "{{ kolla_ironic_tftp_network_group_name | default('ironic-tftp') }}"
+  strategy: linear
+  gather_facts: true
+
+  tasks:
+    - name: Find CIDR for ironic tftp network
+      ansible.builtin.set_fact:
+        network_connectivity_ironic_tftp_network_cidr: "{{ network_connectivity_network }}/{{ network_connectivity_prefix }}"
+      vars:
+        network_connectivity_network: "{{ ansible_facts[ironic_tftp_interface | replace('-', '_')][ironic_tftp_address_family]['network'] }}"
+        network_connectivity_prefix: "{{ ansible_facts[ironic_tftp_interface | replace('-', '_')][ironic_tftp_address_family]['prefix'] }}"
+      when:
+        - ironic_tftp_interface != ironic_http_interface or ironic_tftp_address_family != ironic_http_address_family
+
+    - name: Checking ironic_tftp network for all OpenStack nodes
+      ansible.builtin.include_role:
+        name: osism.validations.network_connectivity
+      vars:
+        network_connectivity_group: "{{ groups[kolla_ironic_tftp_network_group_name | default('ironic-tftp')] }}"
+        network_connectivity_network_cidr: "{{ network_connectivity_ironic_tftp_network_cidr }}"
+      when:
+        - ironic_tftp_interface != ironic_http_interface or ironic_tftp_address_family != ironic_http_address_family
