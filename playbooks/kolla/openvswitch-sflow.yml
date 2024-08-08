@@ -10,7 +10,7 @@
     openvswitch_sflow_header_bytes: 128
     openvswitch_sflow_sampling_n: 64
     openvswitch_sflow_polling_secs: 10
-    openvswitch_sflow_bridge: br-ex
+    openvswitch_sflow_bridge: br-int
 
   tasks:
     - name: Add Open vSwitch sFlow collector
