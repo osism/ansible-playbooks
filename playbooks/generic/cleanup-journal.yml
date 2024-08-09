@@ -1,0 +1,14 @@
+---
+- name: Cleanup journal
+  hosts: "{{ hosts_default_group|default('generic') }}"
+  serial: "{{ osism_serial['cleanup_journal']|default('1') }}"
+
+  vars:
+    cleanup_journal_size: 500M
+
+  tasks:
+    - name: Cleanup journal
+      become: true
+      ansible.builtin.command: "journalctl --vacuum-size={{ cleanup_journal_size }}"
+      register: result
+      changed_when: "'Deleted archived journal' in result.stdout"
