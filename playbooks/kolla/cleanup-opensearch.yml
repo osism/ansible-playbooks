@@ -3,10 +3,10 @@
   hosts: "{{ hosts_manager|default('manager') }}"
 
   vars:
-    opensearch_ip: 127.0.0.1
+    opensearch_ip: "{{ kolla_internal_vip_address }}"
     opensearch_port: 9200
     opensearch_prefix: flog
-    opensearch_retention_time: 60
+    opensearch_retention_time: 30
 
   tasks:
     - name: Remove opensearch index
