@@ -3,10 +3,10 @@
   hosts: "{{ hosts_manager|default('manager') }}"
 
   vars:
-    elasticsearch_ip: 127.0.0.1
+    elasticsearch_ip: "{{ kolla_internal_vip_address }}"
     elasticsearch_port: 9200
     elasticsearch_prefix: flog
-    elasticsearch_retention_time: 60
+    elasticsearch_retention_time: 30
 
   tasks:
     - name: Remove elasticsearch index
