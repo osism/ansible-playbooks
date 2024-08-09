@@ -1,0 +1,36 @@
+---
+- name: Manage Open vSwitch Netflow collector
+  hosts: "{{ hosts_openvswitch_netflow | default('openvswitch') }}"
+
+  vars:
+    openvswitch_netflow_state: present
+    openvswitch_netflow_collector_address: 127.0.0.1
+    openvswitch_netflow_collector_port: 2055
+    openvswitch_netflow_bridge: br-int
+
+  tasks:
+    - name: Add Open vSwitch Netflow collector
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          ovs-vsctl set bridge {{ openvswitch_netflow_bridge }} netflow=@nf0 --
+            --id=@nf0 create netflow
+            targets=\"{{ openvswitch_netflow_collector_address }}:{{ openvswitch_netflow_collector_port }}\"
+            add_id_to_interface=false
+            active_timeout=1
+      when: openvswitch_netflow_state == "present"
+
+    - name: Get Netflow from Open vSwitch
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          bash -c "ovs-vsctl list netflow {{ openvswitch_netflow_bridge }} | grep _uuid | awk -F : '{print $2 }'"
+      register: result
+      when: openvswitch_netflow_state == "absent"
+
+    - name: Delete Open vSwitch Netflow collector
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          ovs-vsctl remove bridge {{ openvswitch_netflow_bridge }} netflow {{ result.stdout }}
+      when: openvswitch_netflow_state == "absent"
