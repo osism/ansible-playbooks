@@ -4,7 +4,19 @@
 # inside a OSISM-deployed Ceph cluster:
 
 - name: Validate public network connectivity
-  hosts: "{{ ceph_group_name | default('ceph') }}"
+  hosts: "{{ ceph_public_network_group_name_list | default(ceph_public_network_default_group_name_list) }}"
+  vars:
+    ceph_public_network_default_group_name_list:
+      - ceph
+      - cinder-volume
+      - cinder-backup
+      - glance-api
+      - gnocchi-api
+      - gnocchi-metricd
+      - gnocchi-statsd
+      - manila-share
+      - compute
+      - zun-compute
   strategy: linear
   gather_facts: true
 
@@ -13,7 +25,7 @@
       ansible.builtin.include_role:
         name: osism.validations.network_connectivity
       vars:
-        network_connectivity_group: "{{  groups[ceph_group_name | default('ceph')] }}"
+        network_connectivity_group: "{{ ceph_public_network_group_name_list | default(ceph_public_network_default_group_name_list) | map('extract', groups) | list | flatten | unique }}"
         network_connectivity_network_cidr: "{{ public_network }}"
 
 - name: Validate cluster network connectivity
