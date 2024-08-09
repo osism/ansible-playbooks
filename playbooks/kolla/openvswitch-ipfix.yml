@@ -1,0 +1,38 @@
+---
+- name: Manage Open vSwitch IPFIX collector
+  hosts: "{{ hosts_openvswitch_ipfix | default('openvswitch') }}"
+
+  vars:
+    openvswitch_ipfix_state: present
+    openvswitch_ipfix_collector_address: 127.0.0.1
+    openvswitch_ipfix_collector_port: 2055
+    openvswitch_ipfix_obs_domain_id: 0
+    openvswitch_ipfix_obs_point_id: 0
+    openvswitch_ipfix_bridge: br-int
+
+  tasks:
+    - name: Add Open vSwitch IPFIX collector
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          ovs-vsctl set bridge {{ openvswitch_ipfix_bridge }} ipfix=@i0 --
+            --id=@i0 create ipfix
+            targets=\"{{ openvswitch_ipfix_collector_address }}:{{ openvswitch_ipfix_collector_port }}\"
+            obs_domain_id={{ openvswitch_ipfix_obs_domain_id }}
+            obs_point_id={{ openvswitch_ipfix_obs_point_id }}
+      when: openvswitch_ipfix_state == "present"
+
+    - name: Get IPFIX from Open vSwitch
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          bash -c "ovs-vsctl list ipfix {{ openvswitch_ipfix_bridge }} | grep _uuid | awk -F : '{print $2 }'"
+      register: result
+      when: openvswitch_ipfix_state == "absent"
+
+    - name: Delete Open vSwitch IPFIX collector
+      community.docker.docker_container_exec:
+        container: openvswitch_vswitchd
+        command: |
+          ovs-vsctl remove bridge {{ openvswitch_ipfix_bridge }} ipfix {{ result.stdout }}
+      when: openvswitch_ipfix_state == "absent"
