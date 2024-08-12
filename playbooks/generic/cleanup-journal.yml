@@ -1,7 +1,7 @@
 ---
 - name: Cleanup journal
   hosts: "{{ hosts_default_group|default('generic') }}"
-  serial: "{{ osism_serial['cleanup_journal']|default('1') }}"
+  serial: "{{ osism_serial['cleanup_journal']|default('0') }}"
 
   vars:
     cleanup_journal_size: 500M
