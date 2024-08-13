@@ -1,0 +1,105 @@
+# TODO:
+# remove OVN Metadata agent
+# remove OVN Controller agent
+# remove nova-compute service
+---
+- name: Remove compute node
+  hosts: "{{ hosts_remove_compute_node | default('none') }}"
+
+  vars:
+    compute_services:
+      - kolla-ceilometer_compute-container.service
+      - kolla-cron-container.service
+      - kolla-kolla_toolbox-container.service
+      - kolla-neutron_ovn_metadata_agent-container.service
+      - kolla-nova_compute-container.service
+      - kolla-nova_libvirt-container.service
+      - kolla-nova_ssh-container.service
+      - kolla-openvswitch_db-container.service
+      - kolla-openvswitch_vswitchd-container.service
+      - kolla-ovn_controller-container.service
+      - kolla-prometheus_libvirt_exporter-container.service
+
+    compute_containers:
+      - ceilometer_compute
+      - cron
+      - kolla_toolbox
+      - neutron_ovn_metadata_agent
+      - nova_compute
+      - nova_libvirt
+      - nova_ssh
+      - openvswitch_db
+      - openvswitch_vswitchd
+      - ovn_controller
+      - prometheus_libvirt_exporter
+
+    compute_volumes:
+      - ceilometer
+      - libvirtd
+      - neutron_metadata_socket
+      - nova_compute
+      - nova_libvirt
+      - nova_libvirt_qemu
+      - nova_libvirt_secrets
+      - openvswitch_db
+
+    compute_log_directories:
+      - ceilometer
+      - libvirt
+      - neutron
+      - nova
+      - openvswitch
+
+    compute_etc_directories:
+      - ceilometer-compute
+      - cron
+      - kolla-toolbox
+      - neutron-ovn-metadata-agent
+      - nova-compute
+      - nova-libvirt
+      - nova-ssh
+      - openvswitch-db-server
+      - openvswitch-vswitchd
+      - ovn-controller
+      - prometheus-libvirt-exporter
+
+  tasks:
+    - name: Remove service files
+      become: true
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ item }}"
+        state: absent
+      loop: "{{ compute_services }}"
+      notify: Reload systemd daemon
+
+    - name: Remove containers
+      community.docker.docker_container:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ compute_containers }}"
+
+    - name: Remove volumes
+      community.docker.docker_volume:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ compute_containers }}"
+
+    - name: Remove directories in /etc/kolla
+      become: true
+      ansible.builtin.file:
+        path: "/etc/kolla/{{ item }}"
+        state: absent
+      loop: "{{ compute_etc_directories }}"
+
+    - name: Remove directories in /var/log/kolla
+      become: true
+      ansible.builtin.file:
+        path: "/var/log/kolla/{{ item }}"
+        state: absent
+      loop: "{{ compute_log_directories }}"
+
+  handlers:
+    - name: Reload systemd daemon
+      become: true
+      ansible.builtin.service:
+        daemon_reload: true
