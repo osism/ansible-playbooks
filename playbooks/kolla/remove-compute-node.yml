@@ -3,8 +3,14 @@
 # remove OVN Controller agent
 # remove nova-compute service
 ---
+- name: Run 'Disable compute node' play
+  ansible.builtin.import_playbook: disable-compute-node.yml
+  vars:
+    hosts_disable_compute_node: "{{ hosts_remove_compute_node | default('none') }}"
+
 - name: Remove compute node
   hosts: "{{ hosts_remove_compute_node | default('none') }}"
+  gather_facts: false
 
   vars:
     compute_services:
@@ -97,6 +103,11 @@
         path: "/var/log/kolla/{{ item }}"
         state: absent
       loop: "{{ compute_log_directories }}"
+
+    - name: Gathers facts about hosts
+      ansible.builtin.setup:
+        filter: "{{ osism_setup_filter | default('') }}"
+        gather_subset: "{{ osism_setup_gather_subset | default('all') }}"
 
   handlers:
     - name: Reload systemd daemon

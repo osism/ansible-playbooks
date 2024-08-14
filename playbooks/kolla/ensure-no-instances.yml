@@ -1,13 +1,22 @@
 ---
 - name: Ensure no instances
   hosts: "{{ hosts_ensure_no_instances | default('compute') }}"
+  gather_facts: false
 
   tasks:
+    - name: Get infos on container
+      community.docker.docker_container_info:
+        name: nova_libvirt
+      register: result
+
     - name: Get all instances defined in Libvirt
       community.docker.docker_container_exec:
         container: nova_libvirt
         command: virsh list --all --uuid
       register: defined_instances
+      when:
+        - result.exists
+        - result.container.State.Running
 
     - name: Assert no instances are defined in Libvirt
       ansible.builtin.assert:
@@ -15,6 +24,9 @@
           - defined_instances.stdout | length == 0
         fail_msg: "{{ defined_instances.stdout | length }} are still defined in Libvirt"
         success_msg: No instances defined in Libvirt
+      when:
+        - result.exists
+        - result.container.State.Running
 
     # source: https://stackoverflow.com/questions/46515704/how-to-kill-a-running-process-using-ansible
     # NOTE: We use /bin/sh here as the default for the shell, so
