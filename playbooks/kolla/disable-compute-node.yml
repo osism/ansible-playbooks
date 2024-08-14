@@ -1,0 +1,32 @@
+# TODO:
+# check for running instances
+# disable OVN Metadata agent
+# disable OVN Controller agent
+# disable nova-compute service
+---
+- name: Disable compute node
+  hosts: "{{ hosts_disable_compute_node | default('none') }}"
+
+  vars:
+    compute_services:
+      - kolla-ceilometer_compute-container.service
+      - kolla-cron-container.service
+      - kolla-kolla_toolbox-container.service
+      - kolla-neutron_ovn_metadata_agent-container.service
+      - kolla-nova_compute-container.service
+      - kolla-nova_libvirt-container.service
+      - kolla-nova_ssh-container.service
+      - kolla-openvswitch_db-container.service
+      - kolla-openvswitch_vswitchd-container.service
+      - kolla-ovn_controller-container.service
+      - kolla-prometheus_libvirt_exporter-container.service
+
+  tasks:
+    - name: Stop, disable and mask service
+      become: true
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        masked: true
+      loop: "{{ compute_services }}"
