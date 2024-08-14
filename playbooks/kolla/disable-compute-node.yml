@@ -1,11 +1,16 @@
 # TODO:
-# check for running instances
 # disable OVN Metadata agent
 # disable OVN Controller agent
 # disable nova-compute service
 ---
+- name: Run 'Ensure no instances' play
+  ansible.builtin.import_playbook: ensure-no-instances.yml
+  vars:
+    hosts_ensure_no_instances: "{{ hosts_disable_compute_node | default('none') }}"
+
 - name: Disable compute node
   hosts: "{{ hosts_disable_compute_node | default('none') }}"
+  gather_facts: false
 
   vars:
     compute_services:
@@ -22,6 +27,9 @@
       - kolla-prometheus_libvirt_exporter-container.service
 
   tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
     - name: Stop, disable and mask service
       become: true
       ansible.builtin.systemd_service:
@@ -30,3 +38,9 @@
         enabled: false
         masked: true
       loop: "{{ compute_services }}"
+      when: ansible_facts.services[item] is defined
+
+    - name: Gathers facts about hosts
+      ansible.builtin.setup:
+        filter: "{{ osism_setup_filter | default('') }}"
+        gather_subset: "{{ osism_setup_gather_subset | default('all') }}"
