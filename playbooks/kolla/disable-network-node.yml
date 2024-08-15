@@ -5,9 +5,14 @@
 
   vars:
     network_services_openstack:
-      - kolla-neutron_metering_agent-container.service
       - kolla-neutron_bgp_dragent-container.service
+      - kolla-neutron_metering_agent-container.service
       - kolla-octavia_health_manager-container.service
+      - kolla-octavia_housekeeping-container.service
+      - kolla-octavia_worker-container.service
+
+    network_services_other:
+      - octavia-interface.service
 
     network_services_ovn:
       - kolla-ovn_controller-container.service
@@ -28,6 +33,16 @@
         enabled: false
         masked: true
       loop: "{{ network_services_openstack }}"
+      when: ansible_facts.services[item] is defined
+
+    - name: Stop, disable and mask other services
+      become: true
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        masked: true
+      loop: "{{ network_services_other }}"
       when: ansible_facts.services[item] is defined
 
     - name: Stop, disable and mask ovn services
