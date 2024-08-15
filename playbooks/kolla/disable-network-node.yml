@@ -1,0 +1,57 @@
+---
+- name: Disable network node
+  hosts: "{{ hosts_disable_network_node | default('none') }}"
+  gather_facts: false
+
+  vars:
+    network_services_neutron:
+      - kolla-neutron_metering_agent.service
+      - kolla-neutron_bgp_dragent.service
+
+    network_services_ovn:
+      - kolla-ovn_controller-container.service
+
+    network_services_ovs:
+      - kolla-openvswitch_db-container.service
+      - kolla-openvswitch_vswitchd-container.service
+
+  tasks:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Stop, disable and mask neutron services
+      become: true
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        masked: true
+      loop: "{{ network_services_neutron }}"
+      when: ansible_facts.services[item] is defined
+
+    - name: Stop, disable and mask ovn services
+      become: true
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        masked: true
+      loop: "{{ network_services_ovn }}"
+      when: ansible_facts.services[item] is defined
+
+    # TODO: check ovn-sbctl list Chassis
+
+    # - name: Stop, disable and mask ovs services
+    #   become: true
+    #   ansible.builtin.systemd_service:
+    #     name: "{{ item }}"
+    #     state: stopped
+    #     enabled: false
+    #     masked: true
+    #   loop: "{{ network_services_ovs }}"
+    #   when: ansible_facts.services[item] is defined
+
+    - name: Gathers facts about hosts
+      ansible.builtin.setup:
+        filter: "{{ osism_setup_filter | default('') }}"
+        gather_subset: "{{ osism_setup_gather_subset | default('all') }}"
