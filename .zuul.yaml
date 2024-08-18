@@ -2,6 +2,17 @@
 - secret:
     name: SECRET_ANSIBLE_PLAYBOOKS
     data:
+      DTRACK_API_KEY: !encrypted/pkcs1-oaep
+        - iDbXtaRcFrccterfs6Q44AnoEMYm+TMLdacHPr1F29B52mhDeXFCyryGgTrlb0PlkiIOZ
+          tXlXIcnEbBq0sg8TEJrvkeRaBttVxhRky4HWV5yuCk4fPMQf1JRGUssopu2snGvpLUGzR
+          HbUFN8T9H0HMpdnVIfZKRMJufH1xyxEPmaQ67BZI8XiElIVVM8wZMEujEqEC6cuWtFNFz
+          9CKhRS8455usEyT3LNWGoqFyb5HDgO8e3veI6GQGmbYspU/eZsAQ/LKCMaJNg2FmOHUXH
+          Lbw367jiN1SuEwzusiBEINsGb7BgSAwAe3VtKX7oPgsVM8/8o0zUxSWFNFEFWAllO6JH3
+          Fg4uEgl0feUr6H2uAQtr+WOqRTuILzyB7aPrKytJCDYHQRV1n7JrBAIWp+xGFbkcDvA+S
+          OgX/MPA6eY3hY982UgRT4qCxO9g1K5kGtQv7vq2IhoGM9mYgl4eI4jIr8J9vCAnDyuCc+
+          R8mO7OwesHm8lGBepvmsJ6X1K1XpHPlatTcbaKrTRN4L9HZT7Zz5boT2CPC88D0DM2dt/
+          sBQ1v0O+4WH0cs6+Hcgj+KELK26YUaLxQDzu+bVPswLbudSPeVHou2FOEtWwRJ6pVsEaU
+          00WKb74q62zdDDEJkxxQoLt12rhIPVmaNHX10uPqb8ktHWQrYJPu/pHSgfqx1E=
       DOCKER_USERNAME: !encrypted/pkcs1-oaep
         - IegKa6b0PRhOrHe7zXfxSRFdqR3xhquPnzvYhz26XqRvZvMl1YWeJeWi/Tut2u9mf3sQV
           rT3OJOUNXJd1TmRhe1vYweFx/2ICUnnFNzTY5xkg2ZphKXi03Ukq4mruL2V2OtqfANe7z
