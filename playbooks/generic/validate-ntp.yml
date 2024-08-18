@@ -6,7 +6,15 @@
   vars:
     max_stratum: 9
     max_system_clock_deviation: 0.005
-    max_upper_clock_error_bound: "{{ max_system_clock_deviation + 0.015 }}"
+    # NOTE: Usually in OSISM deployments ceph is one of the most time sensitive
+    # applications. In its default ceph starts to show warnings when it
+    # detects clock drift above 0.05 seconds between monitors [1]. Therefore,
+    # to ensure the quality of NTP time allows to keep the drift between two
+    # systems to less or equal to 0.05 seconds a default of 0.025 seconds will
+    # be used for `max_upper_clock_error_bound`.
+    #
+    # [1]: https://docs.ceph.com/en/latest/rados/configuration/mon-config-ref/#confval-mon_clock_drift_allowed
+    max_upper_clock_error_bound: "{{ max_system_clock_deviation + 0.02 }}"
 
   tasks:
     - name: Get chrony tracking
