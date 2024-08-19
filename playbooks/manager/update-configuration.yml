@@ -1,0 +1,9 @@
+---
+- name: Update configuration
+  hosts: "{{ hosts_manager | default('manager') }}"
+
+  tasks:
+    - name: Apply update tasks from role osism.commons.configuration
+      ansible.builtin.import_role:
+        name: osism.commons.configuration
+        tasks_from: update.yml
