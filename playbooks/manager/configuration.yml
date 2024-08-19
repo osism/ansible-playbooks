@@ -1,5 +1,5 @@
 ---
-- name: Update configuration
+- name: Apply role configuration
   hosts: "{{ hosts_manager|default('manager') }}"
 
   roles:
