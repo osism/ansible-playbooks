@@ -6,6 +6,8 @@
   gather_facts: false
 
   vars:
+    ansible_python_interpreter: /usr/bin/python3
+
     capi_version: 1.7.4
     capo_version: 0.10.4
 

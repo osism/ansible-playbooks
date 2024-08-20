@@ -5,6 +5,9 @@
   connection: local
   gather_facts: false
 
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
   tasks:
     - name: Add openstack-control-plane label to all hosts labeled control-plane
       ansible.builtin.shell: |
