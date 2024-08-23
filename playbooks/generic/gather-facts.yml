@@ -3,9 +3,27 @@
   ignore_unreachable: true
   hosts: "{{ hosts_gather_facts|default(hosts_default_group|default('generic')) }}"
   gather_facts: false
+  strategy: "{{ osism_strategy | default('linear') }}"
 
   tasks:
     - name: Gathers facts about hosts
       ansible.builtin.setup:
         filter: "{{ osism_setup_filter | default('') }}"
-        gather_subset: "{{ osism_setup_gather_subset | default('all') }}"
+        gather_subset: "{{ osism_setup_gather_subset | default('generic') }}"
+
+- name: Gather facts for all hosts (if using --limit)
+  ignore_unreachable: true
+  hosts: "{{ hosts_gather_facts|default(hosts_default_group|default('generic')) }}"
+  gather_facts: false
+  strategy: "{{ osism_strategy | default('linear') }}"
+
+  tasks:
+    - name: Gathers facts about hosts
+      ansible.builtin.setup:
+        filter: "{{ osism_setup_filter | default('') }}"
+        gather_subset: "{{ osism_setup_gather_subset | default('generic') }}"
+      delegate_facts: true
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['generic'] }}"
+      when:
+        - (play_hosts | length) != (groups['generic'] | length)
