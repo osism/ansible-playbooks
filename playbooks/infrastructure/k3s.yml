@@ -23,6 +23,9 @@
   gather_facts: false
   environment: "{{ k3s_proxy_env | default({}) }}"
 
+  vars:
+    k3s_kubectl_binary: k3s kubectl
+
   roles:
     - name: Apply role k3s_server
       become: true
