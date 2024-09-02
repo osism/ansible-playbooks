@@ -73,6 +73,21 @@
             labels: "{{ label_dict }}"
       loop: "{{ groups[yaook_control] }}"
 
+    - name: Label nodes with infra.yaook.cloud/caching
+      vars:
+        label_key: "infra.yaook.cloud/caching"
+        label_val: "true"
+        label_dict: >-
+          {{ {label_key: label_val} }}
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: "{{ item.split('.')[0] }}"
+            labels: "{{ label_dict }}"
+      loop: "{{ groups[yaook_control] }}"
+
     - name: Label nodes with compute.yaook.cloud/nova-any-service=true
       vars:
         label_key: "compute.yaook.cloud/nova-any-service"
