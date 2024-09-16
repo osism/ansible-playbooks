@@ -9,4 +9,6 @@
     - role: osism.commons.facts
 
 - name: Import gather-facts play
-  ansible.builtin.import_playbook: gather-facts.yml
+  hosts: "{{ hosts_facts|default(hosts_default_group|default('all')) }}"
+  tasks:
+    - ansible.builtin.import_playbook: gather-facts.yml
