@@ -345,7 +345,7 @@
 
     - name: Get ceph osd tree
       community.docker.docker_container_exec:
-        container: "{{ _osds_containers[0].name }}"
+        container: "ceph-mon-{{ ansible_hostname }}"
         command: "ceph osd tree --format=json"
       register: _osds_tree_raw
       run_once: true
