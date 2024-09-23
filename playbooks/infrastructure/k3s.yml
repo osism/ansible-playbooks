@@ -54,4 +54,5 @@
 
   roles:
     - name: Apply role k3s_server_post
+      become: "{{ calico_iface is defined }}"
       role: k3s_server_post
