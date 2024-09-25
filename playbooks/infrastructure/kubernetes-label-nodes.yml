@@ -47,6 +47,7 @@
         executable: /bin/bash
       changed_when: false
       loop: "{{ groups[hosts_control | default('control')] }}"
+      when: item in groups['k3s_all']
 
     - name: Add compute-plane label to all hosts in group compute
       ansible.builtin.shell: |
@@ -58,6 +59,7 @@
         executable: /bin/bash
       changed_when: false
       loop: "{{ groups[hosts_compute | default('compute')] }}"
+      when: item in groups['k3s_all']
 
     - name: Add network-plane label to all hosts in group network
       ansible.builtin.shell: |
@@ -69,6 +71,7 @@
         executable: /bin/bash
       changed_when: false
       loop: "{{ groups[hosts_network | default('network')] }}"
+      when: item in groups['k3s_all']
 
     - name: Add management-plane label to all hosts in group manager
       ansible.builtin.shell: |
@@ -80,6 +83,7 @@
         executable: /bin/bash
       changed_when: false
       loop: "{{ groups[hosts_manager | default('manager')] }}"
+      when: item in groups['k3s_all']
 
     - name: Add monitoring-plane label to all hosts in group monitoring
       ansible.builtin.shell: |
@@ -91,3 +95,4 @@
         executable: /bin/bash
       changed_when: false
       loop: "{{ groups[hosts_monitoring | default('monitoring')] }}"
+      when: item in groups['k3s_all']
