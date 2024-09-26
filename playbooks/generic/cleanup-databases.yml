@@ -54,7 +54,7 @@
         - database_heat_cleanup | bool
 
     - name: Move deleted rows from nova production tables to shadow tables
-      ansible.builtin.command: docker exec nova_conductor nova-manage db archive_deleted_rows --until-complete
+      ansible.builtin.command: "docker exec nova_conductor nova-manage db archive_deleted_rows --before {{ '%Y-%m-%d' | strftime((ansible_date_time.epoch | int) - (86400 * database_nova_retention_time | int)) }} --until-complete"
       register: result
       changed_when: result.rc == 1
       failed_when: result.rc > 1
