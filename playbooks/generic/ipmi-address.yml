@@ -1,0 +1,32 @@
+---
+- name: Get IPMI address
+  hosts: "{{ hosts_ipmi_address|default(hosts_default_group|default('generic')) }}"
+  serial: "{{ osism_serial['ipmi_address']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Get stats of /dev/ipmi0
+      ansible.builtin.stat:
+        path: /dev/ipmi0
+      register: p
+
+    - name: Install ipmitool package
+      become: true
+      ansible.builtin.package:
+        name: ipmitool
+        state: present
+      when: p.stat.exists
+
+    - name: Get IMPI address
+      become: true
+      ansible.builtin.shell: |
+        set -o pipefail
+        ipmitool lan print | grep "IP Address\s*:" | awk -F: '{ print $2 }'
+      register: result
+      changed_when: false
+      when: p.stat.exists
+
+    - name: Print out IMPI address
+      ansible.builtin.debug:
+        msg: "{{ result.stdout }}"
+      when: p.stat.exists
