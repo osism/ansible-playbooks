@@ -1,21 +1,7 @@
 ---
-- name: Group hosts based on configuration
-  hosts: "{{ hosts_default_group|default('generic') }}"
-  gather_facts: false
-
-  tasks:
-    - name: Group hosts based on enabled services
-      ansible.builtin.group_by:
-        key: "{{ item }}"
-      with_items:
-        - enable_docker_{{ enable_docker | default('true') | bool }}
-      tags: always
-      changed_when: false
-
 - name: Apply role docker_compose
   hosts:
     - "{{ hosts_docker|default('docker') }}"
-    - "&enable_docker_True"
   serial: "{{ osism_serial['docker_compose']|default('0') }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
