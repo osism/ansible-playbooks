@@ -1,20 +1,7 @@
 ---
-- name: Group hosts based on configuration
-  hosts: "{{ hosts_default_group|default('generic') }}"
-  gather_facts: false
-
-  tasks:
-    - name: Group hosts based on enabled services
-      ansible.builtin.group_by:
-        key: "{{ item }}"
-      with_items:
-        - enable_netbird_{{ enable_netbird | default('true') | bool }}
-      tags: always
-
 - name: Apply role netbird
   hosts:
     - "{{ hosts_netbird|default('netbird') }}"
-    - "&enable_netbird_True"
   serial: "{{ osism_serial['netbird']|default(osism_serial_default)|default(0) }}"
   strategy: "{{ osism_strategy|default('linear') }}"
 
