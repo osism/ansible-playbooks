@@ -7,7 +7,7 @@
     ansible_python_interpreter: /usr/bin/python3
 
   tasks:
-    - name: merge all labels, annotations, and taints
+    - name: Merge all labels, annotations, and taints
       set_fact:
         merged_add_labels: "{{ lookup('community.general.merge_variables', '^k3s_add_labels_.+$') | default([], true) }}"
         merged_add_annotations: "{{ lookup('community.general.merge_variables', '^k3s_add_annotations_.+$') | default([], true) }}"
