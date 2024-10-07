@@ -1,98 +1,53 @@
 ---
-- name: Label nodes
-  hosts:
-    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
-  connection: local
+- name: Manage labels, annotations, and taints on all k3s nodes
+  hosts: "{{ hosts_k3s_all|default('k3s_all') }}"
   gather_facts: false
 
   vars:
-    ansible_python_interpreter: /usr/bin/python3
+    k3s_add_labels_groups: []
+    k3s_add_annotations_groups: []
+    k3s_add_taints_groups: []
 
   tasks:
-    - name: Add openstack-control-plane label to all hosts labeled control-plane
+    - name: Merge labels, annotations, and taints
+      ansible.builtin.set_fact:
+        _k3s_add_labels: "{{ lookup('community.general.merge_variables', '^k3s_add_labels__.+$', initial_value=k3s_add_labels | default([], true), groups=k3s_add_labels_groups) }}"
+        _k3s_add_annotations: "{{ lookup('community.general.merge_variables', '^k3s_add_annotations__.+$', initial_value=k3s_add_annotations | default([], true), groups=k3s_add_annotations_groups) }}"
+        _k3s_add_taints: "{{ lookup('community.general.merge_variables', '^k3s_add_taints__.+$', initial_value=k3s_add_taints | default([], true), groups=k3s_add_taints_groups) }}"
+        cacheable: false
+
+    - name: Manage labels
       ansible.builtin.shell: |
         set -o pipefail
 
         export KUBECONFIG=/share/kubeconfig
-
-        OS_CONTROL_PLANE_NODES=$(kubectl get nodes | grep control-plane | awk '{print $1}')
-        for NODE in $OS_CONTROL_PLANE_NODES; do
-            kubectl label node "${NODE}" openstack-control-plane=enabled
-        done
+        kubectl label node {{ inventory_hostname.split('.')[0] }} {{ item }} --overwrite
       args:
         executable: /bin/bash
       changed_when: false
+      loop: "{{ _k3s_add_labels }}"
+      delegate_to: localhost
 
-    - name: Add worker node-role label to all hosts without a role
+    - name: Manage annotations
       ansible.builtin.shell: |
         set -o pipefail
 
         export KUBECONFIG=/share/kubeconfig
-
-        NODES_WITHOUT_ROLE=$(kubectl get nodes | grep '<none>' | awk '{print $1}')
-        for NODE in $NODES_WITHOUT_ROLE; do
-            kubectl label node "${NODE}" node-role.kubernetes.io/worker=worker
-        done
+        kubectl annotate node {{ inventory_hostname.split('.')[0] }} {{ item }} --overwrite
       args:
         executable: /bin/bash
       changed_when: false
+      loop: "{{ _k3s_add_annotations }}"
+      delegate_to: localhost
 
-    - name: Add control-plane label to all hosts in group control
+    - name: Manage taints
       ansible.builtin.shell: |
         set -o pipefail
 
         export KUBECONFIG=/share/kubeconfig
-        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/control-plane=true
+        kubectl taint node {{ inventory_hostname.split('.')[0] }} {{ item }} --overwrite
       args:
         executable: /bin/bash
       changed_when: false
-      loop: "{{ groups[hosts_control | default('control')] }}"
-      when: item in groups['k3s_all']
-
-    - name: Add compute-plane label to all hosts in group compute
-      ansible.builtin.shell: |
-        set -o pipefail
-
-        export KUBECONFIG=/share/kubeconfig
-        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/compute-plane=true
-      args:
-        executable: /bin/bash
-      changed_when: false
-      loop: "{{ groups[hosts_compute | default('compute')] }}"
-      when: item in groups['k3s_all']
-
-    - name: Add network-plane label to all hosts in group network
-      ansible.builtin.shell: |
-        set -o pipefail
-
-        export KUBECONFIG=/share/kubeconfig
-        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/network-plane=true
-      args:
-        executable: /bin/bash
-      changed_when: false
-      loop: "{{ groups[hosts_network | default('network')] }}"
-      when: item in groups['k3s_all']
-
-    - name: Add management-plane label to all hosts in group manager
-      ansible.builtin.shell: |
-        set -o pipefail
-
-        export KUBECONFIG=/share/kubeconfig
-        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/management-plane=true
-      args:
-        executable: /bin/bash
-      changed_when: false
-      loop: "{{ groups[hosts_manager | default('manager')] }}"
-      when: item in groups['k3s_all']
-
-    - name: Add monitoring-plane label to all hosts in group monitoring
-      ansible.builtin.shell: |
-        set -o pipefail
-
-        export KUBECONFIG=/share/kubeconfig
-        kubectl label node "{{ item.split('.')[0] }}" node-role.osism.tech/monitoring-plane=true
-      args:
-        executable: /bin/bash
-      changed_when: false
-      loop: "{{ groups[hosts_monitoring | default('monitoring')] }}"
-      when: item in groups['k3s_all']
+      loop: "{{ _k3s_add_taints }}"
+      delegate_to: localhost
