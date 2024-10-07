@@ -1,53 +1,57 @@
 ---
-- name: Add and Remove labels, annotations, and taints from all k3s nodes and masters
-  hosts: k3s_all
-  connection: local
+- name: Manage labels, annotations, and taints on all k3s nodes
+  hosts: "{{ hosts_k3s_all|default('k3s_all') }}"
   gather_facts: false
+
   vars:
-    ansible_python_interpreter: /usr/bin/python3
+    k3s_add_labels: []
+    k3s_add_annotations: []
+    k3s_add_taints: []
+
+    k3s_add_labels_groups: []
+    k3s_add_annotations_groups: []
+    k3s_add_taints_groups: []
 
   tasks:
-    - name: Merge all labels, annotations, and taints
+    - name: Merge labels, annotations, and taints
       ansible.builtin.set_fact:
-        merged_add_labels: "{{ lookup('community.general.merge_variables', '^k3s_add_labels_.+$') | default([], true) }}"
-        merged_add_annotations: "{{ lookup('community.general.merge_variables', '^k3s_add_annotations_.+$') | default([], true) }}"
-        merged_add_taints: "{{ lookup('community.general.merge_variables', '^k3s_add_taints_.+$') | default([], true) }}"
+        _k3s_add_labels: "{{ lookup('community.general.merge_variables', '^k3s_add_labels__.+$', initial_value=k3s_add_labels, groups=k3s_add_labels_groups) }}"
+        _k3s_add_annotations: "{{ lookup('community.general.merge_variables', '^k3s_add_annotations__.+$', initial_value=k3s_add_annotations, groups=k3s_add_annotations_groups) }}"
+        _k3s_add_taints: "{{ lookup('community.general.merge_variables', '^k3s_add_taints__.+$', initial_value=k3s_add_taints, groups=k3s_add_taints_groups) }}"
+        cacheable: false
 
-    - name: Add labels to k3s_node and k3s_master
+    - name: Manage labels
       ansible.builtin.shell: |
         set -o pipefail
 
         export KUBECONFIG=/share/kubeconfig
-        # Add labels
         kubectl label node {{ inventory_hostname.split('.')[0] }} {{ item }} --overwrite
       args:
         executable: /bin/bash
       changed_when: false
-      delegate_to: manager
-      loop: "{{ merged_add_labels }}"
+      loop: "{{ _k3s_add_labels }}"
+      delegate_to: localhost
 
-    - name: Add annotations to k3s_node and k3s_master
+    - name: Manage annotations
       ansible.builtin.shell: |
         set -o pipefail
 
         export KUBECONFIG=/share/kubeconfig
-        # Add annotations
         kubectl annotate node {{ inventory_hostname.split('.')[0] }} {{ item }} --overwrite
       args:
         executable: /bin/bash
       changed_when: false
-      delegate_to: manager
-      loop: "{{ merged_add_annotations }}"
+      loop: "{{ _k3s_add_annotations }}"
+      delegate_to: localhost
 
-    - name: Add taints to k3s_node and k3s_master
+    - name: Manage taints
       ansible.builtin.shell: |
         set -o pipefail
 
         export KUBECONFIG=/share/kubeconfig
-        # Add taints
         kubectl taint node {{ inventory_hostname.split('.')[0] }} {{ item }} --overwrite
       args:
         executable: /bin/bash
       changed_when: false
-      delegate_to: manager
-      loop: "{{ merged_add_taints }}"
+      loop: "{{ _k3s_add_taints }}"
+      delegate_to: localhost
