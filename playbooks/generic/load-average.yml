@@ -1,0 +1,15 @@
+---
+- name: Get load average
+  hosts: "{{ hosts_load_average|default('generic') }}"
+  serial: "{{ osism_serial['load_average']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Get load average
+      ansible.builtin.slurp:
+        src: /proc/loadavg
+      register: result
+
+    - name: Print load average
+      ansible.builtin.debug:
+        msg: "{{ result['content'] | b64decode | trim }}"
