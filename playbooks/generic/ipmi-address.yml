@@ -22,6 +22,8 @@
       ansible.builtin.shell: |
         set -o pipefail
         ipmitool lan print | grep "IP Address\s*:" | awk -F: '{ print $2 }'
+      args:
+        executable: /bin/bash
       register: result
       changed_when: false
       when: p.stat.exists

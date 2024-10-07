@@ -1,0 +1,25 @@
+---
+- name: Get top instances 
+  hosts: "{{ hosts_load_average|default('generic') }}"
+  serial: "{{ osism_serial['load_average']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  tasks:
+    - name: Get top instances
+      ansible.builtin.shell: |
+        set -o pipefail
+        ps -eo pcpu,cmd --sort=-pcpu --no-headers | grep OpenStack | head -n 3 | awk '{ print $0 }'
+      args:
+        executable: /bin/bash
+      register: result
+
+    - debug: var=result
+
+    - name: Print top instances 
+      ansible.builtin.debug:
+        msg: "{{ item | ansible.builtin.regex_search('([0-9]+\\.[0-9]+).*-uuid ([a-f0-9\\-]{36})', '\\1', '\\2') }}"
+      loop: "{{ result.stdout_lines }}"
+      throttle: 1
+      loop_control:
+        index_var: loop_index
+        label: "{{ loop_index }}"
