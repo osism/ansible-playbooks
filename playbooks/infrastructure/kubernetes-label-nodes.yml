@@ -4,10 +4,6 @@
   gather_facts: false
 
   vars:
-    k3s_add_labels: []
-    k3s_add_annotations: []
-    k3s_add_taints: []
-
     k3s_add_labels_groups: []
     k3s_add_annotations_groups: []
     k3s_add_taints_groups: []
@@ -15,9 +11,9 @@
   tasks:
     - name: Merge labels, annotations, and taints
       ansible.builtin.set_fact:
-        _k3s_add_labels: "{{ lookup('community.general.merge_variables', '^k3s_add_labels__.+$', initial_value=k3s_add_labels, groups=k3s_add_labels_groups) }}"
-        _k3s_add_annotations: "{{ lookup('community.general.merge_variables', '^k3s_add_annotations__.+$', initial_value=k3s_add_annotations, groups=k3s_add_annotations_groups) }}"
-        _k3s_add_taints: "{{ lookup('community.general.merge_variables', '^k3s_add_taints__.+$', initial_value=k3s_add_taints, groups=k3s_add_taints_groups) }}"
+        _k3s_add_labels: "{{ lookup('community.general.merge_variables', '^k3s_add_labels__.+$', initial_value=k3s_add_labels|default([], true), groups=k3s_add_labels_groups) }}"
+        _k3s_add_annotations: "{{ lookup('community.general.merge_variables', '^k3s_add_annotations__.+$', initial_value=k3s_add_annotations|default([], true), groups=k3s_add_annotations_groups) }}"
+        _k3s_add_taints: "{{ lookup('community.general.merge_variables', '^k3s_add_taints__.+$', initial_value=k3s_add_taints|default([], true), groups=k3s_add_taints_groups) }}"
         cacheable: false
 
     - name: Manage labels
