@@ -1,0 +1,29 @@
+---
+- name: Remove designate-sink service
+  hosts: "{{ hosts_designate_sink_group|default('designate-sink') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Stop & disable service
+      become: true
+      ansible.builtin.service:
+        name: kolla-designate_sink-container
+        state: stopped
+        enabled: false
+
+    - name: Remove container
+      community.docker.docker_container:
+        name: designate_sink
+        state: absent
+
+    - name: Remove configuration directory
+      become: true
+      ansible.builtin.file:
+        path: /etc/kolla/designate-sink
+        state: absent
+
+    - name: Remove log file
+      become: true
+      ansible.builtin.file:
+        path: /var/log/kolla/designate/designate-sink.log
+        state: absent
