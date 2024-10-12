@@ -1,0 +1,7 @@
+---
+- name: Apply role teleport
+  hosts: "{{ hosts_teleport|default('teleport') }}"
+  serial: "{{ osism_serial['teleport']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.teleport
