@@ -390,7 +390,7 @@
       run_once: true
       changed_when: true
 
-    #check + create Identity federation
+    # check + create Identity federation
     - name: Get available identity providers in proxy realm for IdP creation
       ansible.builtin.command: >-
         kubectl exec -n {{ keycloak_namespace }} {{ keycloak_service_container_name }} --
