@@ -1,0 +1,16 @@
+---
+- name: Enable storage node
+  hosts: "{{ hosts_enable_storage_node | default('none') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Get OSD IDs
+      become: true
+      ansible.builtin.shell: |
+        set -o pipefail
+        ls /var/lib/ceph/osd/ | sed 's/.*-//'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+      register: result
