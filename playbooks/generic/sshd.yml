@@ -1,0 +1,8 @@
+---
+- name: Apply role sshd
+  hosts: "{{ hosts_sshd | default(hosts_default_group | default('generic')) }}"
+  serial: "{{ osism_serial['sshd'] | default(osism_serial_default) | default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.services.sshd
