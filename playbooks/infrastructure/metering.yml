@@ -1,6 +1,0 @@
----
-- name: Apply role metering
-  hosts: "{{ hosts_metering|default('metering') }}"
-
-  roles:
-    - role: osism.services.metering
