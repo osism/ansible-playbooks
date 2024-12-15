@@ -1,0 +1,11 @@
+# https://docs.debops.org/en/latest/ansible/role-index.html
+---
+- name: Run a debops role
+  hosts: "{{ hosts_debops | default('generic') }}"
+  become: true
+
+  tasks:
+    - name: Include debops role
+      ansible.builtin.include_role:
+        name: "debops.debops.{{ debops_role_name }}"
+      when: debops_role_name is defined and debops_role_name | length > 0
