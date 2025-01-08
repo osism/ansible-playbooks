@@ -1,0 +1,40 @@
+---
+- name: Containerlab
+  hosts: "{{ hosts_containerlab|default('manager') }}"
+  serial: "{{ osism_serial['containerlab']|default(osism_serial_default)|default(0) }}"
+  gather_facts: false
+
+  vars:
+    containerlab_registry: ghcr.io
+    containerlab_image: srl-labs/clab
+    containerlab_tag: latest
+
+  tasks:
+    - name: Create containerlab wrapper script
+      become: true
+      ansible.builtin.copy:
+        content: |
+          #!/usr/bin/env bash
+          docker run --rm -it --privileged \
+            --network host \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /var/run/netns:/var/run/netns \
+            -v /etc/hosts:/etc/hosts \
+            -v /var/lib/docker/containers:/var/lib/docker/containers \
+            --pid="host" \
+            -v $(pwd):$(pwd) \
+            -w $(pwd) \
+            {{ containerlab_registry }}/{{ containerlab_image }}:{{ containerlab_tag }} containerlab "$@"
+        mode: 0755
+        dest: /usr/local/bin/containerlab
+        owner: root
+        group: root
+
+    - name: Create clab symlink
+      become: true
+      ansible.builtin.file:
+        src: /usr/local/bin/containerlab
+        dest: /usr/local/bin/clab
+        owner: root
+        group: root
+        state: link
