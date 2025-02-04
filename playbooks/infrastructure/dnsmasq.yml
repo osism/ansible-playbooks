@@ -1,0 +1,7 @@
+---
+- name: Apply role dnsmasq
+  hosts: "{{ hosts_dnsmasq|default('dnsmasq') }}"
+  serial: "{{ osism_serial['dnsmasq']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.dnsmasq
