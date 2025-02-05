@@ -1,0 +1,7 @@
+---
+- name: Apply role httpd
+  hosts: "{{ hosts_httpd|default('httpd') }}"
+  serial: "{{ osism_serial['httpd']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.httpd
