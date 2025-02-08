@@ -1,0 +1,102 @@
+---
+- name: Run safety check
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Exit playbook, if user did not mean to use tenks
+      ansible.builtin.fail:
+        msg: >
+          "Tenks is only used for testing baremetal deployments in
+           virtualized environments. It is not useful in production.
+           To activate tenks use `-e ireallymeanit=yes` on the command
+           line when invoking the playbook"
+      when: ireallymeanit != 'yes'
+
+- name: Tenks hypervisors
+  hosts: "{{ hosts_tenks_hypervisors | default('libvirt') }}"
+  serial: "{{ osism_serial['tenks']|default(osism_serial_default)|default(0) }}"
+  gather_facts: false
+
+  tasks:
+    - name: Install tenks dependencies (Debian)
+      become: true
+      ansible.builtin.apt:
+        name:
+          - python3-venv
+          - openvswitch-switch
+      when:
+        - ansible_os_family == "Debian"
+    - name: Install tenks dependencies (RedHat)
+      become: true
+      ansible.builtin.dnf:
+        name:
+          - openvswitch
+      when:
+        - ansible_os_family == "RedHat"
+
+- name: Tenks
+  hosts: "{{ hosts_tenks | default('manager') }}"
+  serial: "{{ osism_serial['tenks']|default(osism_serial_default)|default(0) }}"
+  gather_facts: false
+
+  vars:
+    tenks_registry: quay.io
+    tenks_image: osism/tenks
+    tenks_tag: latest
+    tenks_inventory_source: /var/lib/docker/volumes/manager_inventory_reconciler/_data/hosts.yml
+    tenks_override_file: "{{ undef() }}"
+  tasks:
+    - name: Run tenks and show output
+      block:  # noqa osism-fqcn
+        - name: Run tenks
+          become: true
+          run_once: true
+          register: tenks
+          community.docker.docker_container:
+            cleanup: true
+            detach: false
+            image: "{{ tenks_registry }}/{{ tenks_image }}:{{ tenks_tag }}"
+            init: false
+            interactive: false
+            name: tenks
+            network_mode: 'host'
+            mounts: >-
+              {{
+                [
+                  {
+                    "type": "bind",
+                    "read_only": "true",
+                    "source": tenks_inventory_source,
+                    "target": "/ansible/inventory/hosts.yml",
+                  }
+                ]
+                +
+                (
+                  [
+                    {
+                      "type": "bind",
+                      "read_only": "true",
+                      "source": tenks_override_file,
+                      "target": "/srv/override.yml",
+                    }
+                  ] if tenks_override_file is defined else []
+                )
+              }}
+
+            volumes:
+              - "/home/{{ ansible_user }}/.ssh:/home/dragon/.ssh:ro"
+              - "/etc/ssl/certs:/etc/ssl/certs:ro"
+              - "/opt/ansible/secrets:/opt/ansible/secrets:ro"
+            command: >-
+              {{
+                [
+                  "--inventory",
+                  "/ansible/inventory"
+                ]
+                + ( ["--extra-vars=@/srv/override.yml"] if tenks_override_file is defined else [] )
+              }}
+      always:  # noqa osism-fqcn
+        - name: Show tenks result
+          ansible.builtin.debug:
+            msg: "{{ tenks.container.Output | split('\n') }}"
