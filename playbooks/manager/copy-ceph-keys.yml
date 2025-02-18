@@ -64,7 +64,7 @@
       environment:
         INTERACTIVE: "false"
       changed_when: true
-      when: _fetch_ceph_keys | default(false)
+      when: _fetch_ceph_keys | default(false) or 'fetch' in ansible_run_tags
       tags:
         - fetch
 
