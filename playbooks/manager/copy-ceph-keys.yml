@@ -3,7 +3,6 @@
   hosts: manager
 
   vars:
-    ceph_ansible_container_name: ceph-ansible
     ceph_custom_keys: []
     ceph_infrastructure_keys:
       - src: ceph.client.admin.keyring
@@ -34,61 +33,39 @@
         dest: "{{ configuration_directory }}/environments/kolla/files/overlays/manila/ceph.client.manila.keyring"
 
   tasks:
-
-    - name: Check ceph keys
-      ansible.builtin.stat:
-        path: "/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }}"
+    - name: Fetch all ceph keys
+      become: true
+      ansible.builtin.slurp:
+        src: "/etc/ceph/{{ item.src }}"
+      register: _remote_ceph_keys
       loop: "{{ ceph_infrastructure_keys + ceph_kolla_keys + ceph_custom_keys }}"
-      register: result
-      delegate_to: localhost
+      delegate_to: "{{ groups[mon_group_name] | first }}"
       loop_control:
         label: "{{ item.src }}"
+      # skip non-existing keys
+      ignore_errors: true
 
-    - name: Set _fetch_ceph_keys fact
-      ansible.builtin.set_fact:
-        _fetch_ceph_keys: true
-      when:
-        - item.stat.islnk is not defined
-      loop: "{{ result.results }}"
+    - name: Write ceph keys to the share directory
+      ansible.builtin.copy:
+        content: "{{ item.content | b64decode }}"
+        dest: "/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.item.src }}"
+        owner: dragon
+        group: dragon
+        mode: 0644
+      when: not item.failed
       delegate_to: localhost
+      loop: "{{ _remote_ceph_keys.results }}"
       loop_control:
         label: "{{ item.item.src }}"
 
-    - name: Point out that the following task takes some time and does not give any output
-      ansible.builtin.debug:
-        msg: "The task 'Fetch ceph keys from the first monitor node' runs an Ansible playbook on the manager. There is no further output of this here. It takes a few minutes for this task to complete."
-      when: _fetch_ceph_keys | default(false)
-
-    - name: Fetch ceph keys from the first monitor node
-      ansible.builtin.command: "osism apply ceph-fetch-keys"
-      environment:
-        INTERACTIVE: "false"
-      changed_when: true
-      when: _fetch_ceph_keys | default(false)
-      tags:
-        - fetch
-
-    - name: Copy ceph infrastructure keys to the configuration repository
-      ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"
-      changed_when: true
-      loop: "{{ ceph_infrastructure_keys }}"
-      tags:
-        - infrastructure
-
-    - name: Copy ceph kolla keys to the configuration repository  # noqa: ignore-errors
-      ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"
-      changed_when: true
-      # It is possible that certain keys are not available in an environment
-      # or certain services have not been activated. In this case, errors are
-      # ignored.
-      ignore_errors: true
-      loop: "{{ ceph_kolla_keys }}"
-      tags:
-        - kolla
-
-    - name: Copy ceph custom keys to the configuration repository
-      ansible.builtin.command: "docker cp {{ ceph_ansible_container_name }}:/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.src }} {{ item.dest }}"
-      changed_when: true
-      loop: "{{ ceph_custom_keys }}"
-      tags:
-        - custom
+    - name: Write ceph keys to the configuration directory
+      ansible.builtin.copy:
+        content: "{{ item.content | b64decode }}"
+        dest: "{{ item.item.dest }}"
+        owner: dragon
+        group: dragon
+        mode: 0644
+      when: not item.failed
+      loop: "{{ _remote_ceph_keys.results }}"
+      loop_control:
+        label: "{{ item.item.src }}"
