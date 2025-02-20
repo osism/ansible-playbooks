@@ -45,13 +45,22 @@
       # skip non-existing keys
       ignore_errors: true
 
+    - name: Create share directory
+      ansible.builtin.file:
+        path: "/share/{{ ceph_cluster_fsid }}/etc/ceph"
+        owner: dragon
+        group: dragon
+        state: directory
+        mode: 0750
+      delegate_to: localhost
+
     - name: Write ceph keys to the share directory
       ansible.builtin.copy:
         content: "{{ item.content | b64decode }}"
         dest: "/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.item.src }}"
         owner: dragon
         group: dragon
-        mode: 0644
+        mode: 0640
       when: not item.failed
       delegate_to: localhost
       loop: "{{ _remote_ceph_keys.results }}"
@@ -64,7 +73,7 @@
         dest: "{{ item.item.dest }}"
         owner: dragon
         group: dragon
-        mode: 0644
+        mode: 0640
       when: not item.failed
       loop: "{{ _remote_ceph_keys.results }}"
       loop_control:
