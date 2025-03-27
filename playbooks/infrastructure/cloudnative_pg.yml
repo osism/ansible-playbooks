@@ -1,8 +1,0 @@
----
-- name: Apply role cloudnative_pg
-  hosts:
-    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
-  connection: local
-
-  roles:
-    - role: osism.services.cloudnative_pg
