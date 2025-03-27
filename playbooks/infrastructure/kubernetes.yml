@@ -1,7 +1,4 @@
 ---
-- name: Run k3s play
-  ansible.builtin.import_playbook: /ansible/infrastructure/k3s.yml
-
 - name: Run k9s play
   ansible.builtin.import_playbook: /ansible/infrastructure/k9s.yml
 
