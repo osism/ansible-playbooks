@@ -1,0 +1,8 @@
+---
+- name: Run stress
+  hosts: "{{ hosts_stress|default(hosts_default_group|default('generic')) }}"
+  serial: "{{ osism_serial['stress']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.validations.stress
