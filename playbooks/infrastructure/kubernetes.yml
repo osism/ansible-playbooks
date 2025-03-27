@@ -1,6 +1,0 @@
----
-- name: Run k9s play
-  ansible.builtin.import_playbook: /ansible/infrastructure/k9s.yml
-
-- name: Run kubernetes-label-nodes play
-  ansible.builtin.import_playbook: /ansible/infrastructure/kubernetes-label-nodes.yml
