@@ -1,9 +1,0 @@
----
-- name: Apply kubernetes monitoring role
-  hosts:
-    - "{{ hosts_manager|default(groups['manager'][0])|default('localhost') }}"
-  connection: local
-  gather_facts: false
-
-  roles:
-    - role: osism.services.kubernetes_monitoring
