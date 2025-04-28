@@ -1,0 +1,7 @@
+---
+- name: Apply role zot
+  hosts: "{{ hosts_zot|default('zot') }}"
+  serial: "{{ osism_serial['zot']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.zot
