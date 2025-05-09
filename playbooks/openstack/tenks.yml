@@ -41,7 +41,7 @@
   gather_facts: false
 
   vars:
-    tenks_registry: quay.io
+    tenks_registry: registry.osism.tech
     tenks_image: osism/tenks
     tenks_tag: latest
     tenks_inventory_source: /var/lib/docker/volumes/manager_inventory_reconciler/_data/hosts.yml
