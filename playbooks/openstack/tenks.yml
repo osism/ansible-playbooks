@@ -49,6 +49,10 @@
   tasks:
     - name: Run tenks and show output
       block:  # noqa osism-fqcn
+        - name: Point out that the following task takes some time
+          ansible.builtin.debug:
+            msg: "The task 'Run tenks' takes a few minutes to complete."
+
         - name: Run tenks
           become: true
           run_once: true
