@@ -4,13 +4,3 @@
 
   roles:
     - role: osism.services.manager
-
-- name: Restart manager service
-  hosts: manager
-
-  tasks:
-    - name: Restart manager service
-      become: true
-      ansible.builtin.service:
-        name: docker-compose@manager
-        state: restarted
