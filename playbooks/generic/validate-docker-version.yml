@@ -1,0 +1,8 @@
+---
+- name: Run docker_version validator
+  hosts: "{{ hosts_docker_version|default(hosts_default_group|default('generic')) }}"
+  serial: "{{ osism_serial['docker_version']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.validations.docker_version
