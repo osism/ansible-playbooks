@@ -51,10 +51,6 @@
       jobs:
         - ansible-lint
         - yamllint
-    gate:
-      jobs:
-        - ansible-lint
-        - yamllint
     periodic-daily:
       jobs:
         - ansible-lint
