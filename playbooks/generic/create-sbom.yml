@@ -1,0 +1,49 @@
+---
+- name: Create SBOM
+  hosts: "{{ hosts_default_group|default('generic') }}"
+  serial: "{{ osism_serial['manage_container']|default(1) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  vars:
+    docker_registry_syft: index.docker.io
+    # renovate: datasource=docker depName=anchore/syft
+    syft_tag: 'v1.14.1'
+    syft_image: "{{ docker_registry_syft }}/anchore/syft:{{ syft_tag }}"
+
+    syft_output_directory: /opt/syft
+
+  tasks:
+    - name: Point out that the following task takes some time and does not give any output
+      ansible.builtin.debug:
+        msg: "The task 'Create SBOM' takes a few minutes to complete."
+
+    - name: Create output directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ syft_output_directory }}"
+        owner: "{{ operator_user | default('dragon') }}"
+        group: "{{ operator_group | default('dragon') }}"
+        state: directory
+        mode: 0755
+
+    - name: Create SBOM
+      community.docker.docker_container:
+        name: syft-create-sbom
+        image: "{{ syft_image }}"
+        volumes:
+          - "{{ syft_output_directory }}:/output:rw"
+        mounts:
+          - type: bind
+            source: /
+            target: /data
+            read_only: true
+        command: |
+          dir:/data -o cyclonedx=/output/sbom.cyclonedx.xml
+        detach: false
+      async: 1800
+      poll: 5
+
+    - name: Remove create-sbom-with-syft container
+      community.docker.docker_container:
+        name: syft-create-sbom
+        state: absent
