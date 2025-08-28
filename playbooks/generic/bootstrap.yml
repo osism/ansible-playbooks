@@ -59,7 +59,6 @@
     - role: osism.commons.services
     - role: osism.commons.motd
     - role: osism.services.rng
-    - role: osism.services.smartd
     - role: osism.commons.cleanup
     - role: osism.commons.timezone
     - role: osism.services.docker
@@ -93,6 +92,11 @@
       ansible.builtin.include_role:
         name: osism.services.auditd
       when: enable_auditd | default('true') | bool
+
+    - name: Include smartd role
+      ansible.builtin.include_role:
+        name: osism.services.smartd
+      when: enable_smartd | default('true') | bool
 
   roles:
     - role: osism.services.journald
