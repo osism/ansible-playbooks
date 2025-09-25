@@ -33,17 +33,26 @@
         dest: "{{ configuration_directory }}/environments/kolla/files/overlays/manila/ceph.client.manila.keyring"
 
   tasks:
-    - name: Fetch all ceph keys
+    - name: Check if ceph keys exist
       become: true
-      ansible.builtin.slurp:
-        src: "/etc/ceph/{{ item.src }}"
-      register: _remote_ceph_keys
+      ansible.builtin.stat:
+        path: "/etc/ceph/{{ item.src }}"
+      register: _ceph_key_files
       loop: "{{ ceph_infrastructure_keys + ceph_kolla_keys + ceph_custom_keys }}"
       delegate_to: "{{ groups[mon_group_name] | first }}"
       loop_control:
         label: "{{ item.src }}"
-      # skip non-existing keys
-      ignore_errors: true
+
+    - name: Fetch all ceph keys
+      become: true
+      ansible.builtin.slurp:
+        src: "/etc/ceph/{{ item.item.src }}"
+      register: _remote_ceph_keys
+      when: item.stat.exists and item.stat.isreg
+      loop: "{{ _ceph_key_files.results }}"
+      delegate_to: "{{ groups[mon_group_name] | first }}"
+      loop_control:
+        label: "{{ item.item.src }}"
 
     - name: Create share directory
       ansible.builtin.file:
@@ -57,15 +66,15 @@
     - name: Write ceph keys to the share directory
       ansible.builtin.copy:
         content: "{{ item.content | b64decode }}"
-        dest: "/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.item.src }}"
+        dest: "/share/{{ ceph_cluster_fsid }}/etc/ceph/{{ item.item.item.src }}"
         owner: dragon
         group: dragon
         mode: 0640
-      when: not item.failed
+      when: not item.skipped | default(false) and not item.failed | default(false)
       delegate_to: localhost
       loop: "{{ _remote_ceph_keys.results }}"
       loop_control:
-        label: "{{ item.item.src }}"
+        label: "{{ item.item.item.src }}"
 
     - name: Check if target directories exist
       ansible.builtin.stat:
@@ -78,13 +87,14 @@
     - name: Write ceph keys to the configuration directory
       ansible.builtin.copy:
         content: "{{ item.0.content | b64decode }}"
-        dest: "{{ item.0.item.dest }}"
+        dest: "{{ item.0.item.item.dest }}"
         owner: dragon
         group: dragon
         mode: 0640
       when:
-        - not item.0.failed
+        - not item.0.skipped | default(false)
+        - not item.0.failed | default(false)
         - item.1.stat.exists and item.1.stat.isdir
       loop: "{{ _remote_ceph_keys.results | zip(_target_directories.results) | list }}"
       loop_control:
-        label: "{{ item.0.item.src }}"
+        label: "{{ item.0.item.item.src }}"
