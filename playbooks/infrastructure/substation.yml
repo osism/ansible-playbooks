@@ -1,0 +1,6 @@
+---
+- name: Apply role substation
+  hosts: "{{ hosts_substation|default('substation') }}"
+
+  roles:
+    - role: osism.services.substation
