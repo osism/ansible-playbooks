@@ -1,0 +1,7 @@
+---
+- name: Apply role stepca
+  hosts: "{{ hosts_stepca|default('stepca') }}"
+  serial: "{{ osism_serial['stepca']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.stepca
