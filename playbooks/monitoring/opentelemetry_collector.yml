@@ -1,0 +1,9 @@
+---
+- name: Apply role opentelemetry_collector
+  hosts:
+    - "{{ hosts_opentelemetry_collector|default('opentelemetry_collector') }}"
+  serial: "{{ osism_serial['opentelemetry_collector']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.services.opentelemetry_collector
