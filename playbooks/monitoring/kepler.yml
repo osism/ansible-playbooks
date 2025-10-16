@@ -1,0 +1,8 @@
+---
+- name: Apply role kepler
+  hosts: "{{ hosts_kepler|default('kepler') }}"
+  serial: "{{ osism_serial['kepler']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.services.kepler
