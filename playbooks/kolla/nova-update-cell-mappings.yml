@@ -1,0 +1,88 @@
+---
+- name: Update Nova cell mappings
+  hosts: "{{ hosts_nova_update_cell_mappings | default('nova-conductor[0]') }}"
+  gather_facts: false
+
+  vars:
+    nova_update_cell_mappings_container_name: "nova_conductor"
+    nova_update_cell_mappings_uuid: ""
+    nova_update_cell_mappings_transport_url: ""
+    nova_update_cell_mappings_database_connection: ""
+    nova_update_cell_mappings_abort_on_multiple: true
+
+  tasks:
+    - name: Get list of Nova cells
+      community.docker.docker_container_exec:
+        container: "{{ nova_update_cell_mappings_container_name }}"
+        user: root
+        command: nova-manage cell_v2 list_cells
+      changed_when: false
+      register: _nova_cells_output
+
+    - name: Parse cell information
+      ansible.builtin.set_fact:
+        _nova_cells_to_update: >-
+          {%- set cells = [] -%}
+          {%- for line in _nova_cells_output.stdout_lines -%}
+            {%- if line | regex_search('^\|\\s*\\S*\\s*\\|\\s+[0-9a-f-]+\\s+\\|') -%}
+              {%- set parts = line.split('|') | map('trim') | list -%}
+              {%- if parts | length >= 3 -%}
+                {%- set cell_name = parts[1] -%}
+                {%- set cell_uuid = parts[2] -%}
+                {%- if cell_name != 'cell0' and cell_uuid != '00000000-0000-0000-0000-000000000000' and cell_name != 'Name' -%}
+                  {%- set _ = cells.append({'name': cell_name, 'uuid': cell_uuid}) -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ cells }}
+
+    - name: Display cells to update
+      ansible.builtin.debug:
+        msg: "Cells to update: {{ _nova_cells_to_update }}"
+
+    - name: Use specified cell UUID if provided
+      ansible.builtin.set_fact:
+        _nova_cells_to_update:
+          - name: "specified"
+            uuid: "{{ nova_update_cell_mappings_uuid }}"
+      when: nova_update_cell_mappings_uuid | length > 0
+
+    - name: Abort if multiple cells found without specific UUID and abort_on_multiple is enabled
+      ansible.builtin.fail:
+        msg: >-
+          Found {{ _nova_cells_to_update | length }} cells to update.
+          Set nova_update_cell_mappings_abort_on_multiple to false to update all cells,
+          or specify a single cell UUID via nova_update_cell_mappings_uuid.
+          Cells found: {{ _nova_cells_to_update | map(attribute='uuid') | list }}
+      when:
+        - _nova_cells_to_update | length > 1
+        - nova_update_cell_mappings_abort_on_multiple | bool
+
+    - name: Update Nova cell mappings
+      community.docker.docker_container_exec:
+        container: "{{ nova_update_cell_mappings_container_name }}"
+        user: root
+        command: >-
+          nova-manage
+          {{ '--config-file /var/lib/kolla/config_files/nova.conf' if nova_update_cell_mappings_transport_url | length == 0 and nova_update_cell_mappings_database_connection | length == 0 else '' }}
+          cell_v2 update_cell --cell_uuid {{ item.uuid }}
+          {{ ('--transport-url ' + nova_update_cell_mappings_transport_url) if nova_update_cell_mappings_transport_url | length > 0 else '' }}
+          {{ ('--database_connection ' + nova_update_cell_mappings_database_connection) if nova_update_cell_mappings_database_connection | length > 0 else '' }}
+      loop: "{{ _nova_cells_to_update }}"
+      loop_control:
+        label: "{{ item.uuid }}"
+      register: _nova_update_cell_result
+      changed_when: true
+      when: _nova_cells_to_update | length > 0
+
+    - name: Display update results
+      ansible.builtin.debug:
+        msg: "Cell {{ item.item.uuid }} updated successfully"
+      loop: "{{ _nova_update_cell_result.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.uuid | default('N/A') }}"
+      when:
+        - _nova_update_cell_result.results is defined
+        - item.rc is defined
+        - item.rc == 0
