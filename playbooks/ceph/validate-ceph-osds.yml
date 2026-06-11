@@ -273,6 +273,20 @@
         # just use a fact you just set in the same set_fact task.
         - name: Aggregate test results step one
           ansible.builtin.set_fact:
+            # The test results are per-host facts and the report is
+            # written run_once, i.e. with the first host's values.
+            # A test counts as failed if it failed on any host.
+            _osds_test_containers_count_result:
+              "{{ 'failed'
+                  if 'failed' in
+                  (play_hosts |
+                   map(\
+                       'extract',
+                       hostvars,
+                       '_osds_test_containers_count_result'\
+                      ) | list)
+                  else 'passed'
+               }}"
             _osds_test_containers_count_data:
               "{{
                  play_hosts |
@@ -282,7 +296,17 @@
                      '_osds_test_containers_count_data'\
                     )
                }}"
-
+            _osds_test_containers_running_result:
+              "{{ 'failed'
+                  if 'failed' in
+                  (play_hosts |
+                   map(\
+                       'extract',
+                       hostvars,
+                       '_osds_test_containers_running_result'\
+                      ) | list)
+                  else 'passed'
+               }}"
             _osds_test_containers_running_data:
               "{{
                  play_hosts |
@@ -632,6 +656,20 @@
 
     # END OF TESTS SECTION
 
+    # Tests 4 and 5 set _osds_test_failed per host again, so the
+    # cross-host aggregation has to be repeated before the verdict
+    # below, which is evaluated run_once
+    - name: Aggregate test failed state across hosts
+      ansible.builtin.set_fact:
+        _osds_test_failed:
+          "{{ play_hosts |
+              map('extract', hostvars, '_osds_test_failed') |
+              select |
+              list |
+              length > 0
+           }}"
+      run_once: true
+
     # Set validation result to passed if no test failed
     - name: Set validation result to passed if no test failed
       ansible.builtin.set_fact:
@@ -682,6 +720,22 @@
                  ) |
               unique
             }}"
+        # The results of tests 4 and 5 are per-host facts and the
+        # report is written run_once, i.e. with the first host's
+        # values. A test counts as failed if it failed on any host.
+        # Tests 1 and 2 cannot reach this point in failed state and
+        # the test 3 result is already identical on all hosts.
+        _osds_test_encryption_result:
+          "{{ 'failed'
+              if 'failed' in
+              (play_hosts |
+               map(\
+                   'extract',
+                   hostvars,
+                   '_osds_test_encryption_result'\
+                  ) | list)
+              else 'passed'
+           }}"
         _osds_test_encryption_data:
           "{{
               play_hosts |
@@ -692,6 +746,17 @@
                  ) |
               unique
             }}"
+        _osds_test_crush_location_result:
+          "{{ 'failed'
+              if 'failed' in
+              (play_hosts |
+               map(\
+                   'extract',
+                   hostvars,
+                   '_osds_test_crush_location_result'\
+                  ) | list)
+              else 'passed'
+           }}"
         _osds_test_crush_location_data:
           "{{
               play_hosts |
