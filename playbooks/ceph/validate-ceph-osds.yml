@@ -244,6 +244,22 @@
            List: {{ _osds_containers }}"
       when: _osds_num_containers_not_running | int == 0
 
+    # _osds_test_failed is a per-host fact, but conditionals on
+    # run_once tasks are evaluated on the first host only. Aggregate
+    # the flag across all hosts (set_fact with run_once applies the
+    # result to every host) so that a container test failure on any
+    # host triggers the bail-out below.
+    - name: Aggregate test failed state across hosts
+      ansible.builtin.set_fact:
+        _osds_test_failed:
+          "{{ play_hosts |
+              map('extract', hostvars, '_osds_test_failed') |
+              select |
+              list |
+              length > 0
+           }}"
+      run_once: true
+
     # I bail out early here if one of the two container tests failed
     # as it indicates a major problem and could be problematic
     # when trying to run the other tests. It's simpler to bail
