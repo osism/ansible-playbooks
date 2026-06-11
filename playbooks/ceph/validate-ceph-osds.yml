@@ -29,6 +29,13 @@
     _osds_reports_directory: "/opt/reports/validator"
 
   tasks:
+    # With gathering = smart, gather_facts is served from the fact
+    # cache, where ansible_local.docker_containers may predate the
+    # OSD deployment. Run setup explicitly to validate against the
+    # live container list instead of a stale cache.
+    - name: Gather fresh facts
+      ansible.builtin.setup:
+
     # ansible_date_time is cached between runs,
     # so we need to get a timestamp another way
     - name: Get timestamp for report file
