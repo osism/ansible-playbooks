@@ -127,10 +127,14 @@
     # START OF TESTS SECTION
 
     # Test 1: Check number of OSD containers equals calculated number
+    # _osds_containers must be initialized here: the set_fact loop
+    # below never runs when no container matches, leaving the
+    # variable undefined instead of reporting a count of zero
     - name: Prepare test data
       ansible.builtin.set_fact:
         _osds_test_containers_count_result: "no-result"
         _osds_test_containers_count_data: ""
+        _osds_containers: []
 
     - name: Get list of ceph-osd containers on host
       ansible.builtin.set_fact:
