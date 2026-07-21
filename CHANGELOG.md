@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.20260721.0] - 2026-07-21
+
+### Fixed
+- Fix project-board automation for fork PRs by using `pull_request_target` and passing only the required secret (osism/ansible-playbooks#564)
+
+### Removed
+- Remove the thanos_sidecar deploy playbook as the role is being retired (osism/ansible-playbooks#565)
+
+## [v0.20260615.0] - 2026-06-15
+
+### Added
+- Automatically add all opened issues and pull requests to the project board (osism/ansible-playbooks#562)
+
+### Fixed
+- Fix crash in ceph OSD validator when a host has zero ceph-osd containers (osism/ansible-playbooks#563)
+- Gather live facts in ceph OSD validator instead of using stale cached container data (osism/ansible-playbooks#563)
+- Correctly aggregate ceph OSD validator test results and failures across all hosts (osism/ansible-playbooks#563)
+
+## [v0.20260320.0] - 2026-03-20
+
+### Fixed
+- Fix queue purging in cleanup-queues by removing the interactive flag and outdated `versioned_` prefix from queue names (osism/ansible-playbooks#561)
+
+## [v0.20260129.0] - 2026-01-29
+
+### Added
+- New playbook for updating Nova cell mappings via `nova-manage cell_v2 update_cell`, with automatic discovery of non-cell0 cells (osism/ansible-playbooks#560)
+- CHANGELOG.md file to track project changes (osism/ansible-playbooks#559)
+
 ## [v0.20251022.0] - 2025-10-22
 
 ### Added
