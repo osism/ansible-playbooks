@@ -15,6 +15,12 @@
         dest: "{{ configuration_directory }}/environments/kolla/files/overlays/octavia/server_ca.key.pem"
 
   tasks:
+    - name: Ensure the octavia overlay directory exists
+      ansible.builtin.file:
+        path: "{{ configuration_directory }}/environments/kolla/files/overlays/octavia"
+        state: directory
+        mode: "0755"
+
     - name: Copy octavia certificates keys to the configuration repository
       ansible.builtin.command: "docker cp {{ kolla_ansible_container_name }}:/share/{{ item.src }} {{ item.dest }}"
       changed_when: true
