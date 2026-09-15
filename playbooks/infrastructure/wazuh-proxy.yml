@@ -1,0 +1,7 @@
+---
+- name: Apply role wazuh-proxy
+  hosts: "{{ hosts_wazuh_proxy|default('wazuh_proxy') }}"
+  serial: "{{ osism_serial['wazuh_proxy']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.wazuh_proxy
