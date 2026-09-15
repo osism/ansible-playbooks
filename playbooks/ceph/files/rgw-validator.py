@@ -94,6 +94,46 @@ def test_create_object(bucket_name, obj_key, obj_data):
                 "data": str(err)
                 }
 
+def test_delete_object(bucket_name, obj_key):
+    global client
+    global test_failure
+    try:
+        client.Object(bucket_name, obj_key).delete()
+        return {
+                "test_name": "s3-delete-object",
+                "result": "passed",
+                "data": obj_key
+                }
+    except Exception as err:
+        test_failure = True
+        return {
+                "test_name": "s3-delete-object",
+                "result": "failed",
+                "data": str(err)
+                }
+
+def test_delete_bucket(bucket_name):
+    global client
+    global test_failure
+    try:
+        bucket = client.Bucket(bucket_name)
+        # An earlier failure may have left objects behind; the bucket cannot be
+        # removed until it is empty.
+        bucket.objects.all().delete()
+        bucket.delete()
+        return {
+                "test_name": "s3-delete-bucket",
+                "result": "passed",
+                "data": bucket_name
+                }
+    except Exception as err:
+        test_failure = True
+        return {
+                "test_name": "s3-delete-bucket",
+                "result": "failed",
+                "data": str(err)
+                }
+
 def test_read_object(bucket_name, obj_key, obj_data):
     global client
     global test_failure
@@ -234,6 +274,10 @@ def main():
                     test_object_data
                 )
             )
+        test_results.append(
+            test_delete_object(VALIDATOR_BUCKET, test_object_name)
+            )
+        test_results.append(test_delete_bucket(VALIDATOR_BUCKET))
 
         print(test_results);
         if test_failure:
