@@ -39,8 +39,12 @@
 
   vars:
     _rgws_reports_directory: "/opt/reports/validator"
-    _rgws_venv_directory: "/opt/validator/rgw"
     _rgws_group_name: "{{ rgw_group_name|default('ceph-rgw') }}"
+    # The kolla haproxy hosts. Their generated backend port is compared against
+    # the port the gateway actually listens on -- see the haproxy-backend-port
+    # test below.
+    _rgws_lb_group_name: "{{ rgw_lb_group_name|default('loadbalancer') }}"
+    _rgws_lb_config: "/etc/kolla/haproxy/services.d/ceph-rgw.cfg"
 
   tasks:
     # ansible_date_time is cached between runs,
@@ -72,122 +76,103 @@
            {{ _rgws_report_timestamp.stdout | trim }}\
            -report.json"
         _rgws_test_failed: false
+        _rgws_test_lb_port_result: "no-result"
+        _rgws_test_lb_port_data: {}
+        _rgws_test_endpoint_result: "no-result"
+        _rgws_test_endpoint_data: {}
         _rgws_result: "no-result"
         _rgws_reasons: ""
         _rgws_tests: []
-        # Currently these are hardcoded
+        # The instance suffix ceph-ansible appends per RGW instance.
         _rgws_instance_name: "rgw0"
-        _rgws_instance_port: 8081
+        # The RGW zone, which ceph-ansible includes in the container name.
+        _rgws_zone: "{{ rgw_zone | default('default') }}"
+        # The port the RGW is EXPECTED on. ceph-ansible's radosgw_frontend_port
+        # when set; otherwise OSISM's own default. The port actually in use is
+        # discovered below and compared against this -- a mismatch is a finding,
+        # not something to paper over, so neither value is simply assumed.
+        _rgws_expected_port: "{{ radosgw_frontend_port | default(8081) }}"
       run_once: true
 
-    - name: Create directory for python test script venv  # noqa: run-once[task]
-      become: true
-      ansible.builtin.file:
-        path: "{{ _rgws_venv_directory }}"
-        state: directory
-        owner: "{{ operator_user }}"
-        group: "{{ operator_group }}"
-        recurse: true
-      run_once: true
-      delegate_to: "{{ groups['manager'][0] }}"
+    # The S3 check runs in the osism-ansible container, which already provides
+    # boto3 (pinned in python-osism's requirements.txt), rather than building a
+    # virtualenv on the manager -- the manager image has neither a virtualenv
+    # binary nor python3-venv.
 
-    - name: Create venv and install requirements  # noqa: run-once[task]
-      ansible.builtin.pip:
-        chdir: "{{ _rgws_venv_directory }}"
-        name:
-          - urllib3
-          - boto3
-        state: present
-        virtualenv: "{{ _rgws_venv_directory }}"
-        virtualenv_python: python3
-      run_once: true
-      delegate_to: "{{ groups['manager'][0] }}"
+    # Deliberately no container-name test. ceph-ansible names its containers
+    # ceph-rgw-<zone>-<host>-<instance> while cephadm names daemons
+    # rgw.<realm>.<zone>.<host>.<random> -- the suffix is generated per daemon,
+    # so no pattern matches both and an exact name cannot be known in advance.
+    # The port test below covers what the container tests did and more: a
+    # listening radosgw proves the daemon exists and is serving, whatever the
+    # deployment tool called it. A running container with a dead daemon passed
+    # the old test and fails this one.
 
-    - name: Copy S3 validator script  # noqa: run-once[task]
-      become: true
-      ansible.builtin.copy:
-        src: files/rgw-validator.py
-        dest: "{{ _rgws_venv_directory }}/"
-        owner: "{{ operator_user }}"
-        group: "{{ operator_group }}"
-        mode: "0755"
-      run_once: true
-      delegate_to: "{{ groups['manager'][0] }}"
-
-    # Test 1: Check for existance of radosgw containers
-    - name: Prepare test data for container existance test
+    # Test 3: the RGW must listen on the port the rest of the stack expects.
+    # OSISM's inventory-reconciler generates the kolla haproxy backend from
+    # ceph_rgw_default_port (default 8081) independently of what the daemon
+    # actually binds, and ceph-ansible does not always write an rgw frontends
+    # line -- in which case radosgw falls back to Ceph's compiled-in 7480 and
+    # the haproxy backend points at a port nothing is listening on. Deriving
+    # the port instead of asserting it would make that mismatch invisible, so
+    # the actual port is discovered and compared against the expectation.
+    - name: Prepare test data for the port test
       ansible.builtin.set_fact:
-        _rgws_test_containers_existance_result: "no-result"
-        _rgws_test_containers_existance_data: {}
+        _rgws_test_port_result: "no-result"
+        _rgws_test_port_data: {}
 
-    - name: Get container info  # noqa: args[module]
-      community.docker.docker_container_info:
-        name:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
-      register: _rgws_container_info
+    - name: Discover the port the RGW actually listens on
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          ss -lntpH 2>/dev/null | awk '/radosgw/ {split($4,a,":"); print a[length(a)]; exit}'
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+      become: true
+      register: _rgws_actual_port_raw
 
-    # Fail test if ceph-rgw container is missing on a host
-    - name: Set test result to failed if container is missing
+    - name: Record the actual RGW port
+      ansible.builtin.set_fact:
+        _rgws_actual_port: "{{ _rgws_actual_port_raw.stdout | trim }}"
+
+    - name: Set test result to failed if no RGW listener was found
       ansible.builtin.set_fact:
         _rgws_test_failed: true
-        _rgws_test_containers_existance_result: "failed"
-        _rgws_test_containers_existance_data:
-          "Container
-           'ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}'
-           missing on {{ inventory_hostname }}."
+        _rgws_test_port_result: "failed"
+        _rgws_test_port_data:
+          "No listening radosgw socket found on {{ inventory_hostname }}."
         _rgws_reasons:
           "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
-          Test 'container-existance' failed on
-           {{ inventory_hostname }}."
-      when: not _rgws_container_info.exists
+          Test 'port' failed on {{ inventory_hostname }}."
+      when: _rgws_actual_port | length == 0
 
-    # Pass test if ceph-rgw is existing on the host under test
-    - name: Set test result to passed if container is existing
-      ansible.builtin.set_fact:
-        _rgws_test_containers_existance_result: "passed"
-        _rgws_test_containers_existance_data:
-          "Container
-           'ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}'
-           exists on {{ inventory_hostname }}."
-      when: _rgws_container_info.exists
-
-    # Test 2: Check that all ceph-rgw containers are running
-    - name: Prepare test data
-      ansible.builtin.set_fact:
-        _rgws_container_status:
-          "{{
-              _rgws_container_info.container['State']['Status'] |
-              default('not-found')
-           }}"
-        _rgws_test_containers_running_result: "no-result"
-        _rgws_test_containers_running_data: ""
-
-    # Fail test if ceph-rgw container is not running on a host
-    - name: Set test result to failed if ceph-rgw is not running
+    - name: Set test result to failed if the RGW port is unexpected
       ansible.builtin.set_fact:
         _rgws_test_failed: true
-        _rgws_test_containers_running_result: "failed"
-        _rgws_test_containers_running_data:
-          "Container
-           'ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}'
-           not in running state on {{ inventory_hostname }}"
+        _rgws_test_port_result: "failed"
+        _rgws_test_port_data:
+          "RGW on {{ inventory_hostname }} listens on
+           {{ _rgws_actual_port }} but {{ _rgws_expected_port }} was expected
+           (radosgw_frontend_port, else the OSISM default). The kolla haproxy
+           backend is generated from ceph_rgw_default_port and will not reach
+           the gateway unless the two agree."
         _rgws_reasons:
           "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
-          Test 'container-running' failed on
-           {{ inventory_hostname }}."
+          Test 'port' failed on {{ inventory_hostname }}."
       when:
-        _rgws_container_status != "running"
+        - _rgws_actual_port | length > 0
+        - _rgws_actual_port != _rgws_expected_port | string
 
-    # Pass test if ceph-rgw container is running on a host
-    - name: Set test result to passed if ceph-rgw is running
+    - name: Set test result to passed if the RGW port is as expected
       ansible.builtin.set_fact:
-        _rgws_test_containers_running_result: "passed"
-        _rgws_test_containers_running_data:
-          "Container
-           'ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}'
-           is running on {{ inventory_hostname }}"
+        _rgws_test_port_result: "passed"
+        _rgws_test_port_data:
+          "RGW on {{ inventory_hostname }} listens on the expected port
+           {{ _rgws_actual_port }}."
       when:
-        _rgws_container_status == "running"
+        - _rgws_actual_port | length > 0
+        - _rgws_actual_port == _rgws_expected_port | string
 
     # I bail out early here if one of the two container tests failed
     # as it indicates a major problem and could be problematic
@@ -203,24 +188,6 @@
         # just use a fact you just set in the same set_fact task.
         - name: Aggregate test results step one  # noqa: run-once[task]
           ansible.builtin.set_fact:
-            _rgws_test_containers_existance_data:
-              "{{
-                 play_hosts |
-                 map(\
-                     'extract',
-                     hostvars,
-                     '_rgws_test_containers_existance_data'\
-                    )
-               }}"
-            _rgws_test_containers_running_data:
-              "{{
-                 play_hosts |
-                 map(\
-                     'extract',
-                     hostvars,
-                     '_rgws_test_containers_running_data'\
-                    )
-               }}"
             _rgws_reasons:
               "{{
                  play_hosts |
@@ -240,14 +207,9 @@
             _rgws_result: "failed"
             _rgws_tests:
               - {
-                name: "containers-existance",
-                result: "{{ _rgws_test_containers_existance_result }}",
-                data: "{{ _rgws_test_containers_existance_data }}"
-              }
-              - {
-                name: "containers-running",
-                result: "{{ _rgws_test_containers_running_result }}",
-                data: "{{ _rgws_test_containers_running_data }}"
+                name: "port",
+                result: "{{ _rgws_test_port_result }}",
+                data: "{{ _rgws_test_port_data }}"
               }
           run_once: true
           delegate_to: "{{ groups['manager'][0] }}"
@@ -292,303 +254,319 @@
       delegate_to: "{{ groups['manager'][0] }}"
       when: _rgws_test_failed
 
-    # Test 3: List radosgw users
-    - name: Prepare user list test vars  # noqa: run-once[task]
+    # Test: the port haproxy sends object-store traffic to must be the port the
+    # gateway listens on.
+    #
+    # The port test above compares the daemon against an EXPECTATION; this
+    # compares it against the loadbalancer's REALITY, and only the second one
+    # catches the case that actually takes object storage down: both sides
+    # internally consistent, disagreeing with each other. That is precisely what
+    # a ceph-ansible -> cephadm migration produces, because cephadm deploys on
+    # radosgw_frontend_port (8081 by default) while the kolla haproxy backend was
+    # generated for whatever ceph_rgw_default_port said. Ceph reports HEALTH_OK
+    # either way -- it has no opinion about haproxy.
+    - name: Read the haproxy backend port for the object store  # noqa: run-once[task]
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          grep -hoE '^[[:space:]]*server[[:space:]]+\S+[[:space:]]+\S+:[0-9]+' \
+            {{ _rgws_lb_config }} 2>/dev/null |
+            sed 's/.*://' | sort -u | paste -sd,
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+      become: true
+      register: _rgws_lb_port_raw
+      run_once: true
+      delegate_to: "{{ groups[_rgws_lb_group_name][0] }}"
+      when: groups[_rgws_lb_group_name] | default([]) | length > 0
+
+    - name: Collect the ports the gateways actually listen on  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_user_list_result: "no-result"
-        _rgws_test_user_list_data: ""
+        _rgws_actual_ports:
+          "{{ play_hosts
+              | map('extract', hostvars, '_rgws_actual_port')
+              | select('string') | reject('equalto', '')
+              | unique | sort }}"
+        _rgws_lb_ports:
+          "{{ (_rgws_lb_port_raw.stdout | default('') | trim | split(','))
+              | reject('equalto', '') | unique | sort }}"
+        # The gateway the direct S3 check talks to. Taken from the hosts this
+        # play is running on, not from the inventory group, so that --limit
+        # selects a gateway that has actually discovered its port.
+        _rgws_s3_target: "{{ ansible_play_hosts | first }}"
       run_once: true
 
-    - name: Get RGW user list  # noqa: run-once[task] args[module]
-      community.docker.docker_container_exec:
-        container:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
-        command: "radosgw-admin user list --format=json"
-      register: _rgws_user_list_data
-      ignore_errors: true
-      run_once: true
-
-    # Fail the user-list test if return code is not zero
-    - name: Fail user-list if return code is not acceptable  # noqa: run-once[task]
+    # No haproxy, or no object-store stanza in it, is a legitimate deployment --
+    # report it rather than failing a cluster this test does not apply to.
+    - name: Skip haproxy-backend-port where there is no loadbalancer  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_failed: true
-        _rgws_test_user_list_result: "failed"
-        _rgws_test_user_list_data:
-          "radosgw-admin user list returned non-zero exit code:\n\
-           StdOut: {{ _rgws_user_list_data.stdout }}\n\
-           StdErr: {{ _rgws_user_list_data.stderr }}"
-        _rgws_reasons:
-          "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
-          Test 'user-list' failed."
+        _rgws_test_lb_port_result: "skipped"
+        _rgws_test_lb_port_data:
+          "No object-store backend found to compare against: group
+           '{{ _rgws_lb_group_name }}' is empty or {{ _rgws_lb_config }}
+           defines no server lines."
       run_once: true
-      when:
-        - _rgws_user_list_data.rc != 0
+      when: _rgws_lb_ports | length == 0
 
-    # Pass the user-list test if return code is zero
-    - name: Pass user-list if return code is acceptable  # noqa: run-once[task]
-      ansible.builtin.set_fact:
-        _rgws_test_user_list_result: "passed"
-        _rgws_test_user_list_data:
-          "Listing RGW users was successful."
-      run_once: true
-      when:
-        - _rgws_user_list_data.rc == 0
-
-    # Test 4: List radosgw buckets
-    - name: Prepare bucket list test vars  # noqa: run-once[task]
-      ansible.builtin.set_fact:
-        _rgws_test_bucket_list_result: "no-result"
-        _rgws_test_bucket_list_data: ""
-      run_once: true
-
-    - name: Get RGW bucket list  # noqa: run-once[task] args[module]
-      community.docker.docker_container_exec:
-        container:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
-        command: "radosgw-admin bucket list --format=json"
-      register: _rgws_bucket_list_data
-      ignore_errors: true
-      run_once: true
-
-    # Fail the bucket-list test if return code is not zero
-    - name: Fail bucket-list if return code is not acceptable  # noqa: run-once[task]
+    - name: Fail haproxy-backend-port on a mismatch  # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
-        _rgws_test_bucket_list_result: "failed"
-        _rgws_test_bucket_list_data:
-          "radosgw-admin bucket list returned non-zero exit code:\n\
-           StdOut: {{ _rgws_bucket_list_data.stdout }}\n\
-           StdErr: {{ _rgws_bucket_list_data.stderr }}"
+        _rgws_test_lb_port_result: "failed"
+        _rgws_test_lb_port_data:
+          "haproxy sends object-store traffic to port(s)
+           {{ _rgws_lb_ports | join(', ') }} but the gateway(s) listen on
+           {{ _rgws_actual_ports | join(', ') }}. Traffic through the
+           object-store endpoint cannot reach the gateway."
         _rgws_reasons:
           "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
-          Test 'bucket-list' failed."
+          Test 'haproxy-backend-port' failed."
       run_once: true
       when:
-        - _rgws_bucket_list_data.rc != 0
+        - _rgws_lb_ports | length > 0
+        - _rgws_lb_ports != _rgws_actual_ports
 
-    # Pass the bucket-list test if return code is zero
-    - name: Pass bucket-list if return code is acceptable  # noqa: run-once[task]
+    - name: Pass haproxy-backend-port when both agree  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_bucket_list_result: "passed"
-        _rgws_test_bucket_list_data:
-          "Listing RGW buckets was successful."
+        _rgws_test_lb_port_result: "passed"
+        _rgws_test_lb_port_data:
+          "haproxy and the gateway(s) agree on port(s)
+           {{ _rgws_actual_ports | join(', ') }}."
       run_once: true
       when:
-        - _rgws_bucket_list_data.rc == 0
+        - _rgws_lb_ports | length > 0
+        - _rgws_lb_ports == _rgws_actual_ports
 
     # Test 5: Create radosgw validator test user
-    - name: Prepare user create test vars  # noqa: run-once[task]
+    # Tests 6-8: the tenant-facing S3 path.
+    #
+    # OSISM sets "rgw s3 auth use keystone: true", so S3 credentials come from
+    # keystone, not from radosgw-admin. Using keystone EC2 credentials means the
+    # round-trip exercises the RGW S3 frontend and RGW authenticating itself to
+    # keystone as ceph_rgw, and it lands in the tenant's own bucket namespace,
+    # which "rgw keystone implicit tenants: true" gives every project. A
+    # radosgw-admin user would bypass keystone entirely and write into a
+    # namespace no tenant ever sees.
+    #
+    # s3-functions talks to the gateway DIRECTLY, over plain HTTP, bypassing
+    # haproxy and TLS. That is deliberate: it isolates the gateway from
+    # everything in front of it, so that when the endpoint test below fails this
+    # one says whether the gateway itself is at fault. It is not a substitute for
+    # the endpoint test, and on its own it cannot see a loadbalancer fault.
+    - name: Prepare S3 credential test vars  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_user_create_result: "no-result"
-        _rgws_test_user_create_data: ""
-        _rgws_s3_username:
-          "osism-s3-validator-{{ _rgws_instance_name }}"
+        _rgws_test_ec2_credentials_result: "no-result"
+        _rgws_test_ec2_credentials_data: {}
+        _rgws_test_s3_functions_result: "no-result"
+        _rgws_test_s3_functions_data: {}
       run_once: true
 
-    - name: Fetch RGW test user info  # noqa: run-once[task] args[module]
+    - name: Create keystone EC2 credentials  # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
-        container:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
+        container: "osismclient"
         command:
-          "radosgw-admin user info --uid={{ _rgws_s3_username }}"
-      register: _rgws_user_create_user_info_data
+          "openstack --os-cloud admin ec2 credentials create -f json"
+      register: _rgws_ec2_create
       ignore_errors: true
-      failed_when:
-        - _rgws_user_create_user_info_data.rc != 0
-        - _rgws_user_create_user_info_data.rc != 22
+      delegate_to: "{{ groups['manager'][0] }}"
       run_once: true
+      no_log: true
 
-    - name: Create RGW test user (if not exists)  # noqa: run-once[task] args[module]
-      community.docker.docker_container_exec:
-        container:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
-        command:
-          "radosgw-admin user create --uid={{ _rgws_s3_username }}
-           --display-name='OSISM RGW S3 validator test user'"
-      register: _rgws_user_create_data
-      ignore_errors: true
-      run_once: true
-      when: _rgws_user_create_user_info_data.rc != 0
-
-    # Fail the user-create test if return code is not zero
-    - name: Fail user-create if return code is not acceptable  # noqa: run-once[task]
+    - name: Fail ec2-credentials if they could not be created  # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
-        _rgws_test_user_create_result: "failed"
-        _rgws_test_user_create_data:
-          "radosgw-admin user create --uid={{ _rgws_s3_username }}
-           --display-name='OSISM RGW S3 validator test user'
-           returned non-zero exit code:\n\
-           StdOut: {{ _rgws_user_create_data.stdout }}\n\
-           StdErr: {{ _rgws_user_create_data.stderr }}"
+        _rgws_test_ec2_credentials_result: "failed"
+        _rgws_test_ec2_credentials_data:
+          "Could not create keystone EC2 credentials:\n\
+           {{ _rgws_ec2_create.stderr | default('no error output') }}"
         _rgws_reasons:
           "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
-          Test 'user-create' failed."
+          Test 'ec2-credentials' failed."
       run_once: true
-      when:
-        - _rgws_user_create_user_info_data.rc != 0
-        - _rgws_user_create_data.rc != 0
+      when: _rgws_ec2_create.rc | default(1) != 0
 
-    # Pass the user-create test if return code is zero
-    - name: Pass user-create if return code is acceptable  # noqa: run-once[task]
+    - name: Pass ec2-credentials and record them  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_user_create_result: "passed"
-        _rgws_test_user_create_data:
-          "Creating RGW test user was successful."
+        _rgws_test_ec2_credentials_result: "passed"
+        _rgws_test_ec2_credentials_data:
+          "Keystone EC2 credentials created for project
+           {{ (_rgws_ec2_create.stdout | from_json).project_id }}."
+        _rgws_s3_access_key: "{{ (_rgws_ec2_create.stdout | from_json).access }}"
+        _rgws_s3_secret_key: "{{ (_rgws_ec2_create.stdout | from_json).secret }}"
       run_once: true
-      when:
-        - _rgws_user_create_user_info_data.rc != 0
-        - _rgws_user_create_data.rc == 0
+      no_log: true
+      when: _rgws_ec2_create.rc | default(1) == 0
 
-    # Test 6: Test S3 functionality through rgw-validator.py script
-    - name: Prepare S3 functionality test vars  # noqa: run-once[task]
-      ansible.builtin.set_fact:
-        _rgws_test_s3_functions_result: "no-result"
-        _rgws_test_s3_functions_data: ""
-      run_once: true
-
-    - name: Prepare S3 test user vars (user created)  # noqa: run-once[task]
-      ansible.builtin.set_fact:
-        _rgws_test_user_access_key:
-          "{{
-             _rgws_user_create_data.stdout |
-             from_json |
-             json_query('keys[0].access_key')
-           }}"
-        _rgws_test_user_secret_key:
-          "{{
-             _rgws_user_create_data.stdout |
-             from_json |
-             json_query('keys[0].secret_key')
-           }}"
-      run_once: true
-      when: _rgws_user_create_user_info_data.rc != 0
-
-    - name: Prepare S3 test user vars (existing user)  # noqa: run-once[task]
-      ansible.builtin.set_fact:
-        _rgws_test_user_access_key:
-          "{{
-             _rgws_user_create_user_info_data.stdout |
-             from_json |
-             json_query('keys[0].access_key')
-           }}"
-        _rgws_test_user_secret_key:
-          "{{
-             _rgws_user_create_user_info_data.stdout |
-             from_json |
-             json_query('keys[0].secret_key')
-           }}"
-      run_once: true
-      when: _rgws_user_create_user_info_data.rc == 0
-
+    # Runs on the controller (the osism-ansible container), which provides boto3
+    # via python-osism's pinned requirement. The endpoint uses the port the
+    # gateway was observed listening on, so this exercises S3 itself rather than
+    # re-testing the port -- the port is asserted separately above.
     - name: Test S3 functionality  # noqa: run-once[task]
-      ansible.builtin.shell:
-        cmd:
-          ". {{ _rgws_venv_directory }}/bin/activate &&
-           python3 {{ _rgws_venv_directory }}/rgw-validator.py"
+      ansible.builtin.command:
+        cmd: "python3 {{ playbook_dir }}/files/rgw-validator.py"
       environment:
         VALIDATOR_ENDPOINT:
-          "http://{{ groups[_rgws_group_name][0] }}:\
-           {{ _rgws_instance_port }}"
-        VALIDATOR_ACCESS_KEY: "{{ _rgws_test_user_access_key }}"
-        VALIDATOR_SECRET_KEY: "{{ _rgws_test_user_secret_key }}"
+          "http://{{ _rgws_s3_target }}:\
+           {{ hostvars[_rgws_s3_target]['_rgws_actual_port'] }}"
+        VALIDATOR_ACCESS_KEY: "{{ _rgws_s3_access_key }}"
+        VALIDATOR_SECRET_KEY: "{{ _rgws_s3_secret_key }}"
         VALIDATOR_BUCKET:
           "osism-rgw-validator-{{ groups['manager'][0] }}"
       register: _rgws_s3_script_output
       ignore_errors: true
       changed_when: false
-      delegate_to: "{{ groups['manager'][0] }}"
+      delegate_to: localhost
       run_once: true
       when:
-        - _rgws_test_user_access_key is defined
-        - _rgws_test_user_secret_key is defined
+        - _rgws_s3_access_key is defined
+        - _rgws_s3_secret_key is defined
 
-    # Fail the s3-functions test if return code is not zero
     - name: Fail s3-functions if return code is not acceptable  # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
         _rgws_test_s3_functions_result: "failed"
         _rgws_test_s3_functions_data:
-          "{{ _rgws_s3_script_output.stdout }}"
+          "S3 validator script returned non-zero exit code:\n\
+           {{ _rgws_s3_script_output.stdout | default('no output') }}"
         _rgws_reasons:
           "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
           Test 's3-functions' failed."
       run_once: true
-      when:
-        - _rgws_s3_script_output.rc != 0
+      when: _rgws_s3_script_output.rc | default(1) != 0
 
-    # Pass the s3-functions test if return code is zero
     - name: Pass s3-functions if return code is acceptable  # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_s3_functions_result: "passed"
         _rgws_test_s3_functions_data:
-          "{{ _rgws_s3_script_output.stdout }}"
+          "S3 round-trip against the gateway succeeded using keystone
+           EC2 credentials."
       run_once: true
-      when:
-        - _rgws_s3_script_output.rc == 0
+      when: _rgws_s3_script_output.rc | default(1) == 0
 
-    # Test 7: Delete radosgw validator test user
-    - name: Prepare user delete test vars  # noqa: run-once[task]
+    # Test: the same S3 round-trip, but through the endpoint tenants actually
+    # use -- the object-store entry in the keystone catalog.
+    #
+    # That URL resolves to the kolla haproxy VIP, so one request covers TLS
+    # termination, the haproxy backend port, the RGW S3 frontend and RGW's
+    # keystone authentication in a single call. It is the only test here whose
+    # failure means "object storage is down for users", and the only one that
+    # sees a fault living in front of the gateway.
+    #
+    # The internal interface is used, not the public one: the manager can always
+    # reach it, while the public VIP may sit on a network it has no route to.
+    - name: Read the object-store endpoint from the keystone catalog  # noqa: run-once[task] args[module]
+      community.docker.docker_container_exec:
+        container: "osismclient"
+        command:
+          "openstack --os-cloud admin endpoint list
+           --service object-store --interface internal -f value -c URL"
+      register: _rgws_catalog_endpoint
+      ignore_errors: true
+      changed_when: false
+      delegate_to: "{{ groups['manager'][0] }}"
+      run_once: true
+
+    # S3 is served from the root of the same host and port as Swift, so the
+    # catalog's Swift path is stripped. S3 has no catalog entry of its own.
+    - name: Derive the S3 base URL from the catalog entry  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_user_delete_result: "no-result"
-        _rgws_test_user_delete_data: ""
+        _rgws_endpoint_url:
+          "{{ _rgws_catalog_endpoint.stdout | default('') | trim
+              | split('\n') | first | default('')
+              | regex_replace('^(https?://[^/]+).*$', '\\1') }}"
       run_once: true
 
-    - name: Fetch RGW test user info  # noqa: run-once[task] args[module]
-      community.docker.docker_container_exec:
-        container:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
-        command:
-          "radosgw-admin user info --uid={{ _rgws_s3_username }}"
-      register: _rgws_user_delete_user_info_data
-      ignore_errors: true
-      failed_when:
-        - _rgws_user_create_user_info_data.rc != 0
-        - _rgws_user_create_user_info_data.rc != 22
-      run_once: true
-
-    - name: Delete RGW test user (if it exists)  # noqa: run-once[task] args[module]
-      community.docker.docker_container_exec:
-        container:
-          "ceph-rgw-{{ ansible_hostname }}-{{ _rgws_instance_name }}"
-        command:
-          "radosgw-admin user rm --uid={{ _rgws_s3_username }}
-           --purge-data"
-      register: _rgws_user_delete_data
-      ignore_errors: true
-      run_once: true
-      when: _rgws_user_delete_user_info_data.rc == 0
-
-    # Fail the user-delete test if return code is not zero
-    - name: Fail user-delete if return code is not acceptable  # noqa: run-once[task]
+    - name: Fail endpoint if the catalog has no object-store entry  # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_test_failed: true
-        _rgws_test_user_delete_result: "failed"
-        _rgws_test_user_delete_data:
-          "radosgw-admin user rm --uid={{ _rgws_s3_username }}
-           returned non-zero exit code:\n\
-           StdOut: {{ _rgws_user_delete_data.stdout }}\n\
-           StdErr: {{ _rgws_user_delete_data.stderr }}"
+        _rgws_test_endpoint_result: "failed"
+        _rgws_test_endpoint_data:
+          "No internal object-store endpoint is registered in the keystone
+           catalog, so tenants have no documented way to reach the gateway.
+           Register it with 'osism apply kolla-ceph-rgw'."
         _rgws_reasons:
           "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
-          Test 'user-delete' failed."
+          Test 'endpoint' failed."
+      run_once: true
+      when: not _rgws_endpoint_url is match('^https?://')
+
+    # TLS verification is disabled deliberately. The kolla internal VIP carries a
+    # certificate from the deployment's own CA, which is not in the validator
+    # container's trust store -- the same reason the generated configuration sets
+    # "rgw keystone verify ssl: false". This test asserts reachability and
+    # authentication, not trust-chain validity.
+    - name: Test S3 through the object-store endpoint  # noqa: run-once[task]
+      ansible.builtin.command:
+        cmd: "python3 {{ playbook_dir }}/files/rgw-validator.py --insecure"
+      environment:
+        VALIDATOR_ENDPOINT: "{{ _rgws_endpoint_url }}"
+        VALIDATOR_ACCESS_KEY: "{{ _rgws_s3_access_key }}"
+        VALIDATOR_SECRET_KEY: "{{ _rgws_s3_secret_key }}"
+        VALIDATOR_BUCKET:
+          "osism-rgw-validator-endpoint-{{ groups['manager'][0] }}"
+      register: _rgws_endpoint_script_output
+      ignore_errors: true
+      changed_when: false
+      delegate_to: localhost
       run_once: true
       when:
-        - _rgws_user_delete_user_info_data.rc == 0
-        - _rgws_user_delete_data.rc != 0
+        - _rgws_s3_access_key is defined
+        - _rgws_s3_secret_key is defined
+        - _rgws_endpoint_url is match('^https?://')
 
-    # Pass the user-delete test if return code is zero
-    - name: Pass user-delete if return code is acceptable  # noqa: run-once[task]
+    - name: Fail endpoint if the round-trip did not succeed  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_user_delete_result: "passed"
-        _rgws_test_user_delete_data:
-          "Deleting RGW test user was successful."
+        _rgws_test_failed: true
+        _rgws_test_endpoint_result: "failed"
+        _rgws_test_endpoint_data:
+          "S3 round-trip against the object-store endpoint
+           {{ _rgws_endpoint_url }} failed:\n\
+           {{ _rgws_endpoint_script_output.stdout | default('no output') }}"
+        _rgws_reasons:
+          "{{ _rgws_reasons }}{{ ' ' if _rgws_reasons }}\
+          Test 'endpoint' failed."
       run_once: true
       when:
-        - _rgws_user_delete_user_info_data.rc == 0
-        - _rgws_user_delete_data.rc == 0
+        - _rgws_endpoint_url is match('^https?://')
+        - _rgws_endpoint_script_output.rc | default(1) != 0
 
-    # Set validation result to passed if no test failed
+    - name: Pass endpoint if the round-trip succeeded  # noqa: run-once[task]
+      ansible.builtin.set_fact:
+        _rgws_test_endpoint_result: "passed"
+        _rgws_test_endpoint_data:
+          "S3 round-trip through the object-store endpoint
+           {{ _rgws_endpoint_url }} succeeded using keystone EC2 credentials."
+      run_once: true
+      when:
+        - _rgws_endpoint_url is match('^https?://')
+        - _rgws_endpoint_script_output.rc | default(1) == 0
+
+    # Always attempt cleanup, even if the S3 test failed, so a failed run does
+    # not leave credentials behind.
+    - name: Delete the keystone EC2 credentials  # noqa: run-once[task] args[module]
+      community.docker.docker_container_exec:
+        container: "osismclient"
+        command:
+          "openstack --os-cloud admin ec2 credentials delete
+           {{ _rgws_s3_access_key }}"
+      register: _rgws_ec2_delete
+      ignore_errors: true
+      delegate_to: "{{ groups['manager'][0] }}"
+      run_once: true
+      no_log: true
+      when: _rgws_s3_access_key is defined
+
+    - name: Warn if the EC2 credentials could not be removed  # noqa: run-once[task]
+      ansible.builtin.debug:
+        msg:
+          "Could not delete the keystone EC2 credentials created for this run;
+           remove them by hand with 'openstack ec2 credentials delete'."
+      run_once: true
+      when:
+        - _rgws_s3_access_key is defined
+        - _rgws_ec2_delete.rc | default(0) != 0
+
+
     - name: Set validation result to passed if no test failed  # noqa: run-once[task]
       ansible.builtin.set_fact:
         _rgws_result: "passed"
@@ -609,51 +587,13 @@
     # Aggregate results for report file
     - name: Aggregate test results step one  # noqa: run-once[task]
       ansible.builtin.set_fact:
-        _rgws_test_containers_existance_data:
+        _rgws_test_ec2_credentials_data:
           "{{
               play_hosts |
               map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_containers_existance_data'\
-                )
-            }}"
-        _rgws_test_containers_running_data:
-          "{{
-              play_hosts |
-              map(\
-                  'extract',
-                  hostvars,
-                  '_rgws_test_containers_running_data'\
-                )
-            }}"
-        _rgws_test_user_list_data:
-          "{{
-              play_hosts |
-              map(\
-                  'extract',
-                  hostvars,
-                  '_rgws_test_user_list_data'\
-                ) |
-              unique
-            }}"
-        _rgws_test_bucket_list_data:
-          "{{
-              play_hosts |
-              map(\
-                  'extract',
-                  hostvars,
-                  '_rgws_test_bucket_list_data'\
-                ) |
-              unique
-            }}"
-        _rgws_test_user_create_data:
-          "{{
-              play_hosts |
-              map(\
-                  'extract',
-                  hostvars,
-                  '_rgws_test_user_create_data'\
+                  '_rgws_test_ec2_credentials_data'\
                 ) |
               unique
             }}"
@@ -667,13 +607,13 @@
                 ) |
               unique
             }}"
-        _rgws_test_user_delete_data:
+        _rgws_test_endpoint_data:
           "{{
               play_hosts |
               map(\
                   'extract',
                   hostvars,
-                  '_rgws_test_user_delete_data'\
+                  '_rgws_test_endpoint_data'\
                 ) |
               unique
             }}"
@@ -696,29 +636,19 @@
       ansible.builtin.set_fact:
         _rgws_tests:
           - {
-            name: "containers-existance",
-            result: "{{ _rgws_test_containers_existance_result }}",
-            data: "{{ _rgws_test_containers_existance_data }}"
+            name: "port",
+            result: "{{ _rgws_test_port_result }}",
+            data: "{{ _rgws_test_port_data }}"
           }
           - {
-            name: "containers-running",
-            result: "{{ _rgws_test_containers_running_result }}",
-            data: "{{ _rgws_test_containers_running_data }}"
+            name: "haproxy-backend-port",
+            result: "{{ _rgws_test_lb_port_result }}",
+            data: "{{ _rgws_test_lb_port_data }}"
           }
           - {
-            name: "user-list",
-            result: "{{ _rgws_test_user_list_result }}",
-            data: "{{ _rgws_test_user_list_data }}"
-          }
-          - {
-            name: "bucket-list",
-            result: "{{ _rgws_test_bucket_list_result }}",
-            data: "{{ _rgws_test_bucket_list_data }}"
-          }
-          - {
-            name: "user-create",
-            result: "{{ _rgws_test_user_create_result }}",
-            data: "{{ _rgws_test_user_create_data }}"
+            name: "ec2-credentials",
+            result: "{{ _rgws_test_ec2_credentials_result }}",
+            data: "{{ _rgws_test_ec2_credentials_data }}"
           }
           - {
             name: "s3-functions",
@@ -726,9 +656,9 @@
             data: "{{ _rgws_test_s3_functions_data }}"
           }
           - {
-            name: "user-delete",
-            result: "{{ _rgws_test_user_delete_result }}",
-            data: "{{ _rgws_test_user_delete_data }}"
+            name: "endpoint",
+            result: "{{ _rgws_test_endpoint_result }}",
+            data: "{{ _rgws_test_endpoint_data }}"
           }
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
