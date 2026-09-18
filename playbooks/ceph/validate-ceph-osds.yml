@@ -174,15 +174,21 @@
         _osds_test_containers_count_data: ""
         _osds_containers: []
 
+    # ceph-ansible names an OSD container ceph-osd-<id>, cephadm names it
+    # ceph-<fsid>-osd-<id>. Match both rather than templating one of them, and
+    # take the id from the end of the name: splitting on "-" and taking field
+    # 2 returns the id under ceph-ansible but a fragment of the fsid under
+    # cephadm, which test 5 would then compare against the CRUSH map.
+    # Docker reports container names with a leading slash.
     - name: Get list of ceph-osd containers on host
       ansible.builtin.set_fact:
         _osds_containers:
           "{{ _osds_containers | default([]) +
               [{'name': item.name.split('/')[1],
-                'osd_id': item.name.split('-')[2],
+                'osd_id': item.name | regex_replace('^.*-osd-', ''),
                 'state': item.state}]
            }}"
-      when: "item.name is match('/ceph-osd.*')"
+      when: "item.name is match('^/ceph-(.+-)?osd-[0-9]+$')"
       with_items:
         - "{{ ansible_facts['ansible_local']['docker_containers'] }}"
 
