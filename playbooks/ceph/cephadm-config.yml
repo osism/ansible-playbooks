@@ -1,0 +1,108 @@
+---
+# Deploy Ceph with cephadm: carry the configuration into the mon config store.
+#
+# ceph_conf_overrides is a ceph-ansible variable: it is rendered into
+# /etc/ceph/ceph.conf on each host, keyed by that host's daemon name. Under
+# cephadm, radosgw and the other daemons are configured through the monitor
+# configuration database instead of a ceph.conf
+# (https://docs.ceph.com/en/reef/cephadm/services/rgw/), so the same values have
+# to be written there, with two spelling changes.
+- name: Translate the Ceph configuration into the config store
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  tasks:
+    # subelements requires the sub-key to name a LIST, and ceph_conf_overrides
+    # holds a mapping of section -> mapping of option. Convert the inner
+    # mapping first; passing it directly raises
+    # "the key 'value' should point to a list".
+    - name: Turn each section's options into a list
+      ansible.builtin.set_fact:
+        _cephadm_sections: >-
+          {{ _cephadm_sections | default([]) + [{
+               'section': item.key,
+               'options': item.value | dict2items,
+             }] }}
+      loop: "{{ ceph_conf_overrides | default({}) | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      # Stays blanket, unlike the two tasks below. Its result is a whole
+      # SECTION's options as one structure, so there is no per-option
+      # granularity to narrow to, and a set_fact that only reshapes data cannot
+      # fail in a way whose message would be worth reading.
+      no_log: true
+
+    - name: Build the config-store entries
+      ansible.builtin.set_fact:
+        _cephadm_config_entries: >-
+          {{ _cephadm_config_entries | default([]) + [{
+               'section': _section,
+               'option': item.1.key | replace(' ', '_'),
+               'value': _value,
+             }] }}
+      vars:
+        # ceph-ansible templates one section per RGW daemon, named for the host
+        # and instance it runs on. cephadm names its daemons differently and
+        # keeps configuration centrally, where a single client.rgw section is
+        # inherited by every RGW daemon.
+        #
+        # This collapse is valid ONLY in the config store. In a ceph.conf,
+        # resolution honours [global], the daemon type and the exact entity name
+        # and nothing in between, so a [client.rgw] section there is ignored —
+        # measured: rgw_s3_auth_use_keystone resolves false under [client.rgw]
+        # and true under the exact daemon section. Do not "simplify" the
+        # ceph-ansible side to match this.
+        #
+        # It also has to collapse: this play runs on `hosts: manager`, so
+        # tbng's per-daemon section name (`client.rgw.{{ rgw_zone }}.{{
+        # hostvars[inventory_hostname]['ansible_hostname'] }}.rgw0`) renders
+        # with the MANAGER's hostname, not any RGW daemon's -- the rendered
+        # input section name is meaningless here. It reads correctly only
+        # because the collapse below discards it. Narrowing the collapse to
+        # "preserve per-daemon sections" would produce
+        # `client.rgw.<zone>.<manager>.rgw0` and silently de-integrate
+        # keystone.
+        _section: >-
+          {{ 'client.rgw' if item.0.section.startswith('client.rgw') else item.0.section }}
+        # YAML booleans render as Python's True/False; ceph wants true/false.
+        _value: >-
+          {{ item.1.value | string | lower if item.1.value is boolean
+             else item.1.value | string }}
+      loop: "{{ _cephadm_sections | default([]) | subelements('options') }}"
+      loop_control:
+        label: "{{ item.0.section }}/{{ item.1.key }}"
+      # Narrowed: censor only the entries whose VALUE is a secret. no_log is
+      # templated per item in a loop, so the rest stay readable. See the note on
+      # the next task for why that matters.
+      no_log: "{{ item.1.key is search('password|secret|token') }}"
+
+    # argv, not cmd: several of these values contain spaces — "swift, s3, admin"
+    # for rgw_enable_apis and "member, admin" for the accepted keystone roles —
+    # and `command` splits a cmd string on whitespace, which would pass each
+    # fragment as its own argument.
+    - name: Write the entries to the config store
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - config
+          - set
+          - "{{ item.section }}"
+          - "{{ item.option }}"
+          - "{{ item.value }}"
+      loop: "{{ _cephadm_config_entries | default([]) }}"
+      loop_control:
+        # Values include the keystone admin password.
+        label: "{{ item.section }}/{{ item.option }}"
+      # Narrowed from a blanket no_log to just the secret-valued entries.
+      # `ceph config set` rejects an option the running release has removed with
+      # `Error EINVAL: unrecognized config option '<name>'`, and under a blanket
+      # no_log the failure reads only "the output has been hidden" -- naming
+      # neither the option nor the reason. That cost a 2.5 hour run plus manual
+      # bisection of 24 options to identify `rgw keystone api version` on
+      # Tentacle. Only the password entry needs hiding; everything else should
+      # say what went wrong.
+      no_log: "{{ item.option is search('password|secret|token') }}"
+      changed_when: true
