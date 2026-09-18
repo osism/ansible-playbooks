@@ -1,0 +1,203 @@
+---
+# Deploy Ceph with cephadm: the OpenStack pools and keys.
+#
+# The pool and key definitions are the same data ceph-ansible consumes
+# (openstack_pools and openstack_keys from osism/defaults, each already the
+# concatenation of its _defaults and _extra halves — see the Ceph configuration
+# guide, "Pools and Keys"). They are read from those variables rather than
+# restated here, so a site's extra pools and keys are created too.
+- name: Create the OpenStack pools and keys
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  tasks:
+    # `ceph osd pool create` takes the rule name in a different positional slot
+    # for erasure pools, where that slot is the erasure-code profile, and an
+    # erasure pool has no replica size to set. Rather than half-support a shape
+    # nothing in osism/defaults uses (every shipped pool is type 1, replicated),
+    # refuse it explicitly so a site that adds one through openstack_pools_extra
+    # gets an error instead of a mis-created pool.
+    - name: Fail on erasure-coded pools
+      ansible.builtin.fail:
+        msg: >-
+          Pool {{ item.name }} requests an erasure-coded type, which this play
+          does not create. Create it by hand, or extend this play to pass the
+          erasure-code profile in place of the rule name and to skip the size
+          setting.
+      when: (item.type | default(1) | string) not in ['1', 'replicated']
+      loop: "{{ openstack_pools }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Create the pools
+      ansible.builtin.command:
+        argv: "{{ _argv }}"
+      vars:
+        _argv: >-
+          {{ ['ceph', 'osd', 'pool', 'create', item.name,
+              item.pg_num | string, (item.pgp_num | default(item.pg_num)) | string,
+              'replicated']
+             + ([item.rule_name] if item.rule_name | default('') | length > 0 else []) }}
+      loop: "{{ openstack_pools }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: _cephadm_pool_create
+      failed_when:
+        - _cephadm_pool_create.rc != 0
+        - "'already exists' not in _cephadm_pool_create.stderr"
+      changed_when: _cephadm_pool_create.rc == 0
+
+    # size is applied as configured. A replica count larger than the number of
+    # OSD hosts cannot go active+clean under the default host failure domain,
+    # but silently lowering it would change the durability the operator asked
+    # for; ceph-ansible does not do that either.
+    - name: Set the pool size
+      ansible.builtin.command:
+        cmd: "ceph osd pool set {{ item.name }} size {{ item.size }}"
+      loop: "{{ openstack_pools }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: true
+
+    # A min_size of 0 means "let Ceph decide" and cannot be set explicitly.
+    - name: Set the pool min_size
+      ansible.builtin.command:
+        cmd: "ceph osd pool set {{ item.name }} min_size {{ item.min_size }}"
+      loop: "{{ openstack_pools }}"
+      when: item.min_size | default(0) | int > 0
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: true
+
+    # pg_autoscale_mode is on/off/warn in Ceph, and osism/defaults spells the
+    # common cases as YAML booleans. Passing the value through a bool test would
+    # turn "warn" into "on", so map the booleans and pass anything else along.
+    - name: Set the pool autoscale mode
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - osd
+          - pool
+          - set
+          - "{{ item.name }}"
+          - pg_autoscale_mode
+          - "{{ _mode }}"
+      vars:
+        _mode: >-
+          {{ ('on' if item.pg_autoscale_mode else 'off')
+             if item.pg_autoscale_mode is boolean
+             else item.pg_autoscale_mode | string }}
+      loop: "{{ openstack_pools }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: true
+
+    - name: Set the pool target_size_ratio
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - osd
+          - pool
+          - set
+          - "{{ item.name }}"
+          - target_size_ratio
+          - "{{ item.target_size_ratio }}"
+      loop: "{{ openstack_pools }}"
+      when: item.target_size_ratio | default('') | string | length > 0
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: true
+
+    - name: Enable the pool application
+      ansible.builtin.command:
+        cmd: >-
+          ceph osd pool application enable {{ item.name }}
+          {{ item.application }} --yes-i-really-mean-it
+      loop: "{{ openstack_pools }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: true
+
+    # argv, not cmd: a key's caps values are not simple tokens — for example
+    # client.cinder's osd cap is "profile rbd pool=volumes, profile rbd
+    # pool=vms, profile rbd pool=images" — and `command` with a cmd string
+    # splits on whitespace, which would scatter a single cap value across
+    # several arguments.
+    - name: Create the keys
+      ansible.builtin.command:
+        argv: "{{ _argv }}"
+      vars:
+        _argv: >-
+          {{ ['ceph', 'auth', 'get-or-create', item.name]
+             + (item.caps.items() | map('list') | sum(start=[])) }}
+      loop: "{{ openstack_keys }}"
+      loop_control:
+        label: "{{ item.name }}"
+      # stdout carries the generated key.
+      no_log: true
+      changed_when: true
+
+    # NOTE for the operator: a key added through openstack_keys_extra is
+    # created and exported here, but it only reaches the OpenStack side if the
+    # manager environment also carries a matching ceph_custom_keys entry, which
+    # is what the copy-ceph-keys play consumes (Ceph configuration guide,
+    # "Extra keys").
+
+    # Raises the minimum client release cluster-wide. OSISM sets this to enable
+    # RBD clone v2 (osism/defaults ceph_require_min_compat_client). It is
+    # effectively one-way once clone-v2 objects exist, so it is set at deploy
+    # time rather than left to an operator.
+    - name: Set the minimum compatible client release
+      ansible.builtin.command:
+        cmd: >-
+          ceph osd set-require-min-compat-client
+          {{ ceph_require_min_compat_client }}
+      when: ceph_require_min_compat_client | default('') | length > 0
+      changed_when: true
+
+    # cephadm keeps the keyrings in the MON store. The copy-ceph-keys play
+    # collects them from /etc/ceph on the first MON host, so they are written
+    # there explicitly instead of waiting for an orchestrator reconciliation.
+    # Looped over the key definitions themselves (not just their names) so the
+    # write task below can read each keyring's `mode` off the same structure
+    # rather than assuming a value.
+    - name: Read the keyrings
+      ansible.builtin.command:
+        cmd: "ceph auth get {{ item.name }}"
+      vars:
+        _cephadm_key_defs: "{{ [{'name': 'client.admin', 'mode': '0600'}] + openstack_keys }}"
+      loop: "{{ _cephadm_key_defs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: _cephadm_keyrings
+      changed_when: false
+      no_log: true
+
+- name: Write the keyrings to the monitor hosts
+  hosts: "{{ mon_group_name | default('ceph-mon') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Create /etc/ceph
+      ansible.builtin.file:
+        path: /etc/ceph
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Write each keyring
+      ansible.builtin.copy:
+        content: "{{ item.stdout }}\n"
+        dest: "/etc/ceph/ceph.{{ item.item.name }}.keyring"
+        owner: root
+        group: root
+        mode: "{{ item.item.mode | default('0600') }}"
+      loop: "{{ hostvars[groups['manager'][0]]['_cephadm_keyrings']['results'] }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      no_log: true
