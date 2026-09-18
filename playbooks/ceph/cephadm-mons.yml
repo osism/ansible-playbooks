@@ -1,0 +1,83 @@
+---
+# Deploy Ceph with cephadm: the MON, MGR and crash services.
+- name: Deploy the MON, MGR and crash services
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars:
+    _cephadm_hosts: "{{ groups[ceph_group_name | default('ceph')] }}"
+    _cephadm_mons: "{{ groups[mon_group_name | default('ceph-mon')] }}"
+    _cephadm_mgrs: "{{ groups[mgr_group_name | default('ceph-mgr')] }}"
+
+  tasks:
+    - name: Fail when no monitor hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ mon_group_name | default('ceph-mon') }}' inventory
+          group. Declare the monitor hosts before deploying Ceph.
+      when: _cephadm_mons | length == 0
+
+    # Without this guard, an empty mgr group renders `ceph orch apply
+    # mgr --placement=`, which at best errors and at worst applies a spec that
+    # removes the bootstrap mgr and takes the orchestrator down with it -- and
+    # the wait task below would then pass instantly, since it waits for 0.
+    - name: Fail when no manager hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ mgr_group_name | default('ceph-mgr') }}' inventory
+          group. Declare the manager hosts before deploying Ceph.
+      when: _cephadm_mgrs | length == 0
+
+    - name: Apply the MON service
+      ansible.builtin.command:
+        cmd: "ceph orch apply mon --placement={{ _cephadm_mons | join(',') }}"
+      changed_when: true
+
+    - name: Apply the MGR service
+      ansible.builtin.command:
+        cmd: "ceph orch apply mgr --placement={{ _cephadm_mgrs | join(',') }}"
+      changed_when: true
+
+    # Same reasoning as the mgr guard above: with crash enabled, an empty
+    # placement group would apply an empty crash spec rather than skip it, and
+    # the wait below would pass instantly against an expected count of 0.
+    - name: Fail when crash is enabled but no ceph hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ ceph_group_name | default('ceph') }}' inventory
+          group. Declare the Ceph hosts before deploying the crash service, or
+          disable it via enable_ceph_crash.
+      when:
+        - enable_ceph_crash | default(true) | bool
+        - _cephadm_hosts | length == 0
+
+    - name: Apply the crash service
+      ansible.builtin.command:
+        cmd: "ceph orch apply crash --placement={{ _cephadm_hosts | join(',') }}"
+      when: enable_ceph_crash | default(true) | bool
+      changed_when: true
+
+    # ceph orch apply records a spec and returns; the orchestrator reconciles it
+    # in its own serve loop. Poll until the daemons are actually running.
+    - name: Wait for the daemons to be running
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          ceph orch ps --daemon-type {{ item.type }} --format json |
+          python3 -c 'import json,sys; print(len([d for d in json.load(sys.stdin)
+          if d.get("status_desc") == "running"]))'
+      args:
+        executable: /bin/bash
+      register: _cephadm_running
+      until: _cephadm_running.stdout | int >= item.count | int
+      retries: 90
+      delay: 10
+      changed_when: false
+      loop:
+        - {type: mon, count: "{{ _cephadm_mons | length }}"}
+        - {type: mgr, count: "{{ _cephadm_mgrs | length }}"}
+      loop_control:
+        label: "{{ item.type }} >= {{ item.count }}"
