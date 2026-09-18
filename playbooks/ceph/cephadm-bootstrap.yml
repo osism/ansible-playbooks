@@ -1,0 +1,241 @@
+---
+# Deploy Ceph with cephadm: bootstrap the cluster.
+#
+# Runs before cephclient exists on the manager, so this is the one play that
+# drives cephadm over SSH on a Ceph host rather than through the manager's
+# `ceph` wrapper.
+- name: Install cephadm on the Ceph hosts
+  hosts: "{{ ceph_group_name | default('ceph') }}"
+  gather_facts: true
+  become: true
+  strategy: "{{ osism_strategy | default('linear') }}"
+
+  tasks:
+    # A play targeting an empty group is skipped outright ("skipping: no
+    # hosts matched") rather than running any of its tasks, so this guard
+    # cannot live in the bootstrap play below, which targets mon_group_name
+    # directly: with zero mon hosts it would have nowhere to run a fail task
+    # and would silently do nothing. Every ceph host is a member of the group
+    # this play targets, so check it here instead, where a host is guaranteed
+    # to exist whenever this playbook runs at all.
+    - name: Fail when no monitor hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ mon_group_name | default('ceph-mon') }}' inventory
+          group, so there is no host to bootstrap the cluster on. Declare the
+          monitor hosts before deploying Ceph.
+      when: groups[mon_group_name | default('ceph-mon')] | default([]) | length == 0
+      run_once: true
+
+    # cephadm is taken out of the Ceph image OSISM already deploys, so its
+    # version matches the running release by construction. The packaged
+    # alternative (Ubuntu Cloud Archive) is pinned per release series and its
+    # Reef build carries https://tracker.ceph.com/issues/63151, fixed in
+    # 18.2.5+; the image is past that. The package contains only
+    # /usr/sbin/cephadm plus docs, and `cephadm prepare-host` below installs
+    # what its Depends would have.
+    - name: Extract cephadm from the Ceph image
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          docker run --rm --entrypoint /usr/bin/cat
+          {{ _cephadm_image }} /usr/sbin/cephadm > /tmp/cephadm.bin
+      args:
+        executable: /bin/bash
+      changed_when: true
+      vars:
+        # ceph_docker_image_tag resolves to ceph_image_version, which the
+        # inventory reconciler merges into group_vars/all from the ceph-ansible
+        # container's published version file. Verified on a live cluster:
+        # `osism dump inventory <host> ceph_image_version` -> 18.2.8.
+        _cephadm_image: >-
+          {{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }}
+
+    - name: Install cephadm
+      ansible.builtin.copy:
+        src: /tmp/cephadm.bin
+        dest: /usr/sbin/cephadm
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Remove the extracted cephadm
+      ansible.builtin.file:
+        path: /tmp/cephadm.bin
+        state: absent
+
+    # Verifies a container engine, lvm2 and time synchronisation, installing
+    # each if absent. https://docs.ceph.com/en/reef/cephadm/install/
+    - name: Prepare the host for cephadm
+      ansible.builtin.command:
+        cmd: cephadm prepare-host
+      register: _cephadm_prepare
+      changed_when: "'Repeating the final host check' in _cephadm_prepare.stdout"
+
+- name: Bootstrap the Ceph cluster
+  # Targets the whole mon group, not groups[...][0], matching this
+  # directory's established idiom for "act on the first host of a group"
+  # (see validate-ceph-osds.yml's run_once/delegate_to pair). The tasks below
+  # that must happen exactly once carry run_once: true, which Ansible
+  # resolves to the first host of this play's batch -- the same host the
+  # keyring-placement play below still names via groups[...][0].
+  hosts: "{{ mon_group_name | default('ceph-mon') }}"
+  gather_facts: true
+  become: true
+
+  vars:
+    _cephadm_image: >-
+      {{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }}
+    _cephadm_ssh_user: "{{ operator_user | default('dragon') }}"
+    _cephadm_key: /tmp/cephadm-ceph-key
+    _cephadm_admin_keyring: /etc/ceph/ceph.client.admin.keyring
+
+  tasks:
+    # `cephadm bootstrap` creates /var/lib/ceph/{{ fsid }} early and can still
+    # fail later (image pull, mon startup, ...), so that directory's existence
+    # is not proof of a working cluster. Probing it means a re-run after a
+    # late failure sees the directory, skips bootstrap permanently, and every
+    # later play in this sequence then runs against a half-built cluster --
+    # the one unrecoverable state here, recoverable only by a hand-run
+    # `cephadm rm-cluster`. Probe something bootstrap only writes at the very
+    # end instead: the admin keyring existing AND a mon actually answering
+    # through it.
+    - name: Check whether the admin keyring exists
+      ansible.builtin.stat:
+        path: "{{ _cephadm_admin_keyring }}"
+      register: _cephadm_admin_keyring_stat
+      run_once: true
+
+    - name: Check whether a monitor responds
+      ansible.builtin.command:
+        cmd: cephadm shell -- ceph -s --format json
+      register: _cephadm_status
+      run_once: true
+      changed_when: false
+      failed_when: false
+      when: _cephadm_admin_keyring_stat.stat.exists
+
+    - name: Determine whether the cluster is already bootstrapped
+      ansible.builtin.set_fact:
+        _cephadm_cluster_ready: >-
+          {{ _cephadm_admin_keyring_stat.stat.exists and
+             (_cephadm_status.rc | default(1)) == 0 }}
+      run_once: true
+
+    - name: Bootstrap
+      when: not _cephadm_cluster_ready
+      run_once: true
+      block:
+        # The dedicated Ceph key is authorized on every host in the ceph group
+        # by operator_additional_authorized_keys (inventory/group_vars/ceph.yml),
+        # so cephadm neither generates nor distributes one of its own. It is not
+        # the operator key: cephadm keeps what it is given in the Ceph config
+        # store, where `ceph config-key get mgr/cephadm/ssh_identity_key` reads
+        # it back to anyone with Ceph admin access.
+        # Only the private half is on the manager
+        # (/opt/ansible/secrets/id_rsa.ceph); the public half is derived.
+        # Supplying both at bootstrap works because the mgr-side validator
+        # skips its connection check while no host is registered, which is not
+        # true of `cephadm set-priv-key`/`set-pub-key` afterwards.
+        - name: Read the ceph private key from the manager
+          ansible.builtin.slurp:
+            src: /opt/ansible/secrets/id_rsa.ceph
+          register: _cephadm_ceph_key
+          delegate_to: "{{ groups['manager'][0] }}"
+          no_log: true
+
+        - name: Stage the ceph private key on the bootstrap host
+          ansible.builtin.copy:
+            content: "{{ _cephadm_ceph_key.content | b64decode }}"
+            dest: "{{ _cephadm_key }}"
+            owner: root
+            group: root
+            mode: "0600"
+          no_log: true
+
+        - name: Derive the ceph public key
+          ansible.builtin.command:
+            cmd: "ssh-keygen -y -f {{ _cephadm_key }}"
+          register: _cephadm_pubkey
+          changed_when: false
+          no_log: true
+
+        - name: Write the ceph public key
+          ansible.builtin.copy:
+            content: "{{ _cephadm_pubkey.stdout }}\n"
+            dest: "{{ _cephadm_key }}.pub"
+            owner: root
+            group: root
+            mode: "0644"
+
+        # --skip-monitoring-stack: cephadm would otherwise deploy node-exporter
+        # on 9100, which is the port kolla's own node-exporter uses on every
+        # host (osism/defaults all/001-prometheus.yml), plus grafana on 3000
+        # against kolla's grafana_server_port.
+        # --skip-dashboard: the dashboard is configured separately, because
+        # bootstrap's --initial-dashboard-* flags leave it on HTTPS/8443 while
+        # OSISM's documented listener is plain HTTP on ceph_dashboard_port
+        # (configuration guide, Ceph > Dashboard).
+        # No --output-dir: moving output_config off its default suppresses the
+        # client.admin/label:_admin keyring registration that puts the admin
+        # keyring on the mon hosts.
+        - name: Run cephadm bootstrap
+          ansible.builtin.command:
+            cmd: >-
+              cephadm --image {{ _cephadm_image }} bootstrap
+              --fsid {{ fsid }}
+              --mon-ip {{ _cephadm_mon_ip }}
+              --cluster-network {{ cluster_network | default(public_network) }}
+              --ssh-user {{ _cephadm_ssh_user }}
+              --ssh-private-key {{ _cephadm_key }}
+              --ssh-public-key {{ _cephadm_key }}.pub
+              --skip-monitoring-stack
+              --skip-dashboard
+              --skip-firewalld
+          vars:
+            _cephadm_mon_ip: "{{ monitor_address | default(ansible_facts['default_ipv4']['address']) }}"
+          register: _cephadm_bootstrap
+          changed_when: true
+
+      always:
+        - name: Remove the staged ceph key
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ _cephadm_key }}"
+            - "{{ _cephadm_key }}.pub"
+
+    - name: Read the admin keyring
+      ansible.builtin.slurp:
+        src: "{{ _cephadm_admin_keyring }}"
+      register: _cephadm_admin_key
+      run_once: true
+      no_log: true
+
+# cephclient_keyring is a file lookup against the configuration repository on
+# the manager (osism/defaults all/099-infrastructure.yml), not against the
+# bootstrap host, so `osism apply cephclient` fails unless the keyring is
+# placed here first.
+- name: Place the admin keyring in the configuration repository
+  hosts: manager
+  gather_facts: false
+
+  tasks:
+    - name: Create the ceph files directory
+      ansible.builtin.file:
+        path: "{{ configuration_directory }}/environments/infrastructure/files/ceph"
+        state: directory
+        owner: "{{ operator_user | default('dragon') }}"
+        group: "{{ operator_group | default('dragon') }}"
+        mode: "0750"
+
+    - name: Write the admin keyring
+      ansible.builtin.copy:
+        content: "{{ hostvars[groups[mon_group_name | default('ceph-mon')][0]]['_cephadm_admin_key']['content'] | b64decode }}"
+        dest: "{{ configuration_directory }}/environments/infrastructure/files/ceph/ceph.client.admin.keyring"
+        owner: "{{ operator_user | default('dragon') }}"
+        group: "{{ operator_group | default('dragon') }}"
+        mode: "0600"
+      no_log: true
