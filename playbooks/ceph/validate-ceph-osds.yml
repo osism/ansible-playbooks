@@ -461,11 +461,28 @@
         _osds_test_encryption_result: "no-result"
         _osds_test_encryption_data: ""
 
+    # A host in the ceph-osd group that is configured with no OSD devices
+    # reaches this point: expecting zero OSDs and finding zero containers is a
+    # correct pass for the count test above, so the bail-out does not trigger.
+    # The per-host tests from here on index into per-host data that is empty
+    # for such a host, which makes it fatal on that host alone. Record the
+    # tests as skipped instead. A zero-OSD host is a supported configuration --
+    # a node being drained, or one not yet given disks -- so this is the tests
+    # not applying, not the cluster being wrong.
+    - name: Skip the encryption test on a host without OSDs
+      ansible.builtin.set_fact:
+        _osds_test_encryption_result: "skipped"
+        _osds_test_encryption_data:
+          "No OSDs are expected or running on {{ inventory_hostname }},
+           so there is nothing to check for encryption."
+      when: _osds_containers | length == 0
+
     - name: List ceph LVM volumes and collect data
       community.docker.docker_container_exec:
         container: "{{ _osds_containers[0].name }}"
         command: "ceph-volume lvm list --format=json"
       register: _osds_lvm_volumes_raw
+      when: _osds_containers | length > 0
 
     - name: Parse LVM data as JSON
       ansible.builtin.set_fact:
@@ -475,6 +492,7 @@
           '*[?tags."ceph.encrypted"==''1''].tags."ceph.osd_id"[]'
         _osds_unencrypted_query:
           '*[?tags."ceph.encrypted"==''0''].tags."ceph.osd_id"[]'
+      when: _osds_containers | length > 0
 
     - name: Get unencrypted and encrypted OSDs
       ansible.builtin.set_fact:
@@ -486,6 +504,7 @@
           "{{ _osds_lvm_volumes |
               json_query(_osds_unencrypted_query)
            }}"
+      when: _osds_containers | length > 0
 
     # If dmcrypt is set to true check that everything is encrypted
     - name: Check if every OSD is encrypted that is found  # noqa osism-fqcn
@@ -524,7 +543,9 @@
                # of OSDs unencrypted: {{ _osds_unencrypted | length }}"
           when:
             - _osds_encrypted | length == _osds_count_by_host | int
-      when: _osds_dmcrypt
+      when:
+        - _osds_dmcrypt
+        - _osds_containers | length > 0
 
     # If dmcrypt is set to false check that everything is not encrypted
     - name: Check if every OSD is not encrypted that is found  # noqa osism-fqcn
@@ -563,7 +584,9 @@
                # of OSDs unencrypted: {{ _osds_unencrypted | length }}"
           when:
             - _osds_unencrypted | length == _osds_count_by_host | int
-      when: not _osds_dmcrypt
+      when:
+        - not _osds_dmcrypt
+        - _osds_containers | length > 0
 
     # Test 5: Check that all active OSDs are in the correct CRUSH
     # location
@@ -584,6 +607,17 @@
         _osds_crush_root_node_data_query:
           "nodes[?type == `root` && name == `default`]"
 
+    # A host with no OSDs is absent from the CRUSH tree, so the lookups below
+    # return empty lists and the sub-test expressions index into them. Skip
+    # for the same reason the encryption test is skipped above.
+    - name: Skip the CRUSH location test on a host without OSDs
+      ansible.builtin.set_fact:
+        _osds_test_crush_location_result: "skipped"
+        _osds_test_crush_location_data:
+          "No OSDs are expected or running on {{ inventory_hostname }},
+           so it has no CRUSH location to check."
+      when: _osds_containers | length == 0
+
     - name: Get CRUSH node data of each OSD host and root node childs
       ansible.builtin.set_fact:
         _osds_crush_node_data:
@@ -594,6 +628,7 @@
           "{{ _osds_tree |
               json_query(_osds_crush_root_node_data_query)
            }}"
+      when: _osds_containers | length > 0
 
     # This checks the following:
     # - each host is inside the default root
@@ -615,6 +650,7 @@
               _osds_crush_node_data[0].children |
               difference(_osds_containers_osd_ids)
            }}"
+      when: _osds_containers | length > 0
 
     - name: Fail test if any sub test failed
       ansible.builtin.set_fact:
@@ -639,9 +675,11 @@
         _osds_reasons:
           "{{ _osds_reasons }}{{ ' ' if _osds_reasons }}\
           Test 'osds-crush-location' failed."
-      when: not _osds_is_child_of_root or
-        _osds_running_not_in_crushmap | length != 0 or
-        _osds_crushmap_not_in_running | length != 0
+      when:
+        - _osds_containers | length > 0
+        - not _osds_is_child_of_root or
+          _osds_running_not_in_crushmap | length != 0 or
+          _osds_crushmap_not_in_running | length != 0
 
     - name: Pass test if no sub test failed
       ansible.builtin.set_fact:
@@ -650,6 +688,7 @@
           "CRUSH tree locations for node {{ inventory_hostname }}
            and its OSDs appear to be in order."
       when:
+        - _osds_containers | length > 0
         - _osds_is_child_of_root
         - _osds_running_not_in_crushmap | length == 0
         - _osds_crushmap_not_in_running | length == 0
