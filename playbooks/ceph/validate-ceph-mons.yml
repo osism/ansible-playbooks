@@ -99,11 +99,49 @@
       ansible.builtin.set_fact:
         _mons_test_containers_existance_result: "no-result"
         _mons_test_containers_existance_data: {}
+        # ceph-ansible names the container ceph-mon-<host>, cephadm names it
+        # ceph-<fsid>-mon-<host>.
+        # Match both rather than templating one of them. Docker reports
+        # container names with a leading slash.
+        _mons_container_pattern:
+          "^/ceph-(.+-)?mon-{{ ansible_hostname | regex_escape }}$"
+        _mons_container_wanted:
+          "ceph-[<fsid>-]mon-{{ ansible_hostname }}"
 
-    - name: Get container info
-      community.docker.docker_container_info:
-        name: "ceph-mon-{{ ansible_hostname }}"
-      register: _mons_container_info
+    # containers_all is required: without it a stopped mon would be absent
+    # from the list and reported as missing by the existance test rather than
+    # as not running by the test after it. verbose_output is required for
+    # State: the reduced record the module returns by default carries only
+    # Status ("Up 3 hours"), which is prose, not a state to compare against.
+    - name: Get the containers on the host
+      community.docker.docker_host_info:
+        containers: true
+        containers_all: true
+        verbose_output: true
+      register: _mons_host_info
+
+    # A host migrated from ceph-ansible to cephadm keeps the old, stopped
+    # ceph-mon-<host> alongside the live cephadm container, and both match
+    # the pattern. Prefer a running match, or the leftover decides the result
+    # and a healthy mon is reported as not running.
+    - name: Find the mon container on the host
+      ansible.builtin.set_fact:
+        _mons_container:
+          "{{ (_mons_matches | selectattr('State', 'equalto', 'running') | list
+               + _mons_matches) | first | default({}) }}"
+      vars:
+        _mons_matches:
+          "{{ _mons_host_info.containers
+              | selectattr('Names', 'defined')
+              | selectattr('Names.0', 'match', _mons_container_pattern)
+              | list }}"
+
+    - name: Note the mon container name and state
+      ansible.builtin.set_fact:
+        _mons_container_name:
+          "{{ _mons_container.Names | default([]) | first
+              | default(_mons_container_wanted, true)
+              | regex_replace('^/', '') }}"
 
     # Fail test if ceph-mon container is missing on a host
     - name: Set test result to failed if container is missing
@@ -111,31 +149,28 @@
         _mons_test_failed: true
         _mons_test_containers_existance_result: "failed"
         _mons_test_containers_existance_data:
-          "Container 'ceph-mon-{{ ansible_hostname }}'
+          "Container '{{ _mons_container_wanted }}'
            missing on {{ inventory_hostname }}."
         _mons_reasons:
           "{{ _mons_reasons }}{{ ' ' if _mons_reasons }}\
           Test 'container-existance' failed on
            {{ inventory_hostname }}."
-      when: not _mons_container_info.exists
+      when: _mons_container | length == 0
 
     # Pass test if ceph-mon is existing on the host under test
     - name: Set test result to passed if container is existing
       ansible.builtin.set_fact:
         _mons_test_containers_existance_result: "passed"
         _mons_test_containers_existance_data:
-          "Container 'ceph-mon-{{ ansible_hostname }}'
+          "Container '{{ _mons_container_name }}'
            exists on {{ inventory_hostname }}."
-      when: _mons_container_info.exists
+      when: _mons_container | length > 0
 
     # Test 2: Check that all ceph-mon containers are running
     - name: Prepare test data
       ansible.builtin.set_fact:
         _mons_container_status:
-          "{{
-              _mons_container_info.container['State']['Status'] |
-              default('not-found')
-           }}"
+          "{{ _mons_container.State | default('not-found') }}"
         _mons_test_containers_running_result: "no-result"
         _mons_test_containers_running_data: ""
 
@@ -145,7 +180,7 @@
         _mons_test_failed: true
         _mons_test_containers_running_result: "failed"
         _mons_test_containers_running_data:
-          "Container 'ceph-mon-{{ ansible_hostname }}'
+          "Container '{{ _mons_container_name }}'
            not in running state on {{ inventory_hostname }}"
         _mons_reasons:
           "{{ _mons_reasons }}{{ ' ' if _mons_reasons }}\
@@ -159,7 +194,7 @@
       ansible.builtin.set_fact:
         _mons_test_containers_running_result: "passed"
         _mons_test_containers_running_data:
-          "Container 'ceph-mon-{{ ansible_hostname }}'
+          "Container '{{ _mons_container_name }}'
            is running on {{ inventory_hostname }}"
       when:
         _mons_container_status == "running"
