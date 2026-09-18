@@ -96,11 +96,49 @@
       ansible.builtin.set_fact:
         _mgrs_test_containers_existance_result: "no-result"
         _mgrs_test_containers_existance_data: {}
+        # ceph-ansible names the container ceph-mgr-<host>, cephadm names it
+        # ceph-<fsid>-mgr-<host> plus a per-daemon suffix.
+        # Match both rather than templating one of them. Docker reports
+        # container names with a leading slash.
+        _mgrs_container_pattern:
+          "^/ceph-(.+-)?mgr-{{ ansible_hostname | regex_escape }}(-[^-]+)?$"
+        _mgrs_container_wanted:
+          "ceph-[<fsid>-]mgr-{{ ansible_hostname }}[-<id>]"
 
-    - name: Get container info
-      community.docker.docker_container_info:
-        name: "ceph-mgr-{{ ansible_hostname }}"
-      register: _mgrs_container_info
+    # containers_all is required: without it a stopped mgr would be absent
+    # from the list and reported as missing by the existance test rather than
+    # as not running by the test after it. verbose_output is required for
+    # State: the reduced record the module returns by default carries only
+    # Status ("Up 3 hours"), which is prose, not a state to compare against.
+    - name: Get the containers on the host
+      community.docker.docker_host_info:
+        containers: true
+        containers_all: true
+        verbose_output: true
+      register: _mgrs_host_info
+
+    # A host migrated from ceph-ansible to cephadm keeps the old, stopped
+    # ceph-mgr-<host> alongside the live cephadm container, and both match
+    # the pattern. Prefer a running match, or the leftover decides the result
+    # and a healthy mgr is reported as not running.
+    - name: Find the mgr container on the host
+      ansible.builtin.set_fact:
+        _mgrs_container:
+          "{{ (_mgrs_matches | selectattr('State', 'equalto', 'running') | list
+               + _mgrs_matches) | first | default({}) }}"
+      vars:
+        _mgrs_matches:
+          "{{ _mgrs_host_info.containers
+              | selectattr('Names', 'defined')
+              | selectattr('Names.0', 'match', _mgrs_container_pattern)
+              | list }}"
+
+    - name: Note the mgr container name and state
+      ansible.builtin.set_fact:
+        _mgrs_container_name:
+          "{{ _mgrs_container.Names | default([]) | first
+              | default(_mgrs_container_wanted, true)
+              | regex_replace('^/', '') }}"
 
     # Fail test if ceph-mgr container is missing on a host
     - name: Set test result to failed if container is missing
@@ -108,31 +146,28 @@
         _mgrs_test_failed: true
         _mgrs_test_containers_existance_result: "failed"
         _mgrs_test_containers_existance_data:
-          "Container 'ceph-mgr-{{ ansible_hostname }}'
+          "Container '{{ _mgrs_container_wanted }}'
            missing on {{ inventory_hostname }}."
         _mgrs_reasons:
           "{{ _mgrs_reasons }}{{ ' ' if _mgrs_reasons }}\
           Test 'container-existance' failed on
            {{ inventory_hostname }}."
-      when: not _mgrs_container_info.exists
+      when: _mgrs_container | length == 0
 
     # Pass test if ceph-mgr is existing on the host under test
     - name: Set test result to passed if container is existing
       ansible.builtin.set_fact:
         _mgrs_test_containers_existance_result: "passed"
         _mgrs_test_containers_existance_data:
-          "Container 'ceph-mgr-{{ ansible_hostname }}'
+          "Container '{{ _mgrs_container_name }}'
            exists on {{ inventory_hostname }}."
-      when: _mgrs_container_info.exists
+      when: _mgrs_container | length > 0
 
     # Test 2: Check that all ceph-mgr containers are running
     - name: Prepare test data
       ansible.builtin.set_fact:
         _mgrs_container_status:
-          "{{
-              _mgrs_container_info.container['State']['Status'] |
-              default('not-found')
-           }}"
+          "{{ _mgrs_container.State | default('not-found') }}"
         _mgrs_test_containers_running_result: "no-result"
         _mgrs_test_containers_running_data: ""
 
@@ -142,7 +177,7 @@
         _mgrs_test_failed: true
         _mgrs_test_containers_running_result: "failed"
         _mgrs_test_containers_running_data:
-          "Container 'ceph-mgr-{{ ansible_hostname }}'
+          "Container '{{ _mgrs_container_name }}'
            not in running state on {{ inventory_hostname }}"
         _mgrs_reasons:
           "{{ _mgrs_reasons }}{{ ' ' if _mgrs_reasons }}\
@@ -156,7 +191,7 @@
       ansible.builtin.set_fact:
         _mgrs_test_containers_running_result: "passed"
         _mgrs_test_containers_running_data:
-          "Container 'ceph-mgr-{{ ansible_hostname }}'
+          "Container '{{ _mgrs_container_name }}'
            is running on {{ inventory_hostname }}"
       when:
         _mgrs_container_status == "running"
