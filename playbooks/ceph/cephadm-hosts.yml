@@ -1,0 +1,74 @@
+---
+# Deploy Ceph with cephadm: register the hosts with the orchestrator.
+#
+# Run after `osism apply cephclient`. Everything from here on drives the ceph
+# CLI through the manager's cephclient wrapper (/usr/local/bin/ceph), which
+# works in a non-interactive context when INTERACTIVE is false.
+- name: Register the Ceph hosts with the orchestrator
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars:
+    _cephadm_image: >-
+      {{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }}
+    _cephadm_hosts: "{{ groups[ceph_group_name | default('ceph')] }}"
+    _cephadm_mons: "{{ groups[mon_group_name | default('ceph-mon')] }}"
+
+  tasks:
+    # `ceph orch apply` and friends are asynchronous: the mgr records a spec and
+    # its serve loop reconciles later. Every wait in these plays therefore polls
+    # a condition rather than sleeping a fixed time.
+    - name: Wait for the orchestrator to become available
+      ansible.builtin.command:
+        cmd: ceph orch status --format json
+      register: _cephadm_orch
+      until: _cephadm_orch.rc == 0
+      retries: 60
+      delay: 5
+      changed_when: false
+
+    # Measured on a live cephadm cluster: re-adding an already-registered host
+    # (including the bootstrap host, which registers itself during bootstrap)
+    # with the same address returns rc 0 and prints "Added host '<h>' with
+    # addr '<a>'" -- it never fails and never prints "already exists". There is
+    # therefore no failure case here to guard against, unlike the pool/key
+    # create tasks in cephadm-pools.yml that do have a real "already exists"
+    # error to tolerate.
+    - name: Register the hosts
+      ansible.builtin.command:
+        cmd: >-
+          ceph orch host add {{ item }}
+          {{ hostvars[item]['monitor_address'] | default(hostvars[item]['ansible_facts']['default_ipv4']['address']) }}
+      loop: "{{ _cephadm_hosts }}"
+      changed_when: true
+
+    # cephadm distributes the admin keyring (and ceph.conf with it) to the hosts
+    # its client-keyring entries select. Bootstrap seeds one entry for
+    # client.admin with placement label:_admin, so labelling the mons is what
+    # puts /etc/ceph/ceph.client.admin.keyring on them — which is where the
+    # copy-ceph-keys play reads the OpenStack keyrings from later.
+    - name: Label the monitor hosts _admin
+      ansible.builtin.command:
+        cmd: "ceph orch host label add {{ item }} _admin"
+      loop: "{{ _cephadm_mons }}"
+      changed_when: true
+
+    - name: Verify every host is usable by cephadm
+      ansible.builtin.command:
+        cmd: "ceph cephadm check-host {{ item }}"
+      loop: "{{ _cephadm_hosts }}"
+      changed_when: false
+
+    - name: Pin the container image and the networks
+      ansible.builtin.command:
+        cmd: "ceph config set global {{ item.key }} {{ item.value }}"
+      loop:
+        - {key: container_image, value: "{{ _cephadm_image }}"}
+        - {key: public_network, value: "{{ public_network }}"}
+        - {key: cluster_network, value: "{{ cluster_network | default(public_network) }}"}
+      loop_control:
+        label: "{{ item.key }}"
+      changed_when: true
