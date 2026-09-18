@@ -1,0 +1,113 @@
+---
+# Deploy Ceph with cephadm: the OSD daemons.
+#
+# The LVM volumes are created beforehand by the ceph-create-lvm-devices play
+# and described by the lvm_volumes host variable, which the operator merges
+# into the inventory from the file ceph-configure-lvm-volumes generates (see
+# the Ceph configuration guide, "OSD devices"). Reading the resolved variable
+# rather than that file keeps this play working whichever inventory layout a
+# site uses.
+- name: Deploy the OSD daemons
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars:
+    _cephadm_osd_hosts: "{{ groups[osd_group_name | default('ceph-osd')] }}"
+
+  tasks:
+    - name: Fail when an OSD host has no prepared LVM volumes
+      ansible.builtin.fail:
+        msg: >-
+          Host {{ item }} is in the '{{ osd_group_name | default('ceph-osd') }}'
+          group but has no lvm_volumes host variable. Run
+          `osism apply ceph-configure-lvm-volumes`, merge the generated file
+          into the host's inventory variables, then
+          `osism apply ceph-create-lvm-devices`. Continuing would deploy a
+          cluster with no OSDs on this host.
+      when: hostvars[item]['lvm_volumes'] | default([]) | length == 0
+      loop: "{{ _cephadm_osd_hosts }}"
+
+    # cephadm accepts explicit LVM paths, so it neither discovers nor partitions
+    # the block devices itself
+    # (https://docs.ceph.com/en/reef/cephadm/services/osd/). Note that
+    # `ceph orch daemon add osd` creates OSDs without creating an OSD service,
+    # so these OSDs are reported <unmanaged> by `ceph orch ls`; that is expected
+    # and does not affect their operation.
+    # subelements needs a list-valued sub-key on each record, so pair each host
+    # with its volumes explicitly. Zipping and indexing with an integer raises
+    # "subelements must be a list or a string", and would also make the outer
+    # item the whole pair rather than the hostname.
+    - name: Pair each OSD host with its prepared volumes
+      ansible.builtin.set_fact:
+        _cephadm_osd_specs: >-
+          {{ _cephadm_osd_specs | default([]) + [{
+               'host': item,
+               'volumes': hostvars[item]['lvm_volumes'],
+             }] }}
+      loop: "{{ _cephadm_osd_hosts }}"
+
+    # A re-run must not re-create an OSD: `ceph orch daemon add osd` fails once
+    # a device already carries one. Decide that per volume, not per host -- a
+    # host can be partly done when an earlier run stopped midway, or carry a
+    # stopped OSD, and a count of running daemons per host cannot tell which
+    # of its devices are taken. ceph-volume tags every LV it turns into an OSD
+    # with ceph.osd_id, which identifies the device itself.
+    - name: Read the ceph-volume tags of the prepared volumes
+      ansible.builtin.command:
+        cmd: "lvs --noheadings -o lv_tags {{ item.1.data_vg }}/{{ item.1.data }}"
+      become: true
+      delegate_to: "{{ item.0.host }}"
+      loop: "{{ _cephadm_osd_specs | default([]) | subelements('volumes') }}"
+      loop_control:
+        label: "{{ item.0.host }} {{ item.1.data_vg }}/{{ item.1.data }}"
+      register: _cephadm_osd_lv_tags
+      changed_when: false
+
+    - name: Create the OSDs
+      ansible.builtin.command:
+        cmd: "ceph orch daemon add osd {{ _host }}:{{ _spec }}"
+      vars:
+        _host: "{{ item.item.0.host }}"
+        _vol: "{{ item.item.1 }}"
+        _data: "data_devices=/dev/{{ _vol.data_vg }}/{{ _vol.data }}"
+        _db: >-
+          {{ ',db_devices=/dev/' ~ _vol.db_vg ~ '/' ~ _vol.db
+             if _vol.db is defined and _vol.db_vg is defined else '' }}
+        _wal: >-
+          {{ ',wal_devices=/dev/' ~ _vol.wal_vg ~ '/' ~ _vol.wal
+             if _vol.wal is defined and _vol.wal_vg is defined else '' }}
+        _enc: "{{ ',encrypted=true' if dmcrypt | default(false) | bool else '' }}"
+        _spec: "{{ _data ~ _db ~ _wal ~ _enc }}"
+      when: "'ceph.osd_id=' not in item.stdout"
+      loop: "{{ _cephadm_osd_lv_tags.results }}"
+      loop_control:
+        label: "{{ item.item.0.host }} {{ item.item.1.data_vg }}/{{ item.item.1.data }}"
+      changed_when: true
+
+    # Per host, so a host that is short of OSDs is not hidden by another
+    # host's surplus. A stopped OSD keeps this waiting and fails the play,
+    # since nothing above re-creates it.
+    - name: Wait for the OSDs to be running on every OSD host
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          ceph orch ps --daemon-type osd --format json |
+          python3 -c 'import json,sys; want=json.loads(sys.argv[1]);
+          running=[d.get("hostname") for d in json.load(sys.stdin)
+          if d.get("status_desc") == "running"];
+          print(" ".join(h for h, n in sorted(want.items()) if running.count(h) < n))'
+          '{{ _expected | to_json }}'
+      args:
+        executable: /bin/bash
+      register: _cephadm_osds_short
+      until: _cephadm_osds_short.stdout | trim | length == 0
+      retries: 90
+      delay: 10
+      changed_when: false
+      vars:
+        _expected: >-
+          {{ dict(_cephadm_osd_hosts | zip(_cephadm_osd_hosts
+             | map('extract', hostvars, 'lvm_volumes') | map('length'))) }}
