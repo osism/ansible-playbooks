@@ -14,6 +14,35 @@
     INTERACTIVE: "false"
 
   tasks:
+    # RGW's pools live in a different variable with a different shape:
+    # rgw_create_pools is a mapping of name -> {pg_num, size, type}, where
+    # openstack_pools is a list of dicts carrying more attributes (Ceph
+    # configuration guide, "Pools and Keys"). Normalise the former into the
+    # latter's shape so one implementation creates both; two copies of pool
+    # creation would drift apart. application is rgw, which ceph-ansible's
+    # ceph-rgw role also sets. min_size, rule_name, pgp_num and
+    # pg_autoscale_mode are deliberately absent, and the tasks below skip or
+    # default whatever is not set.
+    - name: Start the pool list from the OpenStack pools
+      ansible.builtin.set_fact:
+        _cephadm_pools: "{{ openstack_pools }}"
+
+    # Gated because rgw_create_pools is defined unconditionally in
+    # osism/defaults: an ungated union would create the RGW pools on every
+    # cluster, including those that never deploy RGW. ceph-ansible reaches its
+    # equivalent only through the ceph-rgw role, for the same reason.
+    - name: Add the RGW pools when RGW is enabled
+      ansible.builtin.set_fact:
+        _cephadm_pools: >-
+          {{ _cephadm_pools + [item.value | combine({
+               'name': item.key,
+               'application': 'rgw',
+             })] }}
+      loop: "{{ rgw_create_pools | default({}) | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when: enable_ceph_rgw | default(false) | bool
+
     # `ceph osd pool create` takes the rule name in a different positional slot
     # for erasure pools, where that slot is the erasure-code profile, and an
     # erasure pool has no replica size to set. Rather than half-support a shape
@@ -28,7 +57,7 @@
           erasure-code profile in place of the rule name and to skip the size
           setting.
       when: (item.type | default(1) | string) not in ['1', 'replicated']
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       loop_control:
         label: "{{ item.name }}"
 
@@ -41,7 +70,7 @@
               item.pg_num | string, (item.pgp_num | default(item.pg_num)) | string,
               'replicated']
              + ([item.rule_name] if item.rule_name | default('') | length > 0 else []) }}
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       loop_control:
         label: "{{ item.name }}"
       register: _cephadm_pool_create
@@ -57,7 +86,7 @@
     - name: Set the pool size
       ansible.builtin.command:
         cmd: "ceph osd pool set {{ item.name }} size {{ item.size }}"
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       loop_control:
         label: "{{ item.name }}"
       changed_when: true
@@ -66,7 +95,7 @@
     - name: Set the pool min_size
       ansible.builtin.command:
         cmd: "ceph osd pool set {{ item.name }} min_size {{ item.min_size }}"
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       when: item.min_size | default(0) | int > 0
       loop_control:
         label: "{{ item.name }}"
@@ -90,9 +119,12 @@
           {{ ('on' if item.pg_autoscale_mode else 'off')
              if item.pg_autoscale_mode is boolean
              else item.pg_autoscale_mode | string }}
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       loop_control:
         label: "{{ item.name }}"
+      # RGW pools carry no pg_autoscale_mode (osism/defaults rgw_create_pools),
+      # so leave the cluster default in place for them rather than inventing one.
+      when: item.pg_autoscale_mode is defined
       changed_when: true
 
     - name: Set the pool target_size_ratio
@@ -105,7 +137,7 @@
           - "{{ item.name }}"
           - target_size_ratio
           - "{{ item.target_size_ratio }}"
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       when: item.target_size_ratio | default('') | string | length > 0
       loop_control:
         label: "{{ item.name }}"
@@ -116,7 +148,7 @@
         cmd: >-
           ceph osd pool application enable {{ item.name }}
           {{ item.application }} --yes-i-really-mean-it
-      loop: "{{ openstack_pools }}"
+      loop: "{{ _cephadm_pools }}"
       loop_control:
         label: "{{ item.name }}"
       changed_when: true
