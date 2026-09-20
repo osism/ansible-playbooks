@@ -1,0 +1,264 @@
+---
+# Deploy Ceph with cephadm: the RGW service.
+#
+# radosgw is configured through the monitor configuration database under
+# client.rgw rather than through a ceph.conf, which the cephadm-config play
+# writes (https://docs.ceph.com/en/reef/cephadm/services/rgw/). The port is the
+# exception: cephadm manages rgw_frontends itself and refuses it in a service
+# spec's config section, so it can only be set through the service's port.
+#
+# No cephadm ingress service is deployed. OSISM already fronts RGW with the
+# kolla haproxy object-store endpoint, whose backend the inventory reconciler
+# generates, so cephadm's ingress would be a second haproxy for the same
+# traffic. It is also keepalived-based and its spec requires a virtual_ip,
+# which the routed reference topology has no place for: there the API
+# addresses are announced by every control node over BGP rather than held by
+# one of them.
+- name: Deploy the RGW service
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars:
+    _cephadm_rgws: "{{ groups[rgw_group_name | default('ceph-rgw')] | default([]) }}"
+    # The service id is arbitrary as far as Ceph is concerned -- upstream's own
+    # example is `ceph orch apply rgw foo`, and the <realm>.<zone> form is a
+    # multisite convention this single-cluster deployment does not use. The zone
+    # the daemons serve is the meaningful choice. It appears in every daemon
+    # name; it does not affect configuration, because every RGW daemon inherits
+    # client.rgw regardless of its generated name.
+    _cephadm_rgw_svc_id: "{{ rgw_zone | default('default') }}"
+    _cephadm_rgw_service: "rgw.{{ _cephadm_rgw_svc_id }}"
+
+  tasks:
+    - name: End the play when RGW is not enabled
+      ansible.builtin.meta: end_play
+      when: not (enable_ceph_rgw | default(false) | bool)
+
+    # Without this guard an empty placement applies an empty spec rather than
+    # skipping, and the wait below would then pass instantly against a count of
+    # zero. The Ceph configuration guide defines this group ("RGW service",
+    # step 5), defaulting it to the Ceph control nodes.
+    - name: Fail when no RGW hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ rgw_group_name | default('ceph-rgw') }}' inventory
+          group, but enable_ceph_rgw is true. Declare the RGW hosts before
+          deploying the service.
+      when: _cephadm_rgws | length == 0
+
+    - name: Fail when public_network is not set
+      ansible.builtin.fail:
+        msg: >-
+          public_network is not set. It is the network the RGW daemons bind on
+          and is passed to `ceph orch apply rgw --networks`; without it the
+          daemons would listen on every address on the host.
+      when: public_network | default('') | length == 0
+
+    - name: Fail when the RGW frontend port is not set
+      ansible.builtin.fail:
+        msg: >-
+          radosgw_frontend_port is not set. cephadm defaults radosgw to port 80
+          when no port is given, which is not the port the loadbalancer's
+          object-store backend targets.
+      when: radosgw_frontend_port | default('') | string | length == 0
+
+    - name: Collect the configured RGW bind addresses
+      ansible.builtin.set_fact:
+        _cephadm_rgw_addrs: >-
+          {{ _cephadm_rgw_addrs | default({})
+             | combine({item: hostvars[item].radosgw_address | default('')}) }}
+      loop: "{{ _cephadm_rgws }}"
+      loop_control:
+        label: "{{ item }}"
+
+    # The Ceph configuration guide requires radosgw_address or radosgw_interface
+    # on every RGW host ("RGW service", step 4). Only the address is usable here:
+    # resolving an interface name needs facts from the RGW hosts, which this play
+    # does not gather, and the interface default is a loopback whose host-scoped
+    # address cephadm cannot bind to. x.x.x.x is ceph-ansible's unset sentinel.
+    - name: Fail when an RGW host has no radosgw_address
+      ansible.builtin.fail:
+        msg: >-
+          No radosgw_address configured for {{ _missing | join(', ') }}. The Ceph
+          configuration guide requires a bind address per RGW host; set
+          radosgw_address in the host vars for each of them.
+          radosgw_interface is not supported by this play.
+      vars:
+        _missing: >-
+          {{ _cephadm_rgw_addrs | dict2items
+             | selectattr('value', 'in', ['', 'x.x.x.x'])
+             | map(attribute='key') | list }}
+      when: _missing | length > 0
+
+    # radosgw auto-creates any pool it needs at cluster-default pg_num/size, not
+    # at rgw_pool_default_pg_num / rgw_pool_default_size (Ceph configuration
+    # guide, "Pools and Keys"). If cephadm-pools last ran with enable_ceph_rgw
+    # false, those pools were never created with the configured sizes, and
+    # applying the service here would let radosgw auto-create them instead: no
+    # task fails, `ceph -s` stays HEALTH_OK, and the pools are permanently
+    # mis-sized. Check every key, not one canary -- a site can extend
+    # rgw_create_pools, and a partial set is as wrong as an empty one.
+    - name: List the cluster's pools
+      ansible.builtin.command:
+        cmd: ceph osd pool ls
+      register: _cephadm_rgw_pool_ls
+      changed_when: false
+
+    # rgw_create_pools is keyed by pool name, and those keys carry Jinja --
+    # "{{ rgw_zone }}.rgw.log" in osism/defaults. A mapping's keys are NOT
+    # templated when the mapping is read directly, only when each one passes
+    # through a loop as an item, so the names have to be materialised one at a
+    # time before they can be compared with what the cluster reports. Reading
+    # the keys straight off the mapping compares the literal
+    # "{{ rgw_zone }}.rgw.log" against "default.rgw.log" and never matches.
+    - name: Resolve the configured RGW pool names
+      ansible.builtin.set_fact:
+        _cephadm_rgw_pools: >-
+          {{ _cephadm_rgw_pools | default([]) + [item.key] }}
+      loop: "{{ rgw_create_pools | default({}) | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Fail when a required RGW pool does not exist
+      ansible.builtin.fail:
+        msg: >-
+          RGW pool(s) {{ _missing | join(', ') }} do not exist. Run
+          cephadm-pools with enable_ceph_rgw enabled first, so they are
+          created at rgw_pool_default_pg_num/rgw_pool_default_size instead of
+          being auto-created by radosgw at cluster defaults.
+      vars:
+        _missing: >-
+          {{ _cephadm_rgw_pools | default([])
+             | difference(_cephadm_rgw_pool_ls.stdout_lines) }}
+      when: _missing | length > 0
+
+    # --networks is what makes cephadm emit `beast endpoint=<ip>:<port>` instead
+    # of a bare `port=<port>` that binds every address on the host. cephadm
+    # resolves the CIDR to one address per host from the networks it discovers
+    # with `ip route ls`; an address with no scope-link route there -- a /32, for
+    # instance -- cannot be matched, and the host is then dropped from placement
+    # without an error. The rescue below reports that case.
+    - name: Apply the RGW service
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - orch
+          - apply
+          - rgw
+          - "{{ _cephadm_rgw_svc_id }}"
+          - "--placement={{ _cephadm_rgws | join(',') }}"
+          - "--port={{ radosgw_frontend_port }}"
+          - "--networks={{ public_network }}"
+      changed_when: true
+
+    - name: Wait for the RGW daemons
+      block:
+        # Scoped to this service rather than to the rgw daemon type, so a
+        # service left behind by an earlier zone cannot satisfy the wait. The
+        # hostnames are compared, not just counted, so a host dropped from
+        # placement is reported rather than tolerated. Comparing inventory
+        # hostnames against cephadm-reported hostnames only works because
+        # cephadm-hosts.yml registers each host with `ceph orch host add`
+        # using inventory_hostname verbatim, and its own check-host task
+        # already fails first if a host cannot be reached under that name.
+        #
+        # `ceph orch ps`'s status_desc is known to lag: it can still report
+        # stopped or <unknown> for a healthy daemon for some minutes after
+        # cephadm (re)schedules it (see Ceph's orchestrator CLI documentation
+        # on daemon status). Gating on it here therefore risks a false red
+        # after the retries are exhausted, never a false green -- an absent
+        # daemon cannot report "running". cephadm-mons.yml gates the same way
+        # for the same reason; keep both plays consistent rather than
+        # "fixing" only this one, and do not treat the column as trustworthy
+        # on its own.
+        - name: Poll until every RGW host runs a daemon
+          ansible.builtin.shell:
+            cmd: >-
+              set -o pipefail &&
+              (ceph orch ps --service-name {{ _cephadm_rgw_service }}
+              --format json 2>/dev/null || echo '[]') |
+              python3 -c 'import json,sys; print(",".join(sorted(d["hostname"]
+              for d in json.load(sys.stdin)
+              if d.get("status_desc") == "running")))'
+          args:
+            executable: /bin/bash
+          register: _cephadm_rgw_running
+          until: >-
+            (_cephadm_rgw_running.stdout | trim | length > 0) and
+            (_cephadm_rgw_running.stdout.split(',') | sort
+             == _cephadm_rgws | sort)
+          retries: 90
+          delay: 10
+          changed_when: false
+      rescue:
+        - name: Report the service state
+          ansible.builtin.command:
+            cmd: "ceph orch ls --service-name {{ _cephadm_rgw_service }}"
+          register: _cephadm_rgw_ls
+          changed_when: false
+          failed_when: false
+
+        - name: Fail with the reason the daemons did not come up
+          ansible.builtin.fail:
+            msg: >-
+              {{ _cephadm_rgw_service }} did not reach a running daemon on every
+              host in {{ rgw_group_name | default('ceph-rgw') }}.
+              Expected {{ _cephadm_rgws | join(',') }};
+              running {{ _cephadm_rgw_running.stdout | default('none') }}.
+              Service state: {{ _cephadm_rgw_ls.stdout | default('unavailable') }}.
+              If the daemon count is short, check that --networks
+              ({{ public_network }}) matches a network the RGW hosts report to
+              cephadm: a host whose bind address has no scope-link route is
+              skipped during placement without an error.
+
+    - name: Collect the RGW daemon names and their hosts
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail &&
+          ceph orch ps --service-name {{ _cephadm_rgw_service }} --format json |
+          python3 -c 'import json,sys; [print(d["daemon_name"], d["hostname"])
+          for d in json.load(sys.stdin)
+          if d.get("status_desc") == "running"]'
+      args:
+        executable: /bin/bash
+      register: _cephadm_rgw_daemons
+      changed_when: false
+
+    # The wait above precludes an empty daemon list on its own happy path, but
+    # the wait is exactly the kind of thing that can be silently defeated (a
+    # mis-folded command, a loosened `until`) without failing the play, and a
+    # loop over an empty list would then report success having asserted
+    # nothing. Fail loudly instead of resting on a cross-task invariant.
+    - name: Fail when no RGW daemons were collected
+      ansible.builtin.fail:
+        msg: >-
+          No running daemon was found for {{ _cephadm_rgw_service }} at
+          collect time, although the preceding wait reported success.
+      when: _cephadm_rgw_daemons.stdout_lines | length == 0
+
+    # Assert the outcome rather than predicting it. cephadm picks one address
+    # per host from the matching network itself, and reimplementing that choice
+    # here would tie this play to a scheduler detail that is free to change
+    # between Ceph releases -- and would be wrong in exactly the release where
+    # it changed.
+    - name: Assert each daemon binds its configured address
+      ansible.builtin.command:
+        cmd: "ceph config get client.{{ item.split()[0] }} rgw_frontends"
+      register: _cephadm_rgw_frontend
+      changed_when: false
+      failed_when: >-
+        ('endpoint=' ~ _cephadm_rgw_addrs[item.split()[1]] | default('__no_address__')
+         ~ ':' ~ radosgw_frontend_port) not in _cephadm_rgw_frontend.stdout
+      # _cephadm_rgw_addrs is keyed by inventory hostname; item's second field is
+      # the hostname cephadm reported for the daemon, which the wait task already
+      # proved equal to the inventory names for every RGW host. The `default()`
+      # only matters if that invariant is broken between the wait and here (a
+      # daemon relocated, or a looser `until`) -- it turns what would otherwise be
+      # an undefined-variable error inside `failed_when` into a plain, readable
+      # assertion failure (the sentinel can never match a real endpoint string).
+      loop: "{{ _cephadm_rgw_daemons.stdout_lines }}"
+      loop_control:
+        label: "{{ item }}"
