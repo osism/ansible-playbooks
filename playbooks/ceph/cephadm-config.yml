@@ -106,3 +106,61 @@
       # say what went wrong.
       no_log: "{{ item.option is search('password|secret|token') }}"
       changed_when: true
+
+    # OSISM configures the mgr module set explicitly: osism/defaults
+    # all/099-ceph.yml sets ceph_mgr_modules to ceph_mgr_modules_defaults +
+    # ceph_mgr_modules_extra. ceph-ansible applies that list in its ceph-mgr
+    # role; cephadm has no equivalent, so it is applied here.
+    - name: Read the mgr module list
+      ansible.builtin.command:
+        cmd: ceph mgr module ls --format=json
+      register: _cephadm_mgr_module_ls
+      changed_when: false
+
+    # Enable only. ceph-ansible ALSO disables every enabled module that is not
+    # in ceph_mgr_modules, converging the set in both directions. That half
+    # cannot be ported: a cephadm cluster runs the `cephadm` module itself and
+    # it is not in OSISM's list, so converging downward here would disable the
+    # orchestrator and take the cluster's management plane down.
+    #
+    # Always-on modules are skipped. Enabling one that is genuinely on is not
+    # an error -- the monitor reports "already enabled (always-on)" and returns
+    # 0 -- so for the ordinary case this is only about an honest changed flag
+    # and two fewer calls. There is one case where it does matter: a module an
+    # operator has explicitly `force disable`d is still listed under
+    # always_on_modules by `mgr module ls` (observed on v18.2.8), so enabling
+    # it here would undo that operator decision. Skipping the always-on set
+    # leaves it disabled.
+    #
+    # The `dashboard` module is in this list, so it is switched on here, but it
+    # is not configured until the cephadm-dashboard play later in the walk. The
+    # gap is harmless: with no server_addr/server_port in the config store the
+    # module cannot bind a listener, so it simply polls until configured.
+    - name: Enable the configured mgr modules
+      ansible.builtin.command:
+        cmd: "ceph mgr module enable {{ item }}"
+      loop: "{{ ceph_mgr_modules | default([]) }}"
+      when:
+        - item not in _cephadm_mgr_modules_now.always_on_modules
+        - item not in _cephadm_mgr_modules_now.enabled_modules
+      vars:
+        _cephadm_mgr_modules_now: "{{ _cephadm_mgr_module_ls.stdout | from_json }}"
+      register: _cephadm_mgr_modules_enabled
+      changed_when: true
+
+    # Enabling a module respawns the active manager -- Ceph's mgr logs
+    # "respawning because set of enabled modules changed!" -- and the
+    # orchestrator goes down with it. The next play in this sequence drives
+    # `ceph orch`, so wait for it rather than letting that play fail
+    # intermittently. A handler would not do: it runs at the end of THIS
+    # play, but the orchestrator has to be back before the NEXT play
+    # starts, so it must be an ordinary conditional task here.
+    - name: Wait for the orchestrator to come back  # noqa: no-handler
+      ansible.builtin.command:
+        cmd: ceph orch status
+      register: _cephadm_orch_back
+      until: _cephadm_orch_back.rc == 0 and 'cephadm' in _cephadm_orch_back.stdout
+      retries: 30
+      delay: 10
+      changed_when: false
+      when: _cephadm_mgr_modules_enabled.changed
