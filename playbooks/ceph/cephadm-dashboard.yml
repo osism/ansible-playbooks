@@ -1,0 +1,158 @@
+---
+# Deploy Ceph with cephadm: the dashboard.
+#
+# OSISM's dashboard is a plain-HTTP listener with SSL off, not cephadm
+# bootstrap's --initial-dashboard-* path, which would leave it on HTTPS/8443.
+# The haproxy overlay shipped by cfg-cookiecutter
+# (environments/kolla/files/overlays/haproxy/services.d/ceph_dashboard.cfg)
+# backends every ceph-mgr host at monitor_address:7000 over plain HTTP and uses
+# `http-check disable-on-404` to drop standby managers out of the pool -- which
+# is why the standby error status code must be 404 and the standby behaviour
+# must be `error`.
+#
+# The two sets of values come from different places. Port, bind address and
+# username have no home in osism/defaults today, so they are defaulted at their
+# use sites with `| default(...)`. That is deliberate rather than a `vars:`
+# entry: a play var outranks inventory group_vars, so declaring them up here
+# would silently defeat an operator -- and would defeat osism/defaults too, if
+# the three ever gain an entry there, which is the documented direction. A
+# `| default()` keeps the play usable on its own without ever winning against a
+# value someone actually configured. The standby pair comes from
+# osism/defaults as inventory group_vars and reaches this play, which declares
+# no play vars of those names. (The ceph-ansible dashboard play does declare
+# them as play vars, which outrank group_vars, so on that path they take effect
+# only when delivered as extra vars.) This play references them without a
+# default, so a missing value fails here rather than quietly leaving the
+# dashboard on upstream's redirect/503.
+- name: Configure the Ceph dashboard
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars:
+    _cephadm_mgrs: "{{ groups[mgr_group_name | default('ceph-mgr')] }}"
+    _cephadm_dashboard_settings:
+      ssl: "false"
+      server_addr: "{{ ceph_dashboard_addr | default('0.0.0.0') }}"
+      server_port: "{{ ceph_dashboard_port | default(7000) }}"
+      standby_behaviour: "{{ ceph_dashboard_standby_behaviour }}"
+      standby_error_status_code: "{{ ceph_dashboard_standby_error_status_code }}"
+
+  tasks:
+    - name: Fail when no manager hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ mgr_group_name | default('ceph-mgr') }}' inventory
+          group. The dashboard runs as a manager module; declare the manager
+          hosts before configuring it.
+      when: _cephadm_mgrs | length == 0
+
+    - name: Fail when no dashboard password is configured
+      ansible.builtin.fail:
+        msg: >-
+          ceph_dashboard_password is empty. It is generated into
+          environments/ceph/secrets.yml when the configuration repository is
+          created; an empty value would leave an administrator account nobody
+          can log in to.
+      when: ceph_dashboard_password | default('') | length == 0
+
+    # Disabling is what makes the module take the settings below when it is
+    # enabled again. Disabling an already-disabled module succeeds -- the
+    # monitor reports "module 'dashboard' is already disabled" and returns 0 --
+    # so the fresh case, where bootstrap ran with --skip-dashboard, needs no
+    # special handling.
+    - name: Disable the dashboard module
+      ansible.builtin.command:
+        cmd: ceph mgr module disable dashboard
+      changed_when: true
+
+    - name: Configure the dashboard
+      ansible.builtin.command:
+        cmd: "ceph config set mgr mgr/dashboard/{{ item.key }} {{ item.value }}"
+      loop: "{{ _cephadm_dashboard_settings | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      changed_when: true
+
+    - name: Enable the dashboard module
+      ansible.builtin.command:
+        cmd: ceph mgr module enable dashboard
+      changed_when: true
+
+    # Enabling respawns the active manager, and `ceph mgr module ls` reports
+    # the monitor's configured set, so it says "enabled" while the module is
+    # still loading. `ceph dashboard ac-user-show` is served by the dashboard
+    # module itself, so it succeeds only once that module has loaded and
+    # registered its commands -- which is exactly the precondition the user
+    # creation below needs. It is a read-only command and safe to poll.
+    - name: Wait for the dashboard module to serve commands
+      ansible.builtin.command:
+        cmd: ceph dashboard ac-user-show
+      register: _cephadm_dashboard_ready
+      until: _cephadm_dashboard_ready.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Create the dashboard administrator
+      block:
+        # ac-user-create reads the password from a file rather than argv. The
+        # ceph CLI on the manager runs inside the cephclient container, which
+        # sees /opt/cephclient/data as /data.
+        - name: Stage the dashboard password
+          ansible.builtin.copy:
+            content: "{{ ceph_dashboard_password }}"
+            dest: /opt/cephclient/data/ceph_dashboard_password
+            mode: "0600"
+          no_log: true
+
+        # The dashboard module's access_control service (Ceph's
+        # ac-user-create command handler) catches an existing user as
+        # UserAlreadyExists and returns (0, "<message>", '') -- rc 0, the
+        # "already exists" message on stdout, stderr empty. So rc alone
+        # cannot distinguish a no-op from a real create, and stderr alone
+        # never carries the message; both streams are checked, and `changed`
+        # is keyed off the message rather than the return code so a re-run
+        # against an existing account reports unchanged. rc 17 is tolerated
+        # too in case another Ceph release signals the same case that way.
+        - name: Create the administrator account
+          ansible.builtin.command:
+            cmd: >-
+              ceph dashboard ac-user-create {{ ceph_dashboard_username | default('admin') }}
+              administrator -i /data/ceph_dashboard_password
+          register: _cephadm_dashboard_user
+          failed_when:
+            - _cephadm_dashboard_user.rc not in [0, 17]
+            - "'already exists' not in _cephadm_dashboard_user.stderr"
+            - "'already exists' not in _cephadm_dashboard_user.stdout"
+          changed_when:
+            - _cephadm_dashboard_user.rc == 0
+            - "'already exists' not in _cephadm_dashboard_user.stdout"
+      always:
+        # Unconditional, and in `always` so a failed account creation still
+        # cleans up: the password is cleartext on the manager until it is gone.
+        - name: Remove the staged dashboard password
+          ansible.builtin.file:
+            path: /opt/cephclient/data/ceph_dashboard_password
+            state: absent
+
+    - name: Read the dashboard settings back
+      ansible.builtin.command:
+        cmd: "ceph config get mgr mgr/dashboard/{{ item.key }}"
+      loop: "{{ _cephadm_dashboard_settings | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      register: _cephadm_dashboard_readback
+      changed_when: false
+
+    - name: Fail when a dashboard setting did not take
+      ansible.builtin.fail:
+        msg: >-
+          mgr/dashboard/{{ item.item.key }} reads '{{ item.stdout }}',
+          expected '{{ item.item.value }}'.
+      when: item.stdout != (item.item.value | string)
+      loop: "{{ _cephadm_dashboard_readback.results }}"
+      loop_control:
+        label: "{{ item.item.key }}"
