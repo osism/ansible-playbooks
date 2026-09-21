@@ -27,6 +27,37 @@
 
   vars:
     _mons_reports_directory: "/opt/reports/validator"
+    # Ceph CLI calls go through the cephclient container rather than a Ceph
+    # daemon container. ceph-ansible names its daemons ceph-<type>-<host> while
+    # cephadm names them ceph-<fsid>-<type>-<host>, so no templated daemon name
+    # reaches Ceph under both backends. cephclient exists under both -- it is
+    # what "osism apply cephclient" deploys -- and is the same route
+    # validate-ceph-rgws already takes to the osismclient container.
+    _mons_ceph_client_group:
+      "{{ groups[cephclient_groupname | default('cephclient')] | default([]) }}"
+    # Prefer a manager, rather than whichever host the group happens to list
+    # first. The cephclient group is "[cephclient:children] manager" by default,
+    # but the configuration guide documents extending it with RBD client nodes --
+    # and those extra hosts are exactly the ones it documents running
+    # cephclient_install_type: package, which installs the CLI natively and runs
+    # no container to exec into. Falling back to the first group member and then
+    # to the manager keeps an unusual inventory working rather than failing on a
+    # missing group.
+    _mons_ceph_client_host:
+      "{{ ((_mons_ceph_client_group | intersect(groups['manager'] | default([])))
+           + _mons_ceph_client_group
+           + (groups['manager'] | default([])))
+          | first }}"
+    # The cephclient role deploys the container under
+    # cephclient_container_name, so renaming it renames what there is to exec
+    # into. That name is a role default and so is not in this playbook's
+    # scope, hence the explicit fallback to the same value the role defaults
+    # to. Read it from the host that will run the CLI rather than from the
+    # current host: this play runs on a Ceph daemon group and delegates, so a
+    # value set on the cephclient group is not in the current host's scope.
+    _mons_ceph_client_container:
+      "{{ hostvars[_mons_ceph_client_host]['cephclient_container_name']
+          | default('cephclient') }}"
 
   tasks:
     # ansible_date_time is cached between runs,
@@ -243,12 +274,13 @@
         _mons_test_quorum_data: ""
       run_once: true
 
-    - name: Get monmap info from one mon container
+    - name: Get monmap info via the ceph client  # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
-        container: "ceph-mon-{{ ansible_hostname }}"
+        container: "{{ _mons_ceph_client_container }}"
         command: "ceph mon dump --format=json"
       register: _mons_monmap
       run_once: true
+      delegate_to: "{{ _mons_ceph_client_host }}"
 
     - name: Set quorum test data
       ansible.builtin.set_fact:
@@ -338,12 +370,13 @@
         _mons_test_health_data: ""
       run_once: true
 
-    - name: Gather status data
+    - name: Gather status data via the ceph client  # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
-        container: "ceph-mon-{{ ansible_hostname }}"
+        container: "{{ _mons_ceph_client_container }}"
         command: "ceph -s --format=json"
       register: _mons_status_data
       run_once: true
+      delegate_to: "{{ _mons_ceph_client_host }}"
 
     - name: Set health test data
       ansible.builtin.set_fact:
