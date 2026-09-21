@@ -8,6 +8,7 @@
 # - All containers with mgrs are running
 # - All manager modules are enabled that should be enabled
 #   according to configuration
+# - All manager modules that advertise a service endpoint answer on it
 #
 # This playbook can be used to validate that basic ceph
 # cluster functionality is present and in sync with config.
@@ -360,6 +361,114 @@
       run_once: true
       when: ceph_mgr_modules is subset(_mgrs_module_list_enabled)
 
+    # Test 4: Check that mgr modules advertising a service endpoint answer
+    # on it.
+    #
+    # Test 3 above compares against `ceph mgr module ls`, which reports the
+    # MONITOR's configured module set. A module that was enabled and then died
+    # while loading is still listed there, and stays listed indefinitely, so
+    # test 3 cannot distinguish "enabled and serving" from "enabled and dead".
+    # Tests 1 and 2 do not cover it either: the manager process is healthy, it
+    # is one of its Python modules that is gone.
+    #
+    # `ceph mgr services` does not close the gap on its own. The prometheus
+    # module registers its URI in configure() and only afterwards starts its
+    # HTTP server, so a module that fails to bind its port is still advertised
+    # with a URL it never served. Talking to the endpoint is the only test that
+    # distinguishes the two.
+    #
+    # The failure this was written for: the prometheus module dying with
+    # "Port 9283 not free" when it is restarted while the outgoing manager
+    # still holds the port. The crash leaves a permanent HEALTH_WARN -- ceph
+    # crash entries do not age out -- while every other manager test passes.
+    - name: Define mgr module serving test vars
+      ansible.builtin.set_fact:
+        _mgrs_test_modules_serving_result: "no-result"
+        _mgrs_test_modules_serving_data: ""
+      run_once: true
+
+    - name: Gather mgr service endpoints via the ceph client  # noqa: run-once[task] args[module]
+      community.docker.docker_container_exec:
+        container: "{{ _mgrs_ceph_client_container }}"
+        command: "ceph mgr services --format=json"
+      register: _mgrs_services_raw
+      run_once: true
+      delegate_to: "{{ _mgrs_ceph_client_host }}"
+
+    - name: Parse mgr service endpoints from json
+      ansible.builtin.set_fact:
+        _mgrs_services: "{{ _mgrs_services_raw.stdout | from_json }}"
+      run_once: true
+
+    # `ceph mgr services` reports the ACTIVE manager's endpoints only, so this
+    # probes once against whatever host those URLs name rather than once per
+    # manager host. It runs from the ceph client host, which is also who
+    # consumes these endpoints in practice: haproxy fronts the dashboard from
+    # the manager and Prometheus scrapes :9283 over the same path.
+    #
+    # Any HTTP status counts as serving. The condition this test exists for is
+    # a module that is not listening at all, which the uri module reports as
+    # status -1 with a connection error. Insisting on 200 would only add ways
+    # for the test to be wrong about a healthy cluster -- the dashboard answers
+    # 401 before login, and a module is free to redirect.
+    - name: Probe the mgr service endpoints
+      ansible.builtin.uri:
+        url: "{{ item.value }}"
+        method: GET
+        validate_certs: false
+        timeout: 15
+      loop: "{{ _mgrs_services | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      register: _mgrs_service_probe
+      failed_when: false
+      changed_when: false
+      run_once: true
+      delegate_to: "{{ _mgrs_ceph_client_host }}"
+
+    - name: Collect mgr service endpoints that did not answer
+      ansible.builtin.set_fact:
+        _mgrs_services_not_serving:
+          "{{ (_mgrs_service_probe.results | default([]) |
+               selectattr('status', 'undefined') |
+               map(attribute='item.key') | list)
+              +
+              (_mgrs_service_probe.results | default([]) |
+               selectattr('status', 'defined') |
+               selectattr('status', 'lt', 100) |
+               map(attribute='item.key') | list) }}"
+      run_once: true
+
+    # Set test result to failed if an advertised endpoint does not answer
+    - name: Fail test if a mgr service endpoint does not answer
+      ansible.builtin.set_fact:
+        _mgrs_test_failed: true
+        _mgrs_test_modules_serving_result: "failed"
+        _mgrs_test_modules_serving_data:
+          - "Manager modules advertising an endpoint that does not answer:\n\
+             {{ _mgrs_services_not_serving | join(',') }}"
+        _mgrs_reasons:
+          "{{ _mgrs_reasons }}{{ ' ' if _mgrs_reasons }}\
+          Test 'manager-modules-serving' failed on
+           {{ inventory_hostname }}."
+      run_once: true
+      when: _mgrs_services_not_serving | length > 0
+
+    # Set test result to passed if every advertised endpoint answers. A cluster
+    # where no module advertises an endpoint passes too -- there is nothing to
+    # probe, and whether the right modules are on is test 3's question.
+    - name: Pass test if all mgr service endpoints answer
+      ansible.builtin.set_fact:
+        _mgrs_test_modules_serving_result: "passed"
+        _mgrs_test_modules_serving_data:
+          - "Manager module endpoints answering:\n\
+             {{ 'none advertised'
+                if _mgrs_services | length == 0
+                else _mgrs_services | dict2items |
+                     map(attribute='key') | join(',') }}"
+      run_once: true
+      when: _mgrs_services_not_serving | length == 0
+
     # Set validation result to passed if no test failed
     - name: Set validation result to passed if no test failed
       ansible.builtin.set_fact:
@@ -409,6 +518,16 @@
                  ) |
               unique
             }}"
+        _mgrs_test_modules_serving_data:
+          "{{
+              play_hosts |
+              map(\
+                  'extract',
+                  hostvars,
+                  '_mgrs_test_modules_serving_data'\
+                 ) |
+              unique
+            }}"
         _mgrs_reasons:
           "{{
               play_hosts |
@@ -441,6 +560,11 @@
             name: "manager-modules-enabled",
             result: "{{ _mgrs_test_modules_enabled_result }}",
             data: "{{ _mgrs_test_modules_enabled_data }}"
+          }
+          - {
+            name: "manager-modules-serving",
+            result: "{{ _mgrs_test_modules_serving_result }}",
+            data: "{{ _mgrs_test_modules_serving_data }}"
           }
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
