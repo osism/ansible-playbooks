@@ -27,6 +27,37 @@
 
   vars:
     _osds_reports_directory: "/opt/reports/validator"
+    # Ceph CLI calls go through the cephclient container rather than a Ceph
+    # daemon container. ceph-ansible names its daemons ceph-<type>-<host> while
+    # cephadm names them ceph-<fsid>-<type>-<host>, so no templated daemon name
+    # reaches Ceph under both backends. cephclient exists under both -- it is
+    # what "osism apply cephclient" deploys -- and is the same route
+    # validate-ceph-rgws already takes to the osismclient container.
+    _osds_ceph_client_group:
+      "{{ groups[cephclient_groupname | default('cephclient')] | default([]) }}"
+    # Prefer a manager, rather than whichever host the group happens to list
+    # first. The cephclient group is "[cephclient:children] manager" by default,
+    # but the configuration guide documents extending it with RBD client nodes --
+    # and those extra hosts are exactly the ones it documents running
+    # cephclient_install_type: package, which installs the CLI natively and runs
+    # no container to exec into. Falling back to the first group member and then
+    # to the manager keeps an unusual inventory working rather than failing on a
+    # missing group.
+    _osds_ceph_client_host:
+      "{{ ((_osds_ceph_client_group | intersect(groups['manager'] | default([])))
+           + _osds_ceph_client_group
+           + (groups['manager'] | default([])))
+          | first }}"
+    # The cephclient role deploys the container under
+    # cephclient_container_name, so renaming it renames what there is to exec
+    # into. That name is a role default and so is not in this playbook's
+    # scope, hence the explicit fallback to the same value the role defaults
+    # to. Read it from the host that will run the CLI rather than from the
+    # current host: this play runs on a Ceph daemon group and delegates, so a
+    # value set on the cephclient group is not in the current host's scope.
+    _osds_ceph_client_container:
+      "{{ hostvars[_osds_ceph_client_host]['cephclient_container_name']
+          | default('cephclient') }}"
 
   tasks:
     # With gathering = smart, gather_facts is served from the fact
@@ -394,18 +425,13 @@
         _osds_test_up_in_result: "no-result"
         _osds_test_up_in_data: ""
 
-    - name: Set _mon_hostname fact
-      ansible.builtin.set_fact:
-        _mon_hostname: "{{ hostvars[groups[mon_group_name | default('ceph-mon')][0]]['ansible_hostname'] }}"
-      run_once: true
-
-    - name: Get ceph osd tree
+    - name: Get ceph osd tree via the ceph client  # noqa: run-once[task] args[module]
       community.docker.docker_container_exec:
-        container: "ceph-mon-{{ _mon_hostname }}"
+        container: "{{ _osds_ceph_client_container }}"
         command: "ceph osd tree --format=json"
       register: _osds_tree_raw
       run_once: true
-      delegate_to: "{{ groups[mon_group_name | default('ceph-mon')][0] }}"
+      delegate_to: "{{ _osds_ceph_client_host }}"
 
     - name: Parse osd tree from JSON
       ansible.builtin.set_fact:
