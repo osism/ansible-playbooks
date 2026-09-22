@@ -180,6 +180,18 @@
         # No --output-dir: moving output_config off its default suppresses the
         # client.admin/label:_admin keyring registration that puts the admin
         # keyring on the mon hosts.
+        # --skip-mon-network: bootstrap otherwise derives public_network from
+        # --mon-ip by searching the networks it discovers with `ip route ls`
+        # (infer_mon_network -> list_networks). That search requires the mon
+        # address to sit inside a discovered prefix, which a host-scoped address
+        # never does: on OSISM's reference routed design each host carries its
+        # routable address as a /32 on loopback0, which produces no scope-link
+        # route, so bootstrap aborts with "Cannot infer CIDR network" even though
+        # it has just verified the address on ports 3300 and 6789. Measured on
+        # Ceph 18.2.8. The network is therefore stated rather than inferred --
+        # cephadm-config.yml writes public_network and cluster_network into the
+        # config store, which also makes the value the operator's configured one
+        # on every topology rather than a guess from the routing table.
         - name: Run cephadm bootstrap
           ansible.builtin.command:
             cmd: >-
@@ -187,6 +199,7 @@
               --fsid {{ fsid }}
               --mon-ip {{ _cephadm_mon_ip }}
               --cluster-network {{ cluster_network | default(public_network) }}
+              --skip-mon-network
               --ssh-user {{ _cephadm_ssh_user }}
               --ssh-private-key {{ _cephadm_key }}
               --ssh-public-key {{ _cephadm_key }}.pub
