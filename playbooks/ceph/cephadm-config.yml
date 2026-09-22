@@ -15,6 +15,43 @@
     INTERACTIVE: "false"
 
   tasks:
+    # cephadm-bootstrap.yml passes --skip-mon-network, because bootstrap's own
+    # inference searches route-derived networks for one containing the mon
+    # address and a host-scoped /32 is in none of them. So the networks are
+    # stated here instead. This is not only a routed-topology fix: on every
+    # topology it makes the cluster use the operator's configured value rather
+    # than whatever bootstrap deduced from the routing table of the one host it
+    # happened to run on.
+    #
+    # Written before the ceph_conf_overrides translation below, and before
+    # cephadm-mons places the remaining mons and cephadm-osds the OSDs, both of
+    # which need public_network/cluster_network to be set already.
+    - name: Fail when public_network is not set
+      ansible.builtin.fail:
+        msg: >-
+          public_network is not set. It is written to the mon config store here
+          because cephadm-bootstrap.yml skips network inference; without it the
+          mons and OSDs have no configured network to bind.
+      when: public_network | default('') | length == 0
+
+    - name: Set the cluster networks in the config store
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - config
+          - set
+          - global
+          - "{{ item.option }}"
+          - "{{ item.value }}"
+      loop:
+        - option: public_network
+          value: "{{ public_network }}"
+        - option: cluster_network
+          value: "{{ cluster_network | default(public_network) }}"
+      loop_control:
+        label: "{{ item.option }}={{ item.value }}"
+      changed_when: true
+
     # subelements requires the sub-key to name a LIST, and ceph_conf_overrides
     # holds a mapping of section -> mapping of option. Convert the inner
     # mapping first; passing it directly raises
