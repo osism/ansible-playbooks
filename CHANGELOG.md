@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.20260924.0] - 2026-09-24
+
+### Added
+- Wazuh-proxy playbook to deploy the wazuh-proxy role (osism/ansible-playbooks#568)
+- Port, haproxy-backend-port and endpoint tests in the ceph-rgws validator (osism/ansible-playbooks#569)
+- Add manager-modules-serving test to the ceph-mgrs validator that probes the endpoints advertised by `ceph mgr services` (osism/ansible-playbooks#572)
+
+### Changed
+- Use keystone EC2 credentials for the S3 test in the ceph-rgws validator and run it in the osism-ansible container (osism/ansible-playbooks#569)
+- Remove the container-name, user-list, bucket-list, user-create and user-delete tests from the ceph-rgws validator (osism/ansible-playbooks#569)
+- Reach Ceph via the cephclient container in the mon, mgr and osd validators (osism/ansible-playbooks@3117c2e)
+
+### Fixed
+- Create the octavia overlay directory before copying the certificates (osism/ansible-playbooks#567)
+- Make the ceph-rgws validator work by dropping the virtualenv, removing the S3 test bucket and object after the run, and hiding the EC2 credentials in the output (osism/ansible-playbooks#569)
+- Skip the encryption and CRUSH location tests in the osd validator on hosts without OSDs (osism/ansible-playbooks#570)
+- Match cephadm container names in the mon and mgr validators (osism/ansible-playbooks@051ba3f)
+- Match cephadm OSD container names in the OSD validator so healthy cephadm clusters no longer fail the OSD count and CRUSH placement tests (osism/ansible-playbooks#571)
+
 ## [v0.20260721.0] - 2026-07-21
 
 ### Fixed
