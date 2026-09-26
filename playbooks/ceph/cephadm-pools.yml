@@ -43,6 +43,22 @@
         label: "{{ item.key }}"
       when: enable_ceph_rgw | default(false) | bool
 
+    # Gated for the same reason as the RGW pools: cephfs_pools is defined
+    # unconditionally in osism/defaults, so an ungated union would create
+    # cephfs_data and cephfs_metadata on every cluster. ceph-ansible reaches its
+    # equivalent only through the ceph-mds role.
+    #
+    # No normalisation, unlike rgw_create_pools: cephfs_pools is already a list
+    # of dicts in openstack_pools' shape, application ("cephfs") included.
+    #
+    # Without this the pools never exist, and cephadm-mds -- which turns them
+    # into a filesystem and refuses to guess -- fails naming them. manila then
+    # has no filesystem to open.
+    - name: Add the CephFS pools when CephFS is enabled
+      ansible.builtin.set_fact:
+        _cephadm_pools: "{{ _cephadm_pools + (cephfs_pools | default([])) }}"
+      when: enable_ceph_mds | default(false) | bool
+
     # `ceph osd pool create` takes the rule name in a different positional slot
     # for erasure pools, where that slot is the erasure-code profile, and an
     # erasure pool has no replica size to set. Rather than half-support a shape
