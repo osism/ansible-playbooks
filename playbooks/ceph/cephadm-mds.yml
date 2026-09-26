@@ -1,0 +1,170 @@
+---
+# Deploy Ceph with cephadm: the CephFS filesystem and its MDS service.
+#
+# cephadm-pools.yml creates cephfs_data and cephfs_metadata and mints
+# client.manila, but nothing turns those pools into a filesystem: `ceph fs new`
+# and `ceph orch apply mds` have no ceph-ansible equivalent to inherit. Without
+# them manila's CephFS driver finds no filesystem and its container never
+# becomes healthy -- the pools and the key exist, so nothing else reports a
+# problem.
+#
+# enable_ceph_mds is a ceph-ansible variable that its ceph-mds role acts on. It
+# is honoured here so the two backends agree on when CephFS is wanted; on the
+# cephadm path it would otherwise be dead config.
+- name: Deploy the CephFS filesystem and MDS service
+  hosts: manager
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars:
+    _cephadm_mdss: "{{ groups[mds_group_name | default('ceph-mds')] | default([]) }}"
+    # ceph-ansible's filesystem name, so a cluster deployed either way presents
+    # the same name to clients. manila resolves the filesystem itself when the
+    # cluster has exactly one (its cephfs_filesystem_name option is unset in
+    # kolla's manila.conf), so the name is not load-bearing for manila today --
+    # but it is what an operator and every `ceph fs` command see, and a second
+    # filesystem appearing later would make manila demand an explicit name.
+    _cephadm_fs: "{{ cephfs | default('cephfs') }}"
+    _cephadm_mds_service: "mds.{{ _cephadm_fs }}"
+
+  tasks:
+    - name: End the play when CephFS is not enabled
+      ansible.builtin.meta: end_play
+      when: not (enable_ceph_mds | default(false) | bool)
+
+    # Same reason as the RGW play's equivalent guard: an empty placement applies
+    # an empty spec rather than skipping, and the wait below would then pass
+    # instantly against a count of zero.
+    - name: Fail when no MDS hosts are declared
+      ansible.builtin.fail:
+        msg: >-
+          No hosts in the '{{ mds_group_name | default('ceph-mds') }}' inventory
+          group, but enable_ceph_mds is true. Declare the MDS hosts before
+          deploying the service.
+      when: _cephadm_mdss | length == 0
+
+    # `ceph fs new` creates a filesystem on whatever pools it is given, and
+    # creates neither. If cephadm-pools last ran with enable_ceph_mds false the
+    # CephFS pools were never created at cephfs_pool_default_pg_num/size, and
+    # failing here is better than letting the filesystem come up on pools that
+    # do not exist -- which `ceph fs new` refuses anyway, with a message that
+    # does not say which play should have made them.
+    - name: List the cluster's pools
+      ansible.builtin.command:
+        cmd: ceph osd pool ls
+      register: _cephadm_mds_pool_ls
+      changed_when: false
+
+    - name: Fail when a CephFS pool does not exist
+      ansible.builtin.fail:
+        msg: >-
+          CephFS pool(s) {{ _missing | join(', ') }} do not exist. Run
+          cephadm-pools with enable_ceph_mds enabled first, so they are created
+          at cephfs_pool_default_pg_num/cephfs_pool_default_size.
+      vars:
+        _wanted:
+          - "{{ cephfs_metadata_pool.name }}"
+          - "{{ cephfs_data_pool.name }}"
+        _missing: >-
+          {{ _wanted | reject('in', _cephadm_mds_pool_ls.stdout_lines) | list }}
+      when: _missing | length > 0
+
+    - name: List the cluster's filesystems
+      ansible.builtin.command:
+        cmd: ceph fs ls --format json
+      register: _cephadm_fs_ls
+      changed_when: false
+
+    # Metadata pool first: `ceph fs new <fs> <metadata> <data>`. Reversing them
+    # is accepted at creation and puts the metadata on the data pool, which is
+    # not something the filesystem reports as wrong afterwards.
+    - name: Create the CephFS filesystem
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - fs
+          - new
+          - "{{ _cephadm_fs }}"
+          - "{{ cephfs_metadata_pool.name }}"
+          - "{{ cephfs_data_pool.name }}"
+      when: _cephadm_fs not in (_cephadm_fs_ls.stdout | from_json
+                                | map(attribute='name') | list)
+      changed_when: true
+
+    - name: Apply the MDS service
+      ansible.builtin.command:
+        argv:
+          - ceph
+          - orch
+          - apply
+          - mds
+          - "{{ _cephadm_fs }}"
+          - "--placement={{ _cephadm_mdss | join(',') }}"
+      changed_when: true
+
+    - name: Wait for the MDS daemons
+      block:
+        # Scoped to this service and comparing hostnames rather than counting,
+        # for the reasons cephadm-rgw.yml records at the same task: a service
+        # left behind by an earlier filesystem must not satisfy the wait, and a
+        # host dropped from placement should be named rather than tolerated.
+        # status_desc lags, so gating on it risks a false red, never a false
+        # green.
+        - name: Poll until every MDS host runs a daemon
+          ansible.builtin.shell:
+            cmd: >-
+              set -o pipefail &&
+              (ceph orch ps --service-name {{ _cephadm_mds_service }}
+              --format json 2>/dev/null || echo '[]') |
+              python3 -c 'import json,sys; print(",".join(sorted(d["hostname"]
+              for d in json.load(sys.stdin)
+              if d.get("status_desc") == "running")))'
+          args:
+            executable: /bin/bash
+          register: _cephadm_mds_running
+          until: >-
+            (_cephadm_mds_running.stdout | trim | length > 0) and
+            (_cephadm_mds_running.stdout.split(',') | sort
+             == _cephadm_mdss | sort)
+          retries: 90
+          delay: 10
+          changed_when: false
+
+        # A filesystem with MDS daemons running is not yet usable: one has to
+        # become active. manila's driver opens the filesystem on start, so a
+        # play that returned here would hand a still-creating filesystem to the
+        # manila role deployed later in the walk.
+        - name: Poll until the filesystem has an active MDS
+          ansible.builtin.shell:
+            cmd: >-
+              set -o pipefail &&
+              ceph fs status {{ _cephadm_fs }} --format json |
+              python3 -c 'import json,sys; print(sum(1 for d in
+              json.load(sys.stdin).get("mdsmap", [])
+              if d.get("state", "").startswith("active")))'
+          args:
+            executable: /bin/bash
+          register: _cephadm_mds_active
+          until: (_cephadm_mds_active.stdout | trim | int) > 0
+          retries: 60
+          delay: 10
+          changed_when: false
+      rescue:
+        - name: Report the service state
+          ansible.builtin.command:
+            cmd: "ceph orch ls --service-name {{ _cephadm_mds_service }}"
+          register: _cephadm_mds_ls
+          changed_when: false
+          failed_when: false
+
+        - name: Fail with the reason the filesystem did not come up
+          ansible.builtin.fail:
+            msg: >-
+              {{ _cephadm_mds_service }} did not reach an active MDS for
+              filesystem {{ _cephadm_fs }}.
+              Expected daemons on {{ _cephadm_mdss | join(',') }};
+              running {{ _cephadm_mds_running.stdout | default('none') }};
+              active MDS count {{ _cephadm_mds_active.stdout | default('unknown') }}.
+              Service state: {{ _cephadm_mds_ls.stdout | default('unavailable') }}.
