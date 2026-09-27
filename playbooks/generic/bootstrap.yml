@@ -49,6 +49,10 @@
     - role: osism.commons.proxy
     - role: osism.commons.resolvconf
       when: enable_resolvconf | default('true') | bool
+    # After hostname, hosts and resolvconf, because all three change the
+    # answer: hostname_check refuses a host whose kernel name disagrees with
+    # the name libvirt, Cyrus SASL and ovn-controller will each derive for it.
+    - role: osism.commons.hostname_check
     - role: osism.commons.repository
     - role: osism.services.rsyslog
     - role: osism.commons.systohc
