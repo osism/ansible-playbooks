@@ -121,20 +121,33 @@
         _rgws_test_port_result: "no-result"
         _rgws_test_port_data: {}
 
-    - name: Discover the port the RGW actually listens on
+    - name: Discover the address and port the RGW actually listens on
       ansible.builtin.shell:
         cmd: |
           set -o pipefail
-          ss -lntpH 2>/dev/null | awk '/radosgw/ {split($4,a,":"); print a[length(a)]; exit}'
+          ss -lntpH 2>/dev/null | awk '/radosgw/ {print $4; exit}'
         executable: /bin/bash
       changed_when: false
       failed_when: false
       become: true
-      register: _rgws_actual_port_raw
+      register: _rgws_listen_raw
 
-    - name: Record the actual RGW port
+    - name: Record the RGW listening socket
       ansible.builtin.set_fact:
-        _rgws_actual_port: "{{ _rgws_actual_port_raw.stdout | trim }}"
+        _rgws_listen: "{{ _rgws_listen_raw.stdout | trim }}"
+
+    # The address matters as much as the port: on a routed topology cephadm binds
+    # each gateway to the host's address on the Ceph public network only, which
+    # is not what the inventory hostname resolves to. A wildcard bind is
+    # reachable on any address, so the hostname serves there.
+    - name: Record the actual RGW port and address
+      ansible.builtin.set_fact:
+        _rgws_actual_port: "{{ _rgws_listen.rpartition(':')[2] if _rgws_listen else '' }}"
+        _rgws_actual_address: >-
+          {{ inventory_hostname
+             if (_rgws_listen.rpartition(':')[0] | replace('[', '') | replace(']', ''))
+                in ['', '*', '0.0.0.0', '::']
+             else _rgws_listen.rpartition(':')[0] | replace('[', '') | replace(']', '') }}
 
     - name: Set test result to failed if no RGW listener was found
       ansible.builtin.set_fact:
@@ -404,9 +417,12 @@
     - name: Test S3 functionality  # noqa: run-once[task]
       ansible.builtin.command:
         cmd: "python3 {{ playbook_dir }}/files/rgw-validator.py"
+      vars:
+        _rgws_s3_address: "{{ hostvars[_rgws_s3_target]['_rgws_actual_address'] }}"
       environment:
         VALIDATOR_ENDPOINT:
-          "http://{{ _rgws_s3_target }}:\
+          "http://{{ '[' ~ _rgws_s3_address ~ ']' if ':' in _rgws_s3_address
+                     else _rgws_s3_address }}:\
            {{ hostvars[_rgws_s3_target]['_rgws_actual_port'] }}"
         VALIDATOR_ACCESS_KEY: "{{ _rgws_s3_access_key }}"
         VALIDATOR_SECRET_KEY: "{{ _rgws_s3_secret_key }}"
