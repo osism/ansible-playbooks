@@ -1,0 +1,14 @@
+---
+- name: Add known partitions to the list of available block devices
+  ansible.builtin.set_fact:
+    block_devices: >-
+      {{
+        block_devices | combine(
+        {
+          inner_item: hostvars[inventory_hostname].ansible_devices[item]['partitions'][inner_item]
+        }
+        )
+      }}
+  loop: "{{ hostvars[inventory_hostname].ansible_devices[item]['partitions'].keys() | list | default([]) }}"
+  loop_control:
+    loop_var: inner_item
