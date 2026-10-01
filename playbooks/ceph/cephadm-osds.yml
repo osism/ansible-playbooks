@@ -1,9 +1,9 @@
 ---
 # Deploy Ceph with cephadm: the OSD daemons.
 #
-# The LVM volumes are created beforehand by the ceph-create-lvm-devices play
+# The LVM volumes are created beforehand by the create-lvm-devices play
 # and described by the lvm_volumes host variable, which the operator merges
-# into the inventory from the file ceph-configure-lvm-volumes generates (see
+# into the inventory from the file configure-lvm-volumes generates (see
 # the Ceph configuration guide, "OSD devices"). Reading the resolved variable
 # rather than that file keeps this play working whichever inventory layout a
 # site uses.
@@ -23,9 +23,9 @@
         msg: >-
           Host {{ item }} is in the '{{ osd_group_name | default('ceph-osd') }}'
           group but has no lvm_volumes host variable. Run
-          `osism apply ceph-configure-lvm-volumes`, merge the generated file
+          `osism apply configure-lvm-volumes`, merge the generated file
           into the host's inventory variables, then
-          `osism apply ceph-create-lvm-devices`. Continuing would deploy a
+          `osism apply create-lvm-devices`. Continuing would deploy a
           cluster with no OSDs on this host.
       when: hostvars[item]['lvm_volumes'] | default([]) | length == 0
       loop: "{{ _cephadm_osd_hosts }}"
