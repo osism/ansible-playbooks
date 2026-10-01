@@ -915,6 +915,16 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
+    # The report records the verdict; the exit status has to carry it as well,
+    # or `osism validate ceph-osds` reports success for a failed validation.
+    - name: Fail if the validation failed
+      ansible.builtin.fail:
+        msg: >-
+          Ceph osds validation failed. See the report {{ _osds_report_file }}
+          on {{ groups['manager'][0] }}.
+      run_once: true
+      when: _osds_result == "failed"
+
   handlers:
     - name: Write report file
       ansible.builtin.template:

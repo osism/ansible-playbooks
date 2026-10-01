@@ -600,6 +600,16 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
+    # The report records the verdict; the exit status has to carry it as well,
+    # or `osism validate ceph-mgrs` reports success for a failed validation.
+    - name: Fail if the validation failed
+      ansible.builtin.fail:
+        msg: >-
+          Ceph mgrs validation failed. See the report {{ _mgrs_report_file }}
+          on {{ groups['manager'][0] }}.
+      run_once: true
+      when: _mgrs_result == "failed"
+
   handlers:
     - name: Write report file
       ansible.builtin.template:

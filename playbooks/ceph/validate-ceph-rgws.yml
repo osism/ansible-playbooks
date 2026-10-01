@@ -710,6 +710,16 @@
       run_once: true
       delegate_to: "{{ groups['manager'][0] }}"
 
+    # The report records the verdict; the exit status has to carry it as well,
+    # or `osism validate ceph-rgws` reports success for a failed validation.
+    - name: Fail if the validation failed  # noqa: run-once[task]
+      ansible.builtin.fail:
+        msg: >-
+          Ceph rgws validation failed. See the report {{ _rgws_report_file }}
+          on {{ groups['manager'][0] }}.
+      run_once: true
+      when: _rgws_result == "failed"
+
   handlers:
     - name: Write report file  # noqa: run-once[task]
       ansible.builtin.template:
