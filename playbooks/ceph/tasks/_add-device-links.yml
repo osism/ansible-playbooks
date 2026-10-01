@@ -1,0 +1,14 @@
+---
+- name: Add known links to the list of available block devices
+  ansible.builtin.set_fact:
+    block_devices: >-
+      {{
+        block_devices | combine(
+        {
+          "disk/by-id/" + inner_item: hostvars[inventory_hostname].ansible_devices[item]
+        }
+        )
+      }}
+  loop: "{{ hostvars[inventory_hostname].ansible_devices[item]['links']['ids'] | default([]) }}"
+  loop_control:
+    loop_var: inner_item
