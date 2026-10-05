@@ -85,6 +85,33 @@
           become: true
       when: enable_hardening | default('true') | bool
 
+    - name: Apply CIS hardening role
+      vars:
+        # NOTE: one ansible-lockdown role per Ubuntu release; hosts without
+        #       an entry are skipped
+        _cis_hardening_roles:
+          "24.04": ubuntu24_cis
+      when:
+        - enable_cis_hardening | default(false) | bool
+        - ansible_facts['distribution'] == 'Ubuntu'
+        - ansible_facts['distribution_version'] in _cis_hardening_roles
+      block:
+        - name: Include CIS hardening role
+          ansible.builtin.include_role:
+            name: "{{ _cis_hardening_roles[ansible_facts['distribution_version']] }}"
+            apply:
+              become: true
+
+        # NOTE: the CIS roles reconfigure chrony and logging
+        - name: Include roles reconfigured by the CIS hardening role
+          ansible.builtin.include_role:
+            name: "{{ item }}"
+          loop:
+            - osism.commons.facts
+            - osism.services.chrony
+            - osism.services.lldpd
+            - osism.services.rsyslog
+
 - name: Apply bootstrap roles part 3
   ignore_unreachable: true
   hosts: state_bootstrap_False
