@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.20261005.0] - 2026-10-05
+
+### Added
+- Cephadm bootstrap play that installs cephadm from the Ceph image and bootstraps the cluster on the monitor hosts (osism/ansible-playbooks#576)
+- Cephadm play that registers the Ceph hosts with the orchestrator and pins the container image and networks (osism/ansible-playbooks#576)
+- Cephadm play that moves the Ceph configuration overrides into the monitor config store (osism/ansible-playbooks#576)
+- Enabling of the configured mgr modules in the cephadm configuration play (osism/ansible-playbooks#576)
+- Cephadm play that deploys the MON, MGR and crash services and waits for their daemons to run (osism/ansible-playbooks#576)
+- Ceph LVM preparation plays `configure-lvm-volumes` and `create-lvm-devices` in osism-ansible, so cephadm deployments can prepare OSD devices (osism/ansible-playbooks#576)
+- Cephadm play that creates OSD daemons from the prepared LVM volumes and skips volumes that already have an OSD (osism/ansible-playbooks#576)
+- Cephadm play that creates the OpenStack pools and keys and writes the keyrings to the monitor hosts (osism/ansible-playbooks#576)
+- Cephadm dashboard play that configures the dashboard on plain HTTP with standby handling (osism/ansible-playbooks#576)
+- Deploy the RGW service with cephadm and create its pools when RGW is enabled (osism/ansible-playbooks#576)
+- Deploy the CephFS filesystem and its MDS service with cephadm and create its pools when CephFS is enabled (osism/ansible-playbooks#576)
+
+### Changed
+- Write the public and cluster networks to the cephadm config store instead of inferring them during bootstrap (osism/ansible-playbooks#576)
+- Cephadm OSD play now names the `configure-lvm-volumes` and `create-lvm-devices` plays when LVM volumes are missing (osism/ansible-playbooks#576)
+
+### Fixed
+- Fix cephadm bootstrap aborting when the monitor address is host-scoped and has no matching network route (osism/ansible-playbooks#576)
+- Ceph RGW validation testing S3 at the address the gateway listens on instead of the inventory hostname (osism/ansible-playbooks#578)
+- Ceph mons, mgrs, osds and rgws validations failing the play when a validation fails so `osism validate` reports the failure (osism/ansible-playbooks#578)
+
 ## [v0.20261001.0] - 2026-10-01
 
 ### Changed
