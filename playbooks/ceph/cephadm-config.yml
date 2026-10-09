@@ -93,8 +93,9 @@
         # and true under the exact daemon section. Do not "simplify" the
         # ceph-ansible side to match this.
         #
-        # It also has to collapse: this play runs on `hosts: manager`, so
-        # tbng's per-daemon section name (`client.rgw.{{ rgw_zone }}.{{
+        # It also has to collapse: this play runs on `hosts: manager`, so the
+        # per-daemon section name that cfg-cookiecutter and the Ceph
+        # configuration guide use (`client.rgw.{{ rgw_zone }}.{{
         # hostvars[inventory_hostname]['ansible_hostname'] }}.rgw0`) renders
         # with the MANAGER's hostname, not any RGW daemon's -- the rendered
         # input section name is meaningless here. It reads correctly only
