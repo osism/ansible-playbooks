@@ -1,7 +1,0 @@
----
-- name: Apply role nexus
-  hosts: "{{ hosts_nexus|default('nexus') }}"
-  serial: "{{ osism_serial['nexus']|default('0') }}"
-
-  roles:
-    - role: osism.services.nexus
