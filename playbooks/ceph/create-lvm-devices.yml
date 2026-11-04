@@ -41,6 +41,100 @@
             - ceph_db_wal_devices is defined
             - (ceph_db_devivces is defined or ceph_wal_devices is defined)
 
+        # A configured device that is missing, has holders or has partitions
+        # gets no VG below. That is right on a rerun, where the holder is the
+        # device's own Ceph LV, but not when its VG does not exist yet: then
+        # the device would get no OSD at all.
+        - name: Get list of existing Ceph VGs
+          become: true
+          ansible.builtin.command:
+            argv:
+              - "vgs"
+              - "--options"
+              - "vg_name"
+              - "--quiet"
+              - "--noheadings"
+              - "--reportformat"
+              - "json"
+              - "--select"
+              - 'vg_name =~ ceph-.*'
+          changed_when: false
+          register: _existing_vgs_cmd_output
+          check_mode: false
+
+        - name: Fail if a configured device without a VG cannot be used
+          ansible.builtin.fail:
+            msg: >-
+              {{ inventory_hostname }}: /dev/{{ item.key }} gets no VG
+              {{ _vg }}: {{ _reason }}
+          loop: >-
+            {{
+              (ceph_osd_devices | default({}) | dict2items) +
+              (ceph_db_devices | default({}) | dict2items) +
+              (ceph_wal_devices | default({}) | dict2items) +
+              (ceph_db_wal_devices | default({}) | dict2items)
+            }}
+          loop_control:
+            label: "{{ item.key }}"
+          when:
+            - _vg | length > 0
+            - _vg not in _existing_vgs
+            - item.key not in block_devices or
+              _holders | length > 0 or
+              _partitions | length > 0
+          vars:
+            _existing_vgs: >-
+              {{
+                (_existing_vgs_cmd_output.stdout | from_json).report[0].vg |
+                map(attribute='vg_name') | list
+              }}
+            _vg: >-
+              {{
+                item.value.vg_name if item.value.vg_name is defined
+                else ('ceph-' + item.value.osd_lvm_uuid)
+                if item.value.osd_lvm_uuid is defined
+                else ''
+              }}
+            _holders: >-
+              {{ (block_devices[item.key] | default({})).holders | default([]) }}
+            _partitions: >-
+              {{
+                (block_devices[item.key] | default({})).partitions |
+                default({}) | list
+              }}
+            # Device-mapper names of Ceph LVs start with "ceph--" (LVM
+            # doubles the dashes of the VG name).
+            _ceph_holders: >-
+              {{ _holders | select('match', '^ceph--') | list }}
+            _facts_hint: >-
+              the cached facts may predate the change: run
+              "osism apply facts -l {{ inventory_hostname }}", then this
+              play again.
+            _reason: >-
+              {{
+                ('it is not a known block device. Check the device key.' +
+                 ' If the disk was added or replaced recently, ' +
+                 _facts_hint)
+                if item.key not in block_devices
+                else
+                ('it already holds Ceph LVs of another VG: ' +
+                 _ceph_holders | join(', ') + '.' +
+                 ' The configured osd_lvm_uuid (or vg_name) probably' +
+                 ' does not match the existing VG. Correct it instead' +
+                 ' of wiping the device: it holds Ceph data, possibly' +
+                 ' a running OSD.')
+                if _ceph_holders | length > 0
+                else (
+                  (['it is in use by ' + _holders | join(', ') + ' (holders).']
+                   if _holders | length > 0 else []) +
+                  (['it has partitions ' + _partitions | join(', ') + '.']
+                   if _partitions | length > 0 else []) +
+                  ['Wipe the device if its contents are not needed,' +
+                   ' then run this play again. If it was wiped already,',
+                   _facts_hint]
+                ) | join(' ')
+              }}
+
         # Can only create VGs when PV is known, so it MUST be present
         # in ceph_osd_devices and MUST NOT have holders or partitions
         - name: Create dict of block VGs -> PVs from ceph_osd_devices
