@@ -53,6 +53,95 @@
     # answer: hostname_check refuses a host whose kernel name disagrees with
     # the name libvirt, Cyrus SASL and ovn-controller will each derive for it.
     - role: osism.commons.hostname_check
+
+# apt rejects package lists that are "not valid yet" on a host whose clock is
+# behind, so the clock is corrected before the first apt run. It needs its
+# own play: chrony applies new servers through a handler.
+- name: Synchronise time before package operations
+  ignore_unreachable: true
+  hosts: state_bootstrap_False
+  gather_facts: false
+  serial: "{{ osism_serial_default | default(0) }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
+
+  vars:
+    _max_clock_offset: "{{ bootstrap_max_clock_offset | default(60) | int }}"
+
+  tasks:
+    - name: Get host clock
+      ansible.builtin.command: date +%s
+      register: _host_clock
+      changed_when: false
+      check_mode: false
+
+    - name: Set clock offset to the manager
+      ansible.builtin.set_fact:
+        _clock_offset: "{{ (_host_clock.stdout | int - lookup('ansible.builtin.pipe', 'date +%s') | int) | abs }}"
+
+    - name: Check if chronyd is installed
+      ansible.builtin.stat:
+        path: /usr/sbin/chronyd
+      register: _chronyd
+      when: _clock_offset | int > _max_clock_offset | int
+
+    - name: Include chrony role
+      ansible.builtin.include_role:
+        name: osism.services.chrony
+      when:
+        - _clock_offset | int > _max_clock_offset | int
+        - _chronyd.stat.exists
+
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Step the clock with chrony
+      become: true
+      when:
+        - _clock_offset | int > _max_clock_offset | int
+        - _chronyd.stat.exists
+      block:
+        - name: Request a burst of measurements
+          ansible.builtin.command: chronyc burst 4/4
+          changed_when: false
+
+        - name: Wait for chrony to synchronise
+          ansible.builtin.command: chronyc waitsync 30 0 0 2
+          changed_when: false
+          failed_when: false
+
+        - name: Step the clock
+          ansible.builtin.command: chronyc makestep
+          changed_when: true
+
+        - name: Get host clock again
+          ansible.builtin.command: date +%s
+          register: _host_clock
+          changed_when: false
+          check_mode: false
+
+        - name: Set clock offset to the manager again
+          ansible.builtin.set_fact:
+            _clock_offset: "{{ (_host_clock.stdout | int - lookup('ansible.builtin.pipe', 'date +%s') | int) | abs }}"
+
+    - name: Assert the clock is close to the manager's
+      ansible.builtin.assert:
+        that: _clock_offset | int <= _max_clock_offset | int
+        fail_msg: >-
+          The clock of {{ inventory_hostname }} is {{ _clock_offset }} seconds
+          off the manager's, more than bootstrap_max_clock_offset
+          ({{ _max_clock_offset }}). apt would reject the package lists.
+          Make the NTP servers in chrony_servers reachable and run
+          "osism apply chrony -l {{ inventory_hostname }}", or set the clock
+          by hand.
+        quiet: true
+
+- name: Apply bootstrap roles part 1 (continued)
+  ignore_unreachable: true
+  hosts: state_bootstrap_False
+  serial: "{{ osism_serial_default | default(0) }}"
+  strategy: "{{ osism_strategy | default('linear') }}"
+
+  roles:
     - role: osism.commons.repository
     - role: osism.services.rsyslog
     - role: osism.commons.systohc
