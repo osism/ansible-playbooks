@@ -32,6 +32,34 @@
           ansible.builtin.include_tasks: tasks/_add-device-partitions.yml
           loop: "{{ hostvars[inventory_hostname].ansible_devices.keys() | list }}"
 
+        # A device key that matches no block device would be left out of
+        # lvm_volumes without a trace, and create-lvm-devices would then
+        # create nothing for it.
+        - name: Fail if configured devices are not known block devices
+          ansible.builtin.fail:
+            msg: >-
+              {{ inventory_hostname }}: these configured devices match no
+              block device: {{ _unknown_devices | join(', ') }}.
+              Device keys in ceph_osd_devices, ceph_db_devices,
+              ceph_wal_devices and ceph_db_wal_devices are relative to /dev/:
+              a kernel name such as sdb, a partition such as sdb1, or
+              disk/by-id/<id>. Kernel names on this host:
+              {{ hostvars[inventory_hostname].ansible_devices.keys() | sort | join(', ') }}.
+              If a disk was added or replaced recently, the cached facts may
+              predate it: run "osism apply facts -l {{ inventory_hostname }}",
+              then this play again.
+          when: _unknown_devices | length > 0
+          vars:
+            _configured_devices: >-
+              {{
+                (ceph_osd_devices | default({})).keys() | list +
+                (ceph_db_devices | default({})).keys() | list +
+                (ceph_wal_devices | default({})).keys() | list +
+                (ceph_db_wal_devices | default({})).keys() | list
+              }}
+            _unknown_devices: >-
+              {{ _configured_devices | difference(block_devices.keys() | list) }}
+
         - name: Set UUIDs for OSD VGs/LVs
           ansible.builtin.set_fact:
             ceph_osd_devices: >-
