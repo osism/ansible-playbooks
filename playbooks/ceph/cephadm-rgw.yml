@@ -98,6 +98,20 @@
              | map(attribute='key') | list }}
       when: _missing | length > 0
 
+    # Each radosgw_address is the host's own address, the haproxy backend for
+    # that host, never a VIP. --networks lists them as /32s and cephadm binds
+    # a host to the first one it carries, so an address shared by several
+    # hosts -- an anycast VIP -- would bind all of them to it.
+    - name: Fail when RGW hosts share a radosgw_address
+      ansible.builtin.fail:
+        msg: >-
+          Several RGW hosts share a radosgw_address: {{ _cephadm_rgw_addrs }}.
+          Each RGW host needs its own address, the one haproxy reaches its RGW
+          on; a VIP is not one.
+      vars:
+        _addrs: "{{ _cephadm_rgw_addrs.values() | list }}"
+      when: _addrs | unique | length != _addrs | length
+
     # radosgw auto-creates any pool it needs at cluster-default pg_num/size, not
     # at rgw_pool_default_pg_num / rgw_pool_default_size (Ceph configuration
     # guide, "Pools and Keys"). If cephadm-pools last ran with enable_ceph_rgw
