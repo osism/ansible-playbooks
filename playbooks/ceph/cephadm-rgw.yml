@@ -31,6 +31,11 @@
     # client.rgw regardless of its generated name.
     _cephadm_rgw_svc_id: "{{ rgw_zone | default('default') }}"
     _cephadm_rgw_service: "rgw.{{ _cephadm_rgw_svc_id }}"
+    # Each RGW host's own address as a single-host network, then
+    # public_network. See "Apply the RGW service" for why both.
+    _cephadm_rgw_networks: >-
+      {{ _cephadm_rgw_addrs.values() | map('ansible.utils.ipaddr', 'host') | list
+         + [public_network] }}
 
   tasks:
     - name: End the play when RGW is not enabled
@@ -52,9 +57,9 @@
     - name: Fail when public_network is not set
       ansible.builtin.fail:
         msg: >-
-          public_network is not set. It is the network the RGW daemons bind on
-          and is passed to `ceph orch apply rgw --networks`; without it the
-          daemons would listen on every address on the host.
+          public_network is not set. It is the last entry of `ceph orch apply
+          rgw --networks`, the fallback for a cephadm that cannot match a
+          host's own address as a /32.
       when: public_network | default('') | length == 0
 
     - name: Fail when the RGW frontend port is not set
@@ -136,10 +141,19 @@
       when: _missing | length > 0
 
     # --networks is what makes cephadm emit `beast endpoint=<ip>:<port>` instead
-    # of a bare `port=<port>` that binds every address on the host. cephadm
-    # resolves the CIDR to one address per host from the networks it discovers
-    # with `ip route ls`; an address with no scope-link route there -- a /32, for
-    # instance -- cannot be matched, and the host is then dropped from placement
+    # of a bare `port=<port>` that binds every address on the host. cephadm picks
+    # each host's address from the first listed network the host carries, so
+    # the list starts with every RGW host's radosgw_address as a /32 (/128).
+    #
+    # public_network alone is not enough. Where other addresses of a host lie
+    # inside it -- the API VIPs as /32s on loopback0 on a routed fabric --
+    # cephadm may pick one of those, and RGW then listens on a VIP instead of
+    # the address the haproxy backend (ceph_rgw_hosts) targets. With OSISM's
+    # ceph-daemon image, which registers every configured address as a /32
+    # network, the host's own /32 always matches first. A stock cephadm only
+    # knows networks that `ip route ls` shows as scope-link routes, so it does
+    # not match the /32 and falls through to public_network, as before; on a
+    # routed fabric it then matches nothing and drops the host from placement
     # without an error. The rescue below reports that case.
     - name: Apply the RGW service
       ansible.builtin.command:
@@ -151,7 +165,7 @@
           - "{{ _cephadm_rgw_svc_id }}"
           - "--placement={{ _cephadm_rgws | join(',') }}"
           - "--port={{ radosgw_frontend_port }}"
-          - "--networks={{ public_network }}"
+          - "--networks={{ _cephadm_rgw_networks | join(',') }}"
       changed_when: true
 
     - name: Wait for the RGW daemons
@@ -210,9 +224,10 @@
               running {{ _cephadm_rgw_running.stdout | default('none') }}.
               Service state: {{ _cephadm_rgw_ls.stdout | default('unavailable') }}.
               If the daemon count is short, check that --networks
-              ({{ public_network }}) matches a network the RGW hosts report to
-              cephadm: a host whose bind address has no scope-link route is
-              skipped during placement without an error.
+              ({{ _cephadm_rgw_networks | join(',') }}) matches a network the
+              RGW hosts report to cephadm: with a stock ceph image, a host
+              whose radosgw_address has no scope-link route is skipped during
+              placement without an error.
 
     - name: Collect the RGW daemon names and their hosts
       ansible.builtin.shell:
