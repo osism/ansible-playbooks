@@ -20,6 +20,18 @@
 
     - name: Ceph configure LVM
       block:
+        # osism-ansible caches facts (gathering = smart), so gather_facts
+        # can return the devices as they were before a disk was added,
+        # replaced or wiped. This play depends on their current state.
+        - name: Gather current device facts
+          ansible.builtin.setup:
+            gather_subset:
+              - "!all"
+              - "!min"
+              - "hardware"
+            filter:
+              - "ansible_devices"
+
         - name: Get initial list of available block devices
           ansible.builtin.set_fact:
             block_devices: "{{ hostvars[inventory_hostname].ansible_devices }}"
@@ -45,9 +57,6 @@
               a kernel name such as sdb, a partition such as sdb1, or
               disk/by-id/<id>. Kernel names on this host:
               {{ hostvars[inventory_hostname].ansible_devices.keys() | sort | join(', ') }}.
-              If a disk was added or replaced recently, the cached facts may
-              predate it: run "osism apply facts -l {{ inventory_hostname }}",
-              then this play again.
           when: _unknown_devices | length > 0
           vars:
             _configured_devices: >-
