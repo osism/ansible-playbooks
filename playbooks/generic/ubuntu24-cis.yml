@@ -1,0 +1,25 @@
+---
+- name: Apply role ubuntu24-cis
+  hosts: "{{ hosts_default_group|default('generic') }}"
+  serial: "{{ osism_serial['ubuntu24-cis']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  pre_tasks:
+    - name: Assert that the host runs Ubuntu 24.04
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == 'Ubuntu'
+          - ansible_facts['distribution_version'] == '24.04'
+        fail_msg: >-
+          ubuntu24-cis supports Ubuntu 24.04 only, not
+          {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+        quiet: true
+
+  roles:
+    - role: ubuntu24_cis
+      become: true
+    # NOTE: ubuntu24_cis reconfigures chrony and logging
+    - role: osism.commons.facts
+    - role: osism.services.chrony
+    - role: osism.services.lldpd
+    - role: osism.services.rsyslog
