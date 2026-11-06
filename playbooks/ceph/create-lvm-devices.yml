@@ -19,6 +19,18 @@
 
     - name: Ceph create LVM devices
       block:
+        # osism-ansible caches facts (gathering = smart), so gather_facts
+        # can return the devices as they were before a disk was added,
+        # replaced or wiped. This play depends on their current state.
+        - name: Gather current device facts
+          ansible.builtin.setup:
+            gather_subset:
+              - "!all"
+              - "!min"
+              - "hardware"
+            filter:
+              - "ansible_devices"
+
         - name: Get initial list of available block devices
           ansible.builtin.set_fact:
             block_devices: "{{ hostvars[inventory_hostname].ansible_devices }}"
@@ -106,15 +118,9 @@
             # doubles the dashes of the VG name).
             _ceph_holders: >-
               {{ _holders | select('match', '^ceph--') | list }}
-            _facts_hint: >-
-              the cached facts may predate the change: run
-              "osism apply facts -l {{ inventory_hostname }}", then this
-              play again.
             _reason: >-
               {{
-                ('it is not a known block device. Check the device key.' +
-                 ' If the disk was added or replaced recently, ' +
-                 _facts_hint)
+                'it is not a known block device. Check the device key.'
                 if item.key not in block_devices
                 else
                 ('it already holds Ceph LVs of another VG: ' +
@@ -130,8 +136,7 @@
                   (['it has partitions ' + _partitions | join(', ') + '.']
                    if _partitions | length > 0 else []) +
                   ['Wipe the device if its contents are not needed,' +
-                   ' then run this play again. If it was wiped already,',
-                   _facts_hint]
+                   ' then run this play again.']
                 ) | join(' ')
               }}
 
