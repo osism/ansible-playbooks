@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.20261111.0] - 2026-11-11
+
+### Changed
+
+- bootstrap: synchronise the clock before apt (osism/ansible-playbooks#590)
+- cephadm-rgw: bind each RGW host's own address (osism/ansible-playbooks#591)
+- ceph: fail on OSD device keys matching no disk (osism/ansible-playbooks#592)
+- ceph: read current device facts in the LVM plays (osism/ansible-playbooks#593)
+- kolla: check connectivity by network, not CIDR (osism/ansible-playbooks#594)
+- publish: run on Python 3.12, ansible-core 2.18 (osism/ansible-playbooks#595)
+
 ## [v0.20261023.0] - 2026-10-23
 
 ### Fixed
