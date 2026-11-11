@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.20261111.0] - 2026-11-11
+
+### Added
+- Bootstrap now checks the host clock against the manager before package operations and applies chrony to correct drift, failing with a clear message if the offset remains too large (osism/ansible-playbooks#590)
+
+### Changed
+- Ceph LVM plays refresh device facts at the start instead of relying on the cached ones (osism/ansible-playbooks#593)
+- Publish workflow now runs on Python 3.12 and ansible-core 2.18.18 (osism/ansible-playbooks#595)
+
+### Fixed
+- cephadm-rgw now binds each RGW host to its own address instead of a shared anycast VIP, and fails early when RGW hosts share a radosgw_address (osism/ansible-playbooks#591)
+- Ceph LVM plays now fail early with a clear message instead of silently skipping OSD/DB/WAL devices whose key matches no disk or that would get no VG (osism/ansible-playbooks#592)
+- Kolla connectivity validation now checks each network by its kolla network name instead of a derived CIDR, fixing checks that silently passed on routed fabrics (osism/ansible-playbooks#594)
+
 ## [v0.20261023.0] - 2026-10-23
 
 ### Fixed
