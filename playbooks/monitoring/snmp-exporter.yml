@@ -1,0 +1,7 @@
+---
+- name: Apply role snmp_exporter
+  hosts: "{{ hosts_snmp_exporter|default('snmp_exporter') }}"
+  serial: "{{ osism_serial['snmp_exporter']|default(osism_serial_default)|default(0) }}"
+
+  roles:
+    - role: osism.services.snmp_exporter
