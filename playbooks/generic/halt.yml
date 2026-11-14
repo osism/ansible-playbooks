@@ -22,6 +22,8 @@
 
     - name: Reboot system
       ansible.builtin.shell: sleep 2 && /sbin/shutdown -h now
-      async: 1
+      # The job has to outlive its own sleep: ansible-core 2.19 and later kill
+      # an async job once its timeout passes, before shutdown is reached.
+      async: 60
       poll: 0
       changed_when: true
