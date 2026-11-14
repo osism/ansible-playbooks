@@ -30,7 +30,9 @@
 
     - name: Reboot system - do not wait for the reboot to complete
       ansible.builtin.shell: "sleep {{ reboot_pre_reboot_delay }} && /sbin/shutdown -r now '{{ reboot_msg }}'"
-      async: 1
+      # The job has to outlive its own sleep: ansible-core 2.19 and later kill
+      # an async job once its timeout passes, before shutdown is reached.
+      async: "{{ reboot_pre_reboot_delay | int + 60 }}"
       poll: 0
       changed_when: true
       when: not reboot_wait | bool
