@@ -1,0 +1,8 @@
+---
+- name: Apply role ipmi_exporter
+  hosts: "{{ ipmi_exporter|default('ipmi_exporter') }}"
+  serial: "{{ osism_serial['ipmi_exporter']|default(osism_serial_default)|default(0) }}"
+  strategy: "{{ osism_strategy|default('linear') }}"
+
+  roles:
+    - role: osism.services.ipmi_exporter
