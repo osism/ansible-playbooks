@@ -285,7 +285,7 @@ def main():
         else:
             exit(0)
     except ClientError as err:
-        print("[{'client_error': '{}'}]".format(err))
+        print("[{{'client_error': '{}'}}]".format(err))
         exit(1)
 
 if __name__ == "__main__":
