@@ -10,7 +10,7 @@
 # - Number of ceph-mons matches nodes inside quorum
 # - Cluster FSID matches the configured FSID
 # - Cluster Health is either HEALTH_OK/HEALTH_WARN or
-#   HEALTH_OK if var ceph_validate_strict is set
+#   HEALTH_OK if var ceph_validate_strict is true
 #
 # This playbook can be used to validate that basic ceph
 # cluster functionality is present and in sync with config.
@@ -436,7 +436,7 @@
           Test 'cluster-health' failed."
       run_once: true
       when:
-        - ceph_validate_strict is not defined
+        - not (ceph_validate_strict | default(false) | bool)
         - _mons_health_status not in ["HEALTH_OK", "HEALTH_WARN"]
 
     # Pass the cluster-health check if health is OK or WARN
@@ -448,7 +448,7 @@
            Cluster Health: {{ _mons_health_status }}"
       run_once: true
       when:
-        - ceph_validate_strict is not defined
+        - not (ceph_validate_strict | default(false) | bool)
         - _mons_health_status in ["HEALTH_OK", "HEALTH_WARN"]
 
     # Fail the cluster-health check if health is not OK or WARN (strict)
@@ -465,7 +465,7 @@
           Test 'cluster-health' failed."
       run_once: true
       when:
-        - ceph_validate_strict is defined
+        - ceph_validate_strict | default(false) | bool
         - _mons_health_status != "HEALTH_OK"
 
     # Pass the cluster-health check if health is OK (strict)
@@ -478,7 +478,7 @@
            Strict mode was set."
       run_once: true
       when:
-        - ceph_validate_strict is defined
+        - ceph_validate_strict | default(false) | bool
         - _mons_health_status == "HEALTH_OK"
 
     # Set validation result to passed if no test failed
