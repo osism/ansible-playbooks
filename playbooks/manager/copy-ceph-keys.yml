@@ -2,35 +2,11 @@
 - name: Copy ceph keys to the configuration repository
   hosts: manager
 
+  vars_files:
+    - vars/ceph-keys.yml
+
   vars:
     ceph_custom_keys: []
-    ceph_infrastructure_keys:
-      - src: ceph.client.admin.keyring
-        dest: "{{ configuration_directory }}/environments/infrastructure/files/ceph/ceph.client.admin.keyring"
-    ceph_kolla_keys:
-      - src: ceph.client.cinder.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/cinder/cinder-volume/ceph.client.cinder.keyring"
-
-      - src: ceph.client.cinder.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/cinder/cinder-backup/ceph.client.cinder.keyring"
-
-      - src: ceph.client.cinder-backup.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/cinder/cinder-backup/ceph.client.cinder-backup.keyring"
-
-      - src: ceph.client.cinder.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/nova/ceph.client.cinder.keyring"
-
-      - src: ceph.client.nova.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/nova/ceph.client.nova.keyring"
-
-      - src: ceph.client.glance.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/glance/ceph.client.glance.keyring"
-
-      - src: ceph.client.gnocchi.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/gnocchi/ceph.client.gnocchi.keyring"
-
-      - src: ceph.client.manila.keyring
-        dest: "{{ configuration_directory }}/environments/kolla/files/overlays/manila/ceph.client.manila.keyring"
 
   tasks:
     - name: Check if ceph keys exist
