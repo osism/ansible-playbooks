@@ -10,6 +10,14 @@
   become: true
   strategy: "{{ osism_strategy | default('linear') }}"
 
+  vars:
+    # ceph_docker_image_tag resolves to ceph_image_version, which the
+    # inventory reconciler merges into group_vars/all from the ceph-ansible
+    # container's published version file. Verified on a live cluster:
+    # `osism dump inventory <host> ceph_image_version` -> 18.2.8.
+    _cephadm_image: >-
+      {{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }}
+
   tasks:
     # A play targeting an empty group is skipped outright ("skipping: no
     # hosts matched") rather than running any of its tasks, so this guard
@@ -34,6 +42,16 @@
     # 18.2.5+; the image is past that. The package contains only
     # /usr/sbin/cephadm plus docs, and `cephadm prepare-host` below installs
     # what its Depends would have.
+    #
+    # Pulled in a task of its own so that the download, the slow part of
+    # this play on a host that does not have the image yet, is reported under
+    # its own name. Every Ceph daemon cephadm deploys later runs from this
+    # image, so pulling it here adds no download.
+    - name: Pull the Ceph image
+      community.docker.docker_image:
+        name: "{{ _cephadm_image }}"
+        source: pull
+
     - name: Extract cephadm from the Ceph image
       ansible.builtin.shell:
         cmd: >-
@@ -43,13 +61,6 @@
       args:
         executable: /bin/bash
       changed_when: true
-      vars:
-        # ceph_docker_image_tag resolves to ceph_image_version, which the
-        # inventory reconciler merges into group_vars/all from the ceph-ansible
-        # container's published version file. Verified on a live cluster:
-        # `osism dump inventory <host> ceph_image_version` -> 18.2.8.
-        _cephadm_image: >-
-          {{ ceph_docker_registry }}/{{ ceph_docker_image }}:{{ ceph_docker_image_tag }}
 
     - name: Install cephadm
       ansible.builtin.copy:
