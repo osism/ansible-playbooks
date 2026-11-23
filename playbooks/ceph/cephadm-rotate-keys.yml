@@ -20,12 +20,17 @@
 #       crash           client.crash.<host> of every crash daemon (ceph orch ps)
 #       rgw             client.rgw.<id> of every RGW daemon (ceph orch ps)
 #       bootstrap       every client.bootstrap-* entity
+#       lockbox         client.osd-lockbox.<osd_fsid> of every encrypted OSD
+#                       (ceph osd ls; encrypted: its logical volume has a
+#                       ceph.cephx_lockbox_secret tag) that is up; a down
+#                       OSD is skipped and named
 #       client.crash.*, client.rgw.*: the key of a crash or RGW daemon
 #       client.bootstrap-*
-#     Refused: the keyword lockbox and client.osd-lockbox.* (the lockbox
-#     keys of encrypted OSDs are not handled by this play), mon., mgr.*,
-#     osd.*, mds.* (cephadm's upgrade rotates those), tenant keys (Manila:
-#     rotated through Manila's access rules) and any other name.
+#       client.osd-lockbox.*: the lockbox key of an encrypted OSD (refused
+#                       while the OSD is down)
+#     Refused: mon., mgr.*, osd.*, mds.* (cephadm's upgrade rotates those),
+#     tenant keys (Manila: rotated through Manila's access rules) and any
+#     other name.
 #   ceph_rotate_keys_min_age: hours (a whole number), default 24. No new
 #     key is made for an entity whose active key is younger; its files are
 #     written again with the key in force. An entity with a pending key is
@@ -37,6 +42,13 @@
 # the RGW daemons one at a time (each key rotated right before its daemon is
 # redeployed, the next one only once the daemon runs in a new container).
 # A daemon already running with the monitors' key is not redeployed.
+#
+# The lockbox keys of encrypted OSDs never leave Ceph either, but are staged:
+# one OSD after the other, its key gets a pending key, which is written into
+# both copies on the OSD's host (the LV tag and lockbox.keyring); the OSD is
+# restarted (after ceph osd ok-to-stop), and its start commits the key. The
+# next OSD follows once it is back up and all PGs are active+clean. Until the
+# commit the old key keeps working.
 #
 # The OpenStack keys and client.admin are staged: Ceph gives the entity a
 # pending key next to the active one, and the old key keeps working until the
@@ -51,11 +63,12 @@
 # keys, monitor files and the checkout as they were. A run that fails later
 # says what it did; running the same command again (without
 # ceph_rotate_keys_min_age=0) continues it. That does not hold when a host
-# cannot be reached once keys change (a daemon or monitor host):
+# cannot be reached once keys change (a daemon, OSD or monitor host):
 # Ansible runs no rescue for it, so the run stops with Ansible's
 # UNREACHABLE and without that message (osism validate ceph-keys shows
 # what is left). Running the same command again stops at the checks while
-# the host cannot be reached; once the host is back, it continues the run.
+# the host cannot be reached (the keyword lockbox skips an OSD that is down
+# and names it); once the host is back, it continues the run.
 
 - name: Rotate cephx keys
   hosts: manager[0]
@@ -76,6 +89,7 @@
       crash: the keys of the crash daemons
       rgw: the keys of the RGW daemons
       bootstrap: the client.bootstrap-* keys
+      lockbox: the lockbox keys of the encrypted OSDs
 
   tasks:
     - name: Fail without ceph_rotate_keys
@@ -165,12 +179,120 @@
       ansible.builtin.set_fact:
         _rotate_keys_daemons: "{{ _rotate_keys_orch_ps | cephx_daemons }}"
 
+    # The encrypted OSDs, for the keyword lockbox and client.osd-lockbox.*:
+    # each OSD (ceph osd ls) on its host (ceph osd find) is encrypted if a
+    # logical volume there with its ceph.osd_id and ceph.osd_fsid tags has a
+    # ceph.cephx_lockbox_secret tag. The tags carry the keys: the lvs output
+    # is never shown.
+    - name: Note whether lockbox keys are asked for
+      ansible.builtin.set_fact:
+        _rotate_keys_lockbox_asked: "{{ 'lockbox' in _rotate_keys_tokens | cephx_rotate_classes_asked }}"
+        _rotate_keys_lockbox_osds: []
+
+    - name: List the OSDs
+      ansible.builtin.command:
+        cmd: ceph osd ls -f json
+      register: _rotate_keys_osd_ls
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+      when: _rotate_keys_lockbox_asked | bool
+
+    - name: Fail if the OSDs cannot be listed
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ 'osd_ls' | cephx_rotate_read_refusal(_rotate_keys_osd_ls) }}"
+      when: _refusal | length > 0
+
+    - name: Find the hosts of the OSDs
+      ansible.builtin.command:
+        cmd: "ceph osd find {{ item }} -f json"
+      loop: "{{ _rotate_keys_osd_ls.stdout | from_json if _rotate_keys_lockbox_asked | bool else [] }}"
+      register: _rotate_keys_osd_find
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+
+    - name: Fail if an OSD cannot be found
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ 'osd_find' | cephx_rotate_read_refusal(_rotate_keys_osd_find) }}"
+      when: _refusal | length > 0
+
+    # A down OSD is left alone: it may be stopped on purpose or sit on a
+    # failing disk, and ceph osd ok-to-stop does not object to restarting it.
+    - name: Read which OSDs are up
+      ansible.builtin.command:
+        cmd: ceph osd dump -f json
+      register: _rotate_keys_osd_dump
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+      when: _rotate_keys_lockbox_asked | bool
+
+    - name: Fail if the OSD map cannot be read
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ 'osd_dump' | cephx_rotate_read_refusal(_rotate_keys_osd_dump) }}"
+      when: _refusal | length > 0
+
+    - name: Note the hosts of the OSDs
+      ansible.builtin.set_fact:
+        _rotate_keys_osd_hosts: "{{ _rotate_keys_osd_find | cephx_osd_hosts(_rotate_keys_osd_dump) }}"
+
+    # The LV tags are read with become on the host of each OSD that is up. A
+    # host that cannot be reached must stop the run now, before the lvs
+    # output is hidden. A host that carries only down OSDs is not contacted:
+    # a down OSD is often down because its host is.
+    - name: Check that every OSD host can be reached
+      become: true
+      ansible.builtin.stat:
+        path: /var/lib/ceph
+        get_checksum: false
+      delegate_to: "{{ item }}"
+      loop: "{{ _rotate_keys_osd_hosts | selectattr('up') | map(attribute='host') | unique | list }}"
+
+    - name: Read the logical volumes on the OSD hosts
+      become: true
+      ansible.builtin.command:
+        argv: [lvs, --reportformat, json, -o, "vg_name,lv_name,lv_tags"]
+      delegate_to: "{{ item }}"
+      loop: "{{ _rotate_keys_osd_hosts | selectattr('up') | map(attribute='host') | unique | list }}"
+      register: _rotate_keys_osd_lvs
+      changed_when: false
+      # Judged by the next task, which masks stderr: stdout carries the keys.
+      failed_when: false
+      no_log: true
+
+    - name: Fail if the logical volumes cannot be read
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ 'lvs' | cephx_rotate_read_refusal(_rotate_keys_osd_lvs) }}"
+      when: _refusal | length > 0
+
+    # A down OSD counts as encrypted when its lockbox entity exists (from the
+    # cluster alone, its host is not read): it is skipped or refused. The
+    # names of the LVs with two ceph.cephx_lockbox_secret tags (names only)
+    # go along for the refusal below, which shows them outside no_log. Not
+    # no_log itself: cephx_lockbox_osds returns no key (it masks the LV
+    # names), so its stop on lvs output it cannot read is shown.
+    - name: Note the encrypted OSDs
+      ansible.builtin.set_fact:
+        _rotate_keys_lockbox_osds: "{{ _rotate_keys_osd_hosts | cephx_lockbox_osds(_rotate_keys_osd_lvs, _rotate_keys_existing) }}"
+
     # Classes by name: client.admin; the entity name prefixes of the daemon
     # and lockbox classes; the entries of openstack_keys; the daemons' own keys
     # (refused); anything else (refused). The keywords crash and rgw name the
     # entities of the daemons, bootstrap the client.bootstrap-* entities of
-    # the cluster; lockbox stays a single entry, refused below. The context
-    # noted here (names only) serves the checks and the plan.
+    # the cluster, lockbox the lockbox entities of the encrypted OSDs. The
+    # context noted here (names only) serves the checks and the plan.
     - name: Classify the entities
       ansible.builtin.set_fact:
         _rotate_keys_ctx: "{{ _ctx }}"
@@ -183,18 +305,26 @@
           existing: "{{ _rotate_keys_existing }}"
           pending: "{{ _rotate_keys_pending }}"
           daemons: "{{ _rotate_keys_daemons }}"
+          lockbox_osds: "{{ _rotate_keys_lockbox_osds }}"
           keywords: "{{ _rotate_keys_keywords }}"
           configuration_directory: "{{ configuration_directory | default(none) }}"
 
     # Refused, the first that applies, in this order:
     # - the keys of Ceph daemons, and unknown names;
-    # - the classes this play recognises but does not handle (lockbox);
     # - an entity named more than once;
     # - client.cinder without client.nova: client.cinder is Nova's key too
     #   (the volumes it attaches), and both groups end with the live
     #   migration of every guest;
     # - crash and RGW keys without a daemon: a key in use is in use by its
     #   daemon, one without is left from a daemon removed;
+    # - lockbox keys without an encrypted OSD: a lockbox key in use is in
+    #   use by an encrypted OSD, whose copies of the key are found by its LV
+    #   tags; an OSD with a lockbox key and no tagged LV (the keyword skips
+    #   unencrypted OSDs) could not be given its new key;
+    # - lockbox keys of OSDs that are down;
+    # - lockbox keys of OSDs with an LV that has two
+    #   ceph.cephx_lockbox_secret tags: which copy is in force is not known
+    #   (ceph-volume never writes two);
     # - entities missing from the cluster;
     # - crash, RGW and bootstrap keys with a pending key: this play rotates
     #   them, never stages them, so the pending key was staged by hand.
@@ -208,14 +338,16 @@
       when: _refusal | length > 0
 
     # The plan (cephx_rotate_plan): the entities in order; the keys to
-    # stage (the OpenStack keys and client.admin); and the keys to rotate in
-    # groups: the crash keys together (their daemons all at once), each RGW
-    # key on its own (one daemon after the other), the bootstrap keys
-    # together (no daemons). Nothing done yet.
+    # stage (the OpenStack keys and client.admin); the lockbox keys, one OSD
+    # after the other; and the keys to rotate in groups: the crash keys
+    # together (their daemons all at once), each RGW key on its own (one
+    # daemon after the other), the bootstrap keys together (no daemons).
+    # Nothing done yet.
     - name: Note the plan
       ansible.builtin.set_fact:
         _rotate_keys_plan: "{{ _plan.entities }}"
         _rotate_keys_plan_staged: "{{ _plan.staged }}"
+        _rotate_keys_plan_lockbox: "{{ _plan.lockbox }}"
         _rotate_keys_groups: "{{ _plan.groups }}"
         _rotate_keys_done: []
       vars:
@@ -229,9 +361,25 @@
           crash: no crash daemons (ceph orch ps)
           rgw: no RGW daemons (ceph orch ps)
           bootstrap: no client.bootstrap-* entities on the cluster
+          lockbox: >-
+            {{ 'no encrypted OSD that is up'
+               if _rotate_keys_lockbox_osds | selectattr('encrypted') | list
+               else "no encrypted OSDs (no OSD's logical volume has a ceph.cephx_lockbox_secret tag)" }}
       loop: >-
-        {{ ['crash', 'rgw', 'bootstrap'] | select('in', _rotate_keys_tokens)
+        {{ ['crash', 'rgw', 'bootstrap', 'lockbox'] | select('in', _rotate_keys_tokens)
            | reject('in', _rotate_keys_classified | map(attribute='keyword') | list) | list }}
+
+    - name: Say which encrypted OSDs the keyword lockbox skipped
+      ansible.builtin.debug:
+        msg: >-
+          lockbox: osd.{{ item.osd }} is down; its lockbox key
+          ({{ item.entity }}) was left unchanged, run the command again when
+          it is up
+      loop: >-
+        {{ _rotate_keys_lockbox_osds | selectattr('encrypted') | rejectattr('up') | list
+           if 'lockbox' in _rotate_keys_tokens else [] }}
+      loop_control:
+        label: "osd.{{ item.osd }}"
 
     - name: Say which entities the keyword openstack skipped
       ansible.builtin.debug:
@@ -347,9 +495,21 @@
         _refusal: "{{ 'checkout_writable' | cephx_rotate_host_refusal(_write_checkout_keyrings_checked | default([]), _rotate_keys_ctx) }}"
       when: _refusal | length > 0
 
-    # From here on, keys change. The keys that never leave Ceph come first,
-    # the staged keys of the repository last, so that their next steps follow
-    # at once: a staged key is not left lying around.
+    # The lockbox keys restart OSDs, which needs all PGs active+clean (each
+    # restart waits for that again). A cluster that does not get there is
+    # refused now, before any key changes.
+    - name: Wait until all PGs are active+clean before the lockbox keys
+      ansible.builtin.include_tasks: tasks/_wait-pgs-clean.yml
+      vars:
+        _wait_pgs_clean_failure: >-
+          Nothing was changed: not all PGs active+clean, and the lockbox
+          keys restart OSDs
+      when: _rotate_keys_plan_lockbox | length > 0
+
+    # From here on, keys change. The keys that never leave Ceph come first
+    # (lockbox last among them: it restarts every OSD), the staged keys of the
+    # repository last, so that their next steps follow at once: a staged key
+    # is not left lying around.
     - name: Rotate and stage the keys, distribute them
       block:
         - name: Rotate the keys and redeploy their daemons
@@ -358,6 +518,13 @@
           loop_control:
             loop_var: _rotate_keys_group
             label: "{{ _rotate_keys_group.names | join(', ') }}"
+
+        - name: Rotate the lockbox keys, one OSD after the other
+          ansible.builtin.include_tasks: tasks/_rotate-keys-lockbox.yml
+          loop: "{{ _rotate_keys_plan_lockbox }}"
+          loop_control:
+            loop_var: _rotate_keys_entity
+            label: "{{ _rotate_keys_entity.name }} (osd.{{ _rotate_keys_entity.osd }})"
 
         - name: Stage and distribute each key
           ansible.builtin.include_tasks: tasks/_rotate-keys-stage.yml
@@ -376,16 +543,21 @@
                    'group': _rotate_keys_current_group | default({}),
                    'results': _set_entity_key_results | default([]),
                    'redeployed': _redeploy_daemons_redeployed | default([]),
-                   'action': _rotate_keys_current_action | default('')},
-                 {'min_age': _rotate_keys_input.min_age}) }}
+                   'osd': _rotate_keys_current_osd | default({}),
+                   'action': _rotate_keys_current_action | default(''),
+                   'written': _rotate_keys_current_written | default(none),
+                   'restarted': _restart_osd_restarted | default(false),
+                   'doubled': _sync_lockbox_doubled_after | default([]) + _sync_lockbox_doubled | default([])},
+                 {'min_age': _rotate_keys_input.min_age,
+                  'lockbox': _rotate_keys_plan_lockbox | default([])}) }}
 
     # Next steps are printed for every entity handled. One whose key
     # was committed before this run (skipped_recent: for example after
     # a failed run, by a login attempt in between) may still be missing
     # from the repository or the services, and for client.cinder and
     # client.nova the guests may still need their migration.
-    # The keys of crash, RGW and bootstrap never leave Ceph: no next steps
-    # but the check.
+    # The keys of crash, RGW, bootstrap and lockbox never leave Ceph: no
+    # next steps but the check.
     - name: Print the summary and the next steps
       ansible.builtin.debug:
         msg: >-

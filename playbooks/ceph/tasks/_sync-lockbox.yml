@@ -1,0 +1,333 @@
+---
+# Write the lockbox key of one encrypted OSD into both copies on the OSD's
+# host. Included on the manager, where `ceph` is the cephclient wrapper; the
+# copies are read and written on the OSD's host (become).
+#
+# An encrypted OSD fetches its dm-crypt secret from the monitors at every
+# start, as client.osd-lockbox.<osd_fsid>, with the key it finds in
+#   - the ceph.cephx_lockbox_secret tag of its logical volumes (each LV with
+#     the tags ceph.osd_id=<id> and ceph.osd_fsid=<osd_fsid>: block, and db
+#     and wal where it has them), from which ceph-volume writes
+#   - /var/lib/ceph/<fsid>/osd.<id>/lockbox.keyring, but only if that file
+#     is missing. An OSD whose file holds a key the monitors do not accept does
+#     not start ("Unable to retrieve dmcrypt secret").
+# Both get the key in force next; a copy that already carries it is left
+# alone. An OSD without the tag is not encrypted: nothing is done.
+#
+# Input:
+#   _sync_lockbox_osd:     the OSD's id, for example 3.
+#   _sync_lockbox_host:    the inventory host it runs on (ceph osd find).
+#   _sync_lockbox_keyring: the normalised keyring of its lockbox entity
+#                          (_set-entity-key.yml), which names the entity and
+#                          carries the key in force next. Carries the key:
+#                          include this file with no_log.
+#
+# Output:
+#   _sync_lockbox_encrypted: false if no LV of the OSD has the tag.
+#   _sync_lockbox_changed:   true if a copy was written.
+#   _sync_lockbox_written:   what was written (LV names, lockbox.keyring).
+#
+# An LV of the OSD with two ceph.cephx_lockbox_secret tags stops the run,
+# before the writes or in the read after them: which copy is in force is not
+# known (ceph-volume never writes two). The names of such LVs are noted in
+# the no_log tasks that read the tags and shown by a task of their own.
+#
+# The tag is changed with lvchange, run by the lvm shell from its standard
+# input: a key on a command line would be visible in the host's process
+# list. HOME=/dev/null keeps the shell from saving the command, with the key,
+# to ~/.lvm_history. lvm's shell exits 0 whatever the command did, so every
+# write is checked by reading the copy again. Keys are compared by
+# fingerprint (cephx_keyring), never printed.
+
+- name: Note nothing written yet for osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.set_fact:
+    _sync_lockbox_encrypted: false
+    _sync_lockbox_changed: false
+    _sync_lockbox_written: []
+    _sync_lockbox_doubled_after: []
+
+- name: Inspect the keyring for osd.{{ _sync_lockbox_osd }}  # noqa osism-fqcn
+  cephx_keyring:
+    keyring: "{{ _sync_lockbox_keyring }}"
+  register: _sync_lockbox_want
+  changed_when: false
+  # The argument carries the key.
+  no_log: true
+
+- name: Fail on a keyring that is not a lockbox key
+  ansible.builtin.fail:
+    msg: >-
+      osd.{{ _sync_lockbox_osd }}: the keyring given is that of
+      {{ _sync_lockbox_want.entity }}, not of a client.osd-lockbox.<osd_fsid>
+      entity.
+  when: _sync_lockbox_want.entity is not match('^client[.]osd-lockbox[.][0-9a-f-]+$')
+
+- name: Read the fsid of the cluster
+  ansible.builtin.command:
+    cmd: ceph fsid
+  register: _sync_lockbox_fsid
+  changed_when: false
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+
+- name: Fail if the fsid cannot be read
+  ansible.builtin.fail:
+    msg: >-
+      ceph fsid
+      {{ _sync_lockbox_fsid | cephx_failed('ceph fsid') or 'did not print an fsid' }}.
+  when: >-
+    _sync_lockbox_fsid.rc != 0
+    or _sync_lockbox_fsid.stdout | trim is not match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
+
+- name: Note where the copies are of osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.set_fact:
+    _sync_lockbox_entity: "{{ _sync_lockbox_want.entity }}"
+    _sync_lockbox_osd_fsid: "{{ _sync_lockbox_want.entity | regex_replace('^client[.]osd-lockbox[.]', '') }}"
+    _sync_lockbox_file: "/var/lib/ceph/{{ _sync_lockbox_fsid.stdout | trim }}/osd.{{ _sync_lockbox_osd }}/lockbox.keyring"
+
+# The tags carry the key: no_log, judged by the next task.
+- name: Read the logical volumes on {{ _sync_lockbox_host }}
+  become: true
+  ansible.builtin.command:
+    argv: [lvs, --reportformat, json, -o, "vg_name,lv_name,lv_tags"]
+  delegate_to: "{{ _sync_lockbox_host }}"
+  register: _sync_lockbox_lvs_cmd
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Fail if the logical volumes cannot be read
+  ansible.builtin.fail:
+    msg: >-
+      lvs on {{ _sync_lockbox_host }}
+      {{ _sync_lockbox_lvs_cmd | cephx_failed('lvs') or 'did not print JSON' }}.
+  when: >-
+    _sync_lockbox_lvs_cmd.rc != 0
+    or (_sync_lockbox_lvs_cmd.stdout | trim)[:1] != '{'
+
+# Each LV of the OSD, with the value of its tag (carries the keys), and the
+# names of those with two tags.
+- name: Note the logical volumes of osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.set_fact:
+    _sync_lockbox_lvs: "{{ _sync_lockbox_lvs_cmd.stdout | cephx_osd_lvs(_sync_lockbox_osd, _sync_lockbox_osd_fsid) }}"
+    _sync_lockbox_doubled: "{{ _sync_lockbox_lvs_cmd.stdout | cephx_lockbox_doubled(_sync_lockbox_osd, _sync_lockbox_osd_fsid) }}"
+  no_log: true
+
+- name: Note the LVs and tags of osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.set_fact:
+    _sync_lockbox_names: "{{ _sync_lockbox_lvs | map(attribute='name') | list }}"
+    _sync_lockbox_tagged: "{{ _sync_lockbox_lvs | rejectattr('secret', 'equalto', '') | map(attribute='name') | list }}"
+  # Read from a fact that carries the keys.
+  no_log: true
+
+- name: Fail without a logical volume of osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.fail:
+    msg: >-
+      osd.{{ _sync_lockbox_osd }}: no logical volume on {{ _sync_lockbox_host }}
+      with the tags ceph.osd_id={{ _sync_lockbox_osd }} and
+      ceph.osd_fsid={{ _sync_lockbox_osd_fsid }} (lvs -o vg_name,lv_name,lv_tags).
+  when: _sync_lockbox_names | length == 0
+
+- name: Fail on two secret tags of osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.fail:
+    msg: "{{ _refusal }}"
+  vars:
+    _refusal: "{{ _sync_lockbox_doubled | cephx_lockbox_two_tags(_sync_lockbox_osd, _sync_lockbox_written) }}"
+  when: _refusal | length > 0
+
+- name: Say that it skips the unencrypted osd.{{ _sync_lockbox_osd }}
+  ansible.builtin.debug:
+    msg: >-
+      osd.{{ _sync_lockbox_osd }}: no ceph.cephx_lockbox_secret tag on
+      {{ _sync_lockbox_names | join(', ') }}, not encrypted: skipped
+  when: _sync_lockbox_tagged | length == 0
+
+- name: Write the copies of osd.{{ _sync_lockbox_osd }}
+  when: _sync_lockbox_tagged | length > 0
+  block:
+    - name: Note the key and encryption of osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.set_fact:
+        _sync_lockbox_encrypted: true
+        _sync_lockbox_key: >-
+          {{ _sync_lockbox_keyring.splitlines() | select('match', '[ \t]*key[ \t]*=') | first
+             | regex_replace('^[^=]*=', '') | trim }}
+      # Carries the key.
+      no_log: true
+
+    - name: Inspect the tags of osd.{{ _sync_lockbox_osd }}  # noqa osism-fqcn
+      cephx_keyring:
+        # Double-quoted: YAML turns \n into a newline (Jinja does not).
+        keyring: "[{{ _sync_lockbox_entity }}]\n\tkey = {{ item.secret }}\n"
+      loop: "{{ _sync_lockbox_lvs | rejectattr('secret', 'equalto', '') | list }}"
+      register: _sync_lockbox_tag_keys
+      changed_when: false
+      # A tag that is not a key differs.
+      failed_when: false
+      # The items carry the keys.
+      no_log: true
+
+    - name: Look for lockbox.keyring of osd.{{ _sync_lockbox_osd }}
+      become: true
+      ansible.builtin.stat:
+        path: "{{ _sync_lockbox_file }}"
+        get_checksum: false
+      delegate_to: "{{ _sync_lockbox_host }}"
+      register: _sync_lockbox_file_stat
+
+    - name: Inspect lockbox.keyring of osd.{{ _sync_lockbox_osd }}  # noqa osism-fqcn
+      become: true
+      cephx_keyring:
+        path: "{{ _sync_lockbox_file }}"
+      delegate_to: "{{ _sync_lockbox_host }}"
+      register: _sync_lockbox_file_key
+      changed_when: false
+      # A file that cannot be parsed differs: its key line is written.
+      failed_when: false
+      when: _sync_lockbox_file_stat.stat.exists
+      no_log: true
+
+    - name: Decide which copies to write of osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.set_fact:
+        _sync_lockbox_tag_todo: "{{ _copies.tags }}"
+        # A missing file is written by ceph-volume from the tag at the
+        # OSD's next start.
+        _sync_lockbox_file_todo: "{{ _copies.file }}"
+      vars:
+        _copies: >-
+          {{ _sync_lockbox_tag_keys
+             | cephx_lockbox_copies(_sync_lockbox_file_stat, _sync_lockbox_file_key, _sync_lockbox_want) }}
+      # Read from results whose items carry the keys.
+      no_log: true
+
+    - name: Say which copies it writes of osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.debug:
+        msg: "osd.{{ _sync_lockbox_osd }}: {{ _what }}{{ _missing }}"
+      vars:
+        _todo: >-
+          {{ _sync_lockbox_tag_todo | map('regex_replace', '^', 'the tag of ') | list
+             + (['lockbox.keyring'] if _sync_lockbox_file_todo | bool else []) }}
+        _what: "{{ ('to write: ' ~ _todo | join(', ')) if _todo else 'both copies carry the key in force' }}"
+        _missing: >-
+          {{ '' if _sync_lockbox_file_stat.stat.exists
+             else '; ' ~ _sync_lockbox_file ~ ' is missing: ceph-volume writes it from the tag at the next start' }}
+
+    - name: Write the tags of osd.{{ _sync_lockbox_osd }}
+      become: true
+      ansible.builtin.command:
+        argv: [env, HOME=/dev/null, lvm]
+        stdin: >-
+          lvchange --deltag ceph.cephx_lockbox_secret={{ item.secret }}
+          --addtag ceph.cephx_lockbox_secret={{ _sync_lockbox_key }}
+          {{ item.name }}
+      loop: "{{ _sync_lockbox_lvs | selectattr('name', 'in', _sync_lockbox_tag_todo) | list }}"
+      delegate_to: "{{ _sync_lockbox_host }}"
+      register: _sync_lockbox_lvchange
+      changed_when: true
+      # lvm's shell exits 0 whatever happened: the tags are read again below.
+      failed_when: false
+      no_log: true
+
+    # Only the key line: the file keeps its header, owner and mode.
+    - name: Write lockbox.keyring of osd.{{ _sync_lockbox_osd }}
+      become: true
+      ansible.builtin.lineinfile:
+        path: "{{ _sync_lockbox_file }}"
+        regexp: '^\s*key\s*='
+        line: "\tkey = {{ _sync_lockbox_key }}"
+        create: false
+      delegate_to: "{{ _sync_lockbox_host }}"
+      when: _sync_lockbox_file_todo | bool
+      no_log: true
+
+    - name: Note what was written for osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.set_fact:
+        _sync_lockbox_written: >-
+          {{ _sync_lockbox_tag_todo + (['lockbox.keyring'] if _sync_lockbox_file_todo | bool else []) }}
+        _sync_lockbox_changed: "{{ _sync_lockbox_tag_todo | length > 0 or _sync_lockbox_file_todo | bool }}"
+
+    - name: Read the logical volumes again on {{ _sync_lockbox_host }}
+      become: true
+      ansible.builtin.command:
+        argv: [lvs, --reportformat, json, -o, "vg_name,lv_name,lv_tags"]
+      delegate_to: "{{ _sync_lockbox_host }}"
+      register: _sync_lockbox_lvs_after
+      changed_when: false
+      failed_when: false
+      when: _sync_lockbox_tag_todo | length > 0
+      no_log: true
+
+    # Whether the written tags carry the new key is not known without this
+    # read: the OSD is not restarted.
+    - name: Fail if the logical volumes cannot be read after the writes to osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.fail:
+        msg: >-
+          lvs on {{ _sync_lockbox_host }}
+          {{ _sync_lockbox_lvs_after | cephx_failed('lvs') or 'did not print JSON' }}
+          after the writes to osd.{{ _sync_lockbox_osd }} (written:
+          {{ _written | join(', ') }}). Whether the tags carry the new key is
+          not known, so osd.{{ _sync_lockbox_osd }} is not restarted; its new
+          lockbox key is not in force yet (the old key still works). Check the
+          host's LVM (lvs -o lv_name,lv_tags).
+      vars:
+        _written: >-
+          {{ _sync_lockbox_tag_todo | map('regex_replace', '^', 'the tag of ') | list
+             + (['lockbox.keyring'] if _sync_lockbox_file_todo | bool else []) }}
+      when:
+        - _sync_lockbox_tag_todo | length > 0
+        - >-
+          _sync_lockbox_lvs_after.rc != 0
+          or (_sync_lockbox_lvs_after.stdout | trim)[:1] != '{'
+
+    - name: Note the written tags of osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.set_fact:
+        _sync_lockbox_tags_after: >-
+          {{ _sync_lockbox_lvs_after.stdout | cephx_osd_lvs(_sync_lockbox_osd, _sync_lockbox_osd_fsid)
+             | selectattr('name', 'in', _sync_lockbox_tag_todo) | items2dict(key_name='name', value_name='secret') }}
+        _sync_lockbox_doubled_after: >-
+          {{ _sync_lockbox_lvs_after.stdout | cephx_lockbox_doubled(_sync_lockbox_osd, _sync_lockbox_osd_fsid) }}
+      when: _sync_lockbox_tag_todo | length > 0
+      # Carries the keys.
+      no_log: true
+
+    - name: Fail on two secret tags after the writes to osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ _sync_lockbox_doubled_after | cephx_lockbox_two_tags(_sync_lockbox_osd, _sync_lockbox_written) }}"
+      when: _refusal | length > 0
+
+    - name: Inspect the written tags of osd.{{ _sync_lockbox_osd }}  # noqa osism-fqcn
+      cephx_keyring:
+        keyring: "[{{ _sync_lockbox_entity }}]\n\tkey = {{ _sync_lockbox_tags_after[item] | default('') }}\n"
+      loop: "{{ _sync_lockbox_tag_todo }}"
+      register: _sync_lockbox_tag_after
+      changed_when: false
+      failed_when: false
+      # The argument carries the key.
+      no_log: true
+
+    - name: Inspect the written lockbox.keyring of osd.{{ _sync_lockbox_osd }}  # noqa osism-fqcn
+      become: true
+      cephx_keyring:
+        path: "{{ _sync_lockbox_file }}"
+      delegate_to: "{{ _sync_lockbox_host }}"
+      register: _sync_lockbox_file_after
+      changed_when: false
+      failed_when: false
+      when: _sync_lockbox_file_todo | bool
+      no_log: true
+
+    - name: Fail if a copy was not written of osd.{{ _sync_lockbox_osd }}
+      ansible.builtin.fail:
+        msg: >-
+          osd.{{ _sync_lockbox_osd }}: {{ _bad | join('; ') }}. Its lockbox key
+          is not in force yet (the old key still works), so the OSD keeps
+          running and is not restarted. Check the host's LVM (lvs -o
+          lv_name,lv_tags) and the file.
+      vars:
+        _bad: >-
+          {{ _sync_lockbox_tag_after
+             | cephx_lockbox_unwritten(_sync_lockbox_file_todo | bool, _sync_lockbox_file_after,
+                                       _sync_lockbox_want, _sync_lockbox_file, _sync_lockbox_host) }}
+      when: _bad | length > 0

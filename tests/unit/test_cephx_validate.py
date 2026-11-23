@@ -143,7 +143,10 @@ def test_pending_lockbox_names_the_osd():
             OPENSTACK_KEYS,
         )
     )
-    assert n[name] == "staged lockbox key of osd.3: its next start commits it"
+    assert n[name] == (
+        "staged lockbox key of osd.3: its next start commits it; osism apply"
+        " cephadm-rotate-keys -e ceph_rotate_keys=" + name + " restarts it"
+    )
 
 
 def test_pending_lockbox_without_osd():

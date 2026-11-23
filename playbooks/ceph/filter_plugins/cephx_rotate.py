@@ -17,11 +17,14 @@ The play builds ctx once, before the classification:
   existing        the entities of the cluster (ceph auth export)
   pending         those of them with a pending key
   daemons         the crash and RGW daemons, {daemon, host, entity, class}
+  lockbox_osds    the OSDs, {osd, host, osd_fsid, up, entity, lvs,
+                  encrypted, doubled} (cephx_lockbox_osds)
   keywords        what each keyword names, for the messages
   configuration_directory  the manager's checkout
 
-The parser cephx_daemons gives the play the crash and RGW daemons. What
-happens once keys change is in cephx_redeploy (the redeploys) and
+The parsers cephx_daemons and cephx_osd_hosts give the play the crash and
+RGW daemons and the hosts of the OSDs. What happens once keys change is in
+cephx_redeploy (the redeploys), cephx_lockbox (the lockbox keys) and
 cephx_rotate_texts (the summary and the failure message).
 
 The input is checked as cephx_common says; the operator's values by the
@@ -63,26 +66,25 @@ _fsid = _common._fsid
 _is = _common._is
 _loop = _common._loop
 _openstack_key_names = _common._openstack_key_names
+_osd_map = _common._osd_map
+_osds_up = _common._osds_up
 _read = _common._read
 _records = _common._records
 _state = _common._state
 
 UNCHANGED = "Nothing was changed."
-KEYWORDS = ("openstack", "crash", "rgw", "bootstrap")
-# The classes of the entities other than the OpenStack keys and
-# client.admin, in this order, with the prefix of their entity names.
+KEYWORDS = ("openstack", "crash", "rgw", "bootstrap", "lockbox")
+# The classes the keywords crash, rgw, bootstrap and lockbox name, in this
+# order, with the prefix of their entity names.
 PREFIXES = {
     "crash": "client.crash.",
     "rgw": "client.rgw.",
     "bootstrap": "client.bootstrap-",
     "lockbox": "client.osd-lockbox.",
 }
-# The classes this play recognises and refuses: the keyword lockbox stays
-# one entry of its class.
-NOT_HANDLED = ("lockbox",)
 DAEMON_CLASSES = ("crash", "rgw")
 NAME = re.compile(r"[A-Za-z0-9._-]+")
-# Up to 9 digits: hours, never near int()'s limit on digits.
+# Up to 9 digits: hours and OSD ids, never near int()'s limit on digits.
 DIGITS = re.compile(r"[0-9]{1,9}")
 # The longest value a refusal shows: a key is 40 characters or more, so a
 # shorter text cannot hold one, whatever it is glued to.
@@ -224,11 +226,43 @@ def _read_loop(registered, what, cmd, first):
     )
 
 
+def _found_host(stdout):
+    """The host of `ceph osd find`: host, else crush_location.host; ''
+    when neither names one or the output is not a JSON object."""
+    try:
+        found = json.loads(stdout)
+    except ValueError:
+        return ""
+    if not isinstance(found, Mapping):
+        return ""
+    host = found.get("host")
+    if not (isinstance(host, str) and host):
+        location = found.get("crush_location")
+        host = location.get("host") if isinstance(location, Mapping) else None
+    return host if isinstance(host, str) else ""
+
+
+def _read_osd_find(result):
+    def describe(r):
+        def check(stdout):
+            if _found_host(stdout):
+                return ""
+            return "did not name the host of osd.%s" % r["item"]
+
+        return _read(r, "ceph osd find %s" % r["item"], check)
+
+    return _unchanged(*(describe(r) for r in _loop(result, "ceph osd find")))
+
+
 READS = {
     "auth_export": _read_auth_export,
     "orch_ps": lambda r: _read_loop(
         r, "ceph orch ps", "ceph orch ps --daemon-type %s", "["
     ),
+    "osd_ls": lambda r: _read_one("ceph osd ls", r, _starts("[")),
+    "osd_find": _read_osd_find,
+    "osd_dump": lambda r: _read_one("ceph osd dump", r, _starts("{")),
+    "lvs": lambda r: _read_loop(r, "lvs", "lvs on %s", "{"),
 }
 
 
@@ -278,6 +312,41 @@ def cephx_daemons(orch_ps):
     return out
 
 
+def _osd_id(item):
+    """An item of the loop over `ceph osd ls`: an OSD id, an int (or its
+    digits)."""
+    if _is(item, int) and item >= 0:
+        return item
+    if isinstance(item, str) and DIGITS.fullmatch(item):
+        return int(item)
+    raise AnsibleFilterError("ceph osd find: an item is not an OSD id")
+
+
+def cephx_osd_hosts(osd_find, osd_dump):
+    """Each OSD `ceph osd find` found (the loop's registered result), with its
+    osd_fsid, its host and whether `ceph osd dump` has it up (an OSD missing
+    from the OSD map is not): {osd, osd_fsid, up, host}. The OSD map is not
+    read when it was skipped (no lockbox key asked for, no OSD found)."""
+    found = _loop(osd_find, "ceph osd find")
+    if _state(osd_dump) == "skipped" and not found:
+        return []
+    up = _osds_up(osd_dump)
+    out = []
+    for r in found:
+        n = _osd_id(r["item"])
+        what = "ceph osd find %d" % n
+        stdout = _cmd(r, what)["stdout"]
+        f = _records(stdout, what, dict, {"osd_fsid": str})
+        _nonempty(f, ("osd_fsid",), what)
+        host = _found_host(stdout)
+        if not host:
+            raise AnsibleFilterError("%s did not name the host of osd.%d" % (what, n))
+        out.append(
+            {"osd": n, "osd_fsid": f["osd_fsid"], "up": up.get(n, False), "host": host}
+        )
+    return out
+
+
 # Stage 2: the classification
 
 
@@ -318,16 +387,17 @@ def _keyword_names(keyword, ctx, openstack):
         return list(
             dict.fromkeys(d["entity"] for d in ctx["daemons"] if d["class"] == keyword)
         )
-    return [n for n in existing if n.startswith(PREFIXES["bootstrap"])]
+    if keyword == "bootstrap":
+        return [n for n in existing if n.startswith(PREFIXES["bootstrap"])]
+    return [o["entity"] for o in ctx["lockbox_osds"] if o["encrypted"] and o["up"]]
 
 
 def cephx_rotate_classify(tokens, ctx):
     """Each entity named, with its class and the keyword that named it ('' for
     a name given as such). A keyword stands for the entities of its class:
     openstack for the entries of openstack_keys that exist, crash and rgw for
-    the keys of the daemons, bootstrap for the client.bootstrap-* entities.
-    The keyword of a class not handled (lockbox) stays one entry of its
-    class, refused."""
+    the keys of the daemons, bootstrap for the client.bootstrap-* entities,
+    lockbox for the lockbox keys of the encrypted OSDs that are up."""
     openstack = _openstack_names(ctx)
     out = []
     for t in tokens:
@@ -336,8 +406,6 @@ def cephx_rotate_classify(tokens, ctx):
                 {"name": n, "class": t, "keyword": t}
                 for n in _keyword_names(t, ctx, openstack)
             )
-        elif t in NOT_HANDLED:
-            out.append({"name": t, "class": t, "keyword": t})
         else:
             out.append({"name": t, "keyword": "", "class": _class_of(t, openstack)})
     return out
@@ -370,21 +438,11 @@ def _refuse_unknown(classified, ctx):
     if names:
         return (
             "%s: not a key this play rotates. It takes the keywords openstack,"
-            " crash, rgw and bootstrap, the entries of openstack_keys (%s),"
-            " client.admin, client.crash.*, client.rgw.* and client.bootstrap-*."
-            " Tenant keys (Manila) are rotated through Manila's access rules. %s"
+            " crash, rgw, bootstrap and lockbox, the entries of openstack_keys"
+            " (%s), client.admin, client.crash.*, client.rgw.*,"
+            " client.bootstrap-* and client.osd-lockbox.*. Tenant keys (Manila)"
+            " are rotated through Manila's access rules. %s"
             % (", ".join(names), ", ".join(ctx["openstack_keys"]), UNCHANGED)
-        )
-    return ""
-
-
-def _refuse_not_handled(classified, ctx):
-    names = _names_of(classified, *NOT_HANDLED)
-    if names:
-        return "%s: not handled by this play (classes %s). %s" % (
-            ", ".join(names),
-            ", ".join(NOT_HANDLED),
-            UNCHANGED,
         )
     return ""
 
@@ -440,6 +498,62 @@ def _refuse_daemon_keys_unused(classified, ctx):
     return ""
 
 
+def _refuse_lockbox_unused(classified, ctx):
+    existing = ctx["existing"]
+    osds = ctx["lockbox_osds"]
+    named = _names_of(classified, "lockbox")
+    keyword = "lockbox" in ctx["tokens"]
+    msgs = [
+        "osd.%s has a lockbox key (%s), but no logical volume on %s with the tags"
+        " ceph.osd_id=%s and ceph.osd_fsid=%s has a ceph.cephx_lockbox_secret"
+        " tag (lvs -o vg_name,lv_name,lv_tags): the copies of its key cannot be"
+        " found." % (o["osd"], o["entity"], o["host"], o["osd"], o["osd_fsid"])
+        for o in osds
+        if not o["encrypted"]
+        and o["entity"] in existing
+        and (keyword or o["entity"] in named)
+    ]
+    entities = [o["entity"] for o in osds]
+    msgs += [
+        "%s: no encrypted OSD uses it (ceph osd ls, ceph osd find, the LV tags on"
+        " the OSD hosts). A key no OSD uses is deleted (ceph auth del %s), not"
+        " rotated." % (n, n)
+        for n in named
+        if n in existing and n not in entities
+    ]
+    return _unchanged(*msgs)
+
+
+def _refuse_lockbox_down(classified, ctx):
+    named = [t for t in ctx["tokens"] if t.startswith(PREFIXES["lockbox"])]
+    down = [
+        "%s: osd.%s is down (ceph osd dump); its lockbox key is not rotated while"
+        " it is down." % (o["entity"], o["osd"])
+        for o in ctx["lockbox_osds"]
+        if o["encrypted"] and not o["up"] and o["entity"] in named
+    ]
+    if down:
+        return "%s Run the command again when it is up. %s" % (
+            " ".join(down),
+            UNCHANGED,
+        )
+    return ""
+
+
+def _refuse_lockbox_doubled(classified, ctx):
+    """An LV of an OSD whose lockbox key is rotated has two
+    ceph.cephx_lockbox_secret tags: which copy is in force is not known
+    (ceph-volume never writes two). Names the LVs, never a tag."""
+    named = _names_of(classified, "lockbox")
+    msgs = [
+        "Two ceph.cephx_lockbox_secret tags on %s (osd.%s): refused." % (lv, o["osd"])
+        for o in ctx["lockbox_osds"]
+        if o["entity"] in named
+        for lv in o["doubled"]
+    ]
+    return _unchanged(*msgs)
+
+
 def _refuse_missing(classified, ctx):
     existing = ctx["existing"]
     names = [c["name"] for c in classified if c["name"] not in existing]
@@ -475,10 +589,12 @@ def _refuse_pending(classified, ctx):
 CLASS_CHECKS = (
     _refuse_ceph_daemons,
     _refuse_unknown,
-    _refuse_not_handled,
     _refuse_twice,
     _refuse_cinder_alone,
     _refuse_daemon_keys_unused,
+    _refuse_lockbox_unused,
+    _refuse_lockbox_down,
+    _refuse_lockbox_doubled,
     _refuse_missing,
     _refuse_pending,
 )
@@ -498,10 +614,21 @@ def cephx_rotate_class_refusal(classified, ctx):
 
 def cephx_rotate_plan(classified, ctx):
     """The plan: entities ({name, class}, in order); staged (the OpenStack
-    keys and client.admin); groups to rotate ({names, class, one_at_a_time,
-    daemons}: the crash keys together, each RGW key on its own, the
-    bootstrap keys together)."""
+    keys and client.admin); lockbox ({name, osd, host}, one OSD after the
+    other); groups to rotate ({names, class, one_at_a_time, daemons}: the
+    crash keys together, each RGW key on its own, the bootstrap keys
+    together)."""
     entities = [{"name": c["name"], "class": c["class"]} for c in classified]
+    lockbox = []
+    for e in entities:
+        if e["class"] != "lockbox":
+            continue
+        osds = [o for o in ctx["lockbox_osds"] if o["entity"] == e["name"]]
+        if not osds:
+            raise AnsibleFilterError("%s: no OSD in the plan" % e["name"])
+        lockbox.append(
+            {"name": e["name"], "osd": osds[0]["osd"], "host": osds[0]["host"]}
+        )
     daemons = ctx["daemons"]
     groups = []
     crash = [e["name"] for e in entities if e["class"] == "crash"]
@@ -532,6 +659,7 @@ def cephx_rotate_plan(classified, ctx):
     return {
         "entities": entities,
         "staged": [e for e in entities if e["class"] in STAGED_CLASSES],
+        "lockbox": lockbox,
         "groups": groups,
     }
 
@@ -691,5 +819,6 @@ class FilterModule:
                 cephx_rotate_plan,
                 cephx_rotate_host_refusal,
                 cephx_daemons,
+                cephx_osd_hosts,
             )
         }

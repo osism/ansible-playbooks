@@ -6,6 +6,7 @@ from ansible.errors import AnsibleFilterError
 from cephx_rotate import (
     FilterModule,
     cephx_daemons,
+    cephx_osd_hosts,
     cephx_rotate_class_refusal,
     cephx_rotate_classes_asked,
     cephx_rotate_classify,
@@ -19,11 +20,13 @@ from cephx_rotate import (
     cephx_rotate_tokens,
 )
 
+UNCHANGED = "Nothing was changed."
 KEYWORDS = {
     "openstack": "the OpenStack keys",
     "crash": "the keys of the crash daemons",
     "rgw": "the keys of the RGW daemons",
     "bootstrap": "the client.bootstrap-* keys",
+    "lockbox": "the lockbox keys of the encrypted OSDs",
 }
 OPENSTACK_KEYS = [
     "client.cinder-backup",
@@ -35,8 +38,10 @@ OPENSTACK_KEYS = [
 ]
 U0 = "aaaaaaaa-0000-4000-8000-000000000000"
 U1 = "bbbbbbbb-1111-4111-8111-111111111111"
+U2 = "cccccccc-2222-4222-8222-222222222222"
 L0 = "client.osd-lockbox." + U0
 L1 = "client.osd-lockbox." + U1
+L2 = "client.osd-lockbox." + U2
 EXISTING = [
     "client.glance",
     "client.cinder",
@@ -88,6 +93,22 @@ DAEMONS = [
 ]
 
 
+def osd(n, fsid, up=True, encrypted=True, host="node-0", doubled=()):
+    return {
+        "osd": n,
+        "host": host,
+        "osd_fsid": fsid,
+        "up": up,
+        "entity": "client.osd-lockbox." + fsid,
+        "lvs": 1,
+        "encrypted": encrypted,
+        "doubled": list(doubled),
+    }
+
+
+OSDS = [osd(0, U0), osd(1, U1, host="node-1"), osd(2, U2, encrypted=False)]
+
+
 def ctx(tokens, **over):
     c = {
         "tokens": tokens,
@@ -95,6 +116,7 @@ def ctx(tokens, **over):
         "existing": EXISTING,
         "pending": [],
         "daemons": DAEMONS,
+        "lockbox_osds": OSDS,
         "keywords": KEYWORDS,
         "configuration_directory": "/opt/configuration",
     }
@@ -126,6 +148,7 @@ def test_filters_registered():
         "cephx_rotate_plan",
         "cephx_rotate_host_refusal",
         "cephx_daemons",
+        "cephx_osd_hosts",
     }
 
 
@@ -378,9 +401,85 @@ def test_read_orch_ps():
 
 
 @pytest.mark.parametrize(
+    "name, cmd, first",
+    [("osd_ls", "ceph osd ls", "["), ("osd_dump", "ceph osd dump", "{")],
+)
+def test_read_osd_ls_and_dump(name, cmd, first):
+    assert cephx_rotate_read_refusal(name, {"skipped": True, "changed": False}) == ""
+    assert cephx_rotate_read_refusal(name, {"rc": 0, "stdout": first + "]}"}) == ""
+    assert cephx_rotate_read_refusal(name, {"rc": 0, "stdout": ""}) == (
+        cmd + " did not print JSON. Nothing was changed."
+    )
+    assert cephx_rotate_read_refusal(name, {"rc": 2, "stdout": "", "stderr": "x"}) == (
+        cmd + " failed (rc 2): x. Nothing was changed."
+    )
+    assert cephx_rotate_read_refusal(name, {"rc": 2, "stdout": "", "stderr": ""}) == (
+        cmd + " failed (rc 2). Nothing was changed."
+    )
+
+
+def test_read_osd_find():
+    reg = {
+        "results": [
+            {"item": 0, "rc": 0, "stdout": '{"osd": 0, "host": "node-0"}'},
+            {
+                "item": 1,
+                "rc": 0,
+                "stdout": '{"osd": 1, "crush_location": {"host": "node-1"}}',
+            },
+            {"item": 2, "rc": 0, "stdout": '{"osd": 2, "crush_location": {}}'},
+            {
+                "item": 3,
+                "rc": 0,
+                "stdout": '{"osd": 3, "host": "", "crush_location": {"host": "n"}}',
+            },
+            {"item": 4, "rc": 2, "stdout": "", "stderr": "ENOENT"},
+            {"item": 5, "rc": 0, "stdout": "{not json"},
+            {"item": 6, "rc": 0, "stdout": '{"crush_location": "x"}'},
+            {
+                "item": 7,
+                "rc": 0,
+                "stdout": '{"osd": 7, "host": null, "crush_location": {"host": "n"}}',
+            },
+            {"item": 8, "rc": 0, "stdout": '{"host": "", "crush_location": {}}'},
+            {"item": 9, "rc": 0, "stdout": '[{"host": "node-0"}]'},
+        ]
+    }
+    # An empty or null host falls back to crush_location.host (3, 7).
+    assert cephx_rotate_read_refusal("osd_find", reg) == (
+        "ceph osd find 2 did not name the host of osd.2."
+        " ceph osd find 4 failed (rc 2): ENOENT."
+        " ceph osd find 5 did not name the host of osd.5."
+        " ceph osd find 6 did not name the host of osd.6."
+        " ceph osd find 8 did not name the host of osd.8."
+        " ceph osd find 9 did not name the host of osd.9. Nothing was changed."
+    )
+    assert cephx_rotate_read_refusal("osd_find", NO_ITEMS) == ""
+
+
+def test_read_lvs():
+    reg = {
+        "results": [
+            {
+                "item": "node-0",
+                "rc": 5,
+                "stdout": "",
+                "stderr": "  Volume group scan failed\n",
+            },
+            {"item": "node-1", "rc": 0, "stdout": " {}"},
+            {"item": "node-2", "rc": 0, "stdout": "[]"},
+        ]
+    }
+    assert cephx_rotate_read_refusal("lvs", reg) == (
+        "lvs on node-0 failed (rc 5): Volume group scan failed. lvs on node-2 did not print JSON. Nothing was changed."
+    )
+    assert cephx_rotate_read_refusal("lvs", NO_ITEMS) == ""
+
+
+@pytest.mark.parametrize(
     "name, result, message",
     [
-        ("auth_export", {"stdout": "[]"}, "ceph auth export: the result has no rc"),
+        ("osd_ls", {"stdout": "[]"}, "ceph osd ls: the result has no rc"),
         ("auth_export", {"rc": 0}, "ceph auth export: the result has no stdout"),
         (
             "auth_export",
@@ -393,13 +492,8 @@ def test_read_orch_ps():
             "ceph auth export: stdout is not a str",
         ),
         ("auth_export", {"skipped": True}, "ceph auth export: the command was skipped"),
-        (
-            "auth_export",
-            {"rc": True, "stdout": "{}"},
-            "ceph auth export: rc is not an int",
-        ),
-        ("auth_export", "x", "ceph auth export: the result is not a mapping"),
-        ("orch_ps", "x", "ceph orch ps: the result is not a mapping"),
+        ("osd_dump", {"rc": True, "stdout": "{}"}, "ceph osd dump: rc is not an int"),
+        ("osd_dump", "x", "a registered result is not a mapping"),
         ("orch_ps", {"skipped": True}, "ceph orch ps: the result has no results"),
         (
             "orch_ps",
@@ -411,7 +505,12 @@ def test_read_orch_ps():
             {"results": [{"item": "crash", "skipped": True}]},
             "ceph orch ps --daemon-type crash: the command was skipped",
         ),
-        ("orch_ps", {"results": "x"}, "ceph orch ps: the results are not a list"),
+        (
+            "osd_find",
+            {"results": [{"item": 0, "rc": 0}]},
+            "ceph osd find 0: the result has no stdout",
+        ),
+        ("lvs", {"results": "x"}, "lvs: the results are not a list"),
         ("nope", {}, "cephx_rotate_read_refusal: no read nope"),
     ],
 )
@@ -503,16 +602,17 @@ def test_classify_crash_daemons_share_a_key():
     ]
 
 
-def test_classify_lockbox_not_handled():
-    # The keyword of a class not handled stays one entry of its class.
-    assert names(classify(["lockbox", L1])[0]) == [
-        ("lockbox", "lockbox", "lockbox"),
-        (L1, "lockbox", ""),
+def test_classify_lockbox_skips_down_and_unencrypted():
+    osds = [osd(0, U0, up=False), osd(1, U1), osd(2, U2, encrypted=False)]
+    assert names(classify(["lockbox"], lockbox_osds=osds)[0]) == [
+        (L1, "lockbox", "lockbox")
     ]
 
 
 def test_class_refusal_none():
-    assert refusal(["client.cinder", "client.nova", "crash", "bootstrap"]) == ""
+    assert (
+        refusal(["client.cinder", "client.nova", "crash", "lockbox", "bootstrap"]) == ""
+    )
 
 
 def test_refuse_ceph_daemons():
@@ -525,18 +625,11 @@ def test_refuse_ceph_daemons():
 def test_refuse_unknown():
     assert refusal(["client.unknown", "client.manila-share-x"]) == (
         "client.unknown, client.manila-share-x: not a key this play rotates. It takes"
-        " the keywords openstack, crash, rgw and bootstrap, the entries of"
+        " the keywords openstack, crash, rgw, bootstrap and lockbox, the entries of"
         " openstack_keys (client.cinder-backup, client.cinder, client.glance,"
         " client.gnocchi, client.nova, client.manila), client.admin, client.crash.*,"
-        " client.rgw.* and client.bootstrap-*. Tenant keys (Manila) are rotated"
-        " through Manila's access rules. Nothing was changed."
-    )
-
-
-def test_refuse_not_handled():
-    assert refusal(["lockbox", "client.glance", L1]) == (
-        "lockbox, %s: not handled by this play (classes lockbox). Nothing was"
-        " changed." % L1
+        " client.rgw.*, client.bootstrap-* and client.osd-lockbox.*. Tenant keys"
+        " (Manila) are rotated through Manila's access rules. Nothing was changed."
     )
 
 
@@ -552,6 +645,11 @@ def test_refuse_not_handled():
             ["bootstrap", "bootstrap"],
             "bootstrap, client.bootstrap-osd, client.bootstrap-rgw"
             " (the keyword bootstrap includes the client.bootstrap-* keys)",
+        ),
+        (
+            ["lockbox", L1],
+            L1
+            + " (the keyword lockbox includes the lockbox keys of the encrypted OSDs)",
         ),
         (
             ["client.glance", "rgw", "crash", "client.glance"],
@@ -597,11 +695,68 @@ def test_refuse_daemon_keys_without_daemon():
     )
 
 
+def test_refuse_lockbox_without_encrypted_osd():
+    osds = [osd(0, U0), osd(1, U1, encrypted=False, host="node-1")]
+    text = (
+        "osd.1 has a lockbox key (%s), but no logical volume on node-1 with the tags"
+        " ceph.osd_id=1 and ceph.osd_fsid=%s has a ceph.cephx_lockbox_secret tag"
+        " (lvs -o vg_name,lv_name,lv_tags): the copies of its key cannot be found."
+        % (L1, U1)
+    )
+    assert refusal([L1], lockbox_osds=osds) == text + " Nothing was changed."
+    # The keyword names every OSD with a lockbox key and no tagged LV.
+    assert refusal(["lockbox"], lockbox_osds=osds) == text + " Nothing was changed."
+    # Named, but only another one lacks the tag: no refusal.
+    assert refusal([L0], lockbox_osds=osds) == ""
+    unused = (
+        "client.osd-lockbox.f00: no encrypted OSD uses it (ceph osd ls, ceph osd"
+        " find, the LV tags on the OSD hosts). A key no OSD uses is deleted (ceph"
+        " auth del client.osd-lockbox.f00), not rotated."
+    )
+    assert refusal(["client.osd-lockbox.f00"]) == unused + " Nothing was changed."
+    assert refusal([L1, "client.osd-lockbox.f00"], lockbox_osds=osds) == (
+        text + " " + unused + " Nothing was changed."
+    )
+
+
+def test_refuse_lockbox_of_down_osd():
+    osds = [osd(0, U0, up=False), osd(1, U1)]
+    assert refusal([L0], lockbox_osds=osds) == (
+        L0 + ": osd.0 is down (ceph osd dump); its lockbox key is not rotated while"
+        " it is down. Run the command again when it is up. Nothing was changed."
+    )
+    # The keyword skips it.
+    assert refusal(["lockbox"], lockbox_osds=osds) == ""
+
+
+def test_two_lockbox_tags_refused():
+    # An LV with two ceph.cephx_lockbox_secret tags: which copy is in force
+    # is not known. The refusal names the LV, never a tag (which carries a
+    # key); for each OSD whose key is rotated, named or by the keyword.
+    osds = [
+        osd(0, U0, doubled=["ceph-0/osd-block-0", "ceph-0db/osd-db-0"]),
+        osd(1, U1, host="node-1", doubled=["ceph-1/osd-block-1"]),
+    ]
+    text = (
+        "Two ceph.cephx_lockbox_secret tags on ceph-0/osd-block-0 (osd.0): refused."
+        " Two ceph.cephx_lockbox_secret tags on ceph-0db/osd-db-0 (osd.0): refused."
+    )
+    assert refusal([L0], lockbox_osds=osds) == text + " " + UNCHANGED
+    assert refusal(["lockbox"], lockbox_osds=osds) == (
+        text + " Two ceph.cephx_lockbox_secret tags on ceph-1/osd-block-1 (osd.1):"
+        " refused. " + UNCHANGED
+    )
+    # Not refused for an OSD whose key is not rotated.
+    osds = [osd(0, U0), osd(1, U1, host="node-1", doubled=["ceph-1/osd-block-1"])]
+    assert refusal([L0], lockbox_osds=osds) == ""
+    assert refusal(["client.glance"], lockbox_osds=osds) == ""
+
+
 def test_refuse_missing():
-    assert refusal(["client.rgw.default.node-9.q", "client.bootstrap-x"]) == (
-        "client.rgw.default.node-9.q, client.bootstrap-x: does not exist on the"
-        " cluster (ceph auth export). This play gives existing entities new keys;"
-        " cephadm-pools creates the keys of openstack_keys. Nothing was changed."
+    assert refusal(["client.rgw.default.node-9.q", L2]) == (
+        "client.rgw.default.node-9.q, %s: does not exist on the cluster (ceph auth"
+        " export). This play gives existing entities new keys; cephadm-pools"
+        " creates the keys of openstack_keys. Nothing was changed." % L2
     )
 
 
@@ -633,20 +788,26 @@ def test_refusal_order():
     assert refusal(["client.foo", "client.foo"]).startswith(
         "client.foo, client.foo: not a key"
     )
-    assert refusal([L0, "client.nope.x"]).startswith("client.nope.x: not a key")
-    assert refusal(["client.glance", "client.glance", "lockbox"]).startswith(
-        "lockbox: not handled"
-    )
     assert refusal(["client.cinder", "client.cinder"]).startswith(
         "ceph_rotate_keys names an entity more than once"
     )
     assert refusal(["client.cinder", "client.crash.gone"]) == CINDER_ALONE
-    assert refusal(["client.crash.gone", "client.rgw.nope"]).startswith(
+    assert refusal(["client.crash.gone", "client.osd-lockbox.f00"]).startswith(
         "client.crash.gone: no crash daemon"
     )
+    osds = [osd(0, U0, up=False), osd(1, U1, encrypted=False)]
+    assert refusal([L1, L0], lockbox_osds=osds).startswith("osd.1 has a lockbox key")
+    assert refusal([L0, "client.nope.x"], lockbox_osds=osds).startswith(
+        "client.nope.x: not a key"
+    )
+    assert refusal([L0, L2], lockbox_osds=osds).startswith(L0 + ": osd.0 is down")
+    # Two tags after a down OSD, before a missing entity.
+    osds = [osd(0, U0, up=False), osd(1, U1, doubled=["ceph-1/osd-block-1"])]
+    assert refusal([L1, L0], lockbox_osds=osds).startswith(L0 + ": osd.0 is down")
+    assert refusal([L1, L2], lockbox_osds=osds).startswith("Two ceph.cephx_lockbox")
     assert refusal(
-        ["client.rgw.nope", "client.crash.node-0"], pending=["client.crash.node-0"]
-    ).startswith("client.rgw.nope: does not exist")
+        [L2, "client.crash.node-0"], pending=["client.crash.node-0"]
+    ).startswith(L2 + ": does not exist")
 
 
 # The plan
@@ -654,7 +815,7 @@ def test_refusal_order():
 
 def test_plan_shapes():
     classified, c = classify(
-        ["client.glance", "client.admin", "crash", "rgw", "bootstrap"]
+        ["client.glance", "client.admin", "crash", "rgw", "bootstrap", L1]
     )
     plan = cephx_rotate_plan(classified, c)
     assert plan["entities"] == [
@@ -666,8 +827,10 @@ def test_plan_shapes():
         {"name": "client.rgw.default.node-1.xyz", "class": "rgw"},
         {"name": "client.bootstrap-osd", "class": "bootstrap"},
         {"name": "client.bootstrap-rgw", "class": "bootstrap"},
+        {"name": L1, "class": "lockbox"},
     ]
     assert plan["staged"] == plan["entities"][:2]
+    assert plan["lockbox"] == [{"name": L1, "osd": 1, "host": "node-1"}]
     assert plan["groups"] == [
         {
             "names": ["client.crash.node-0", "client.crash.node-1"],
@@ -700,8 +863,15 @@ def test_plan_empty():
     assert cephx_rotate_plan([], ctx([])) == {
         "entities": [],
         "staged": [],
+        "lockbox": [],
         "groups": [],
     }
+
+
+def test_plan_lockbox_without_osd_fails_closed():
+    classified, c = classify([L2], lockbox_osds=[])
+    with pytest.raises(AnsibleFilterError, match="no OSD in the plan"):
+        cephx_rotate_plan(classified, c)
 
 
 # Stage 3
@@ -892,9 +1062,30 @@ FILTERS = FilterModule().filters()
         ),
         (
             "cephx_rotate_class_refusal",
+            lambda: (
+                classify(["lockbox"])[0],
+                ctx(["lockbox"], lockbox_osds=_without(OSDS, 0, "entity")),
+            ),
+        ),
+        (
+            "cephx_rotate_class_refusal",
+            lambda: (
+                classify([L0])[0],
+                ctx([L0], lockbox_osds=_without(OSDS, 0, "doubled")),
+            ),
+        ),
+        (
+            "cephx_rotate_class_refusal",
             lambda: ([{"name": "client.glance"}], ctx([])),
         ),
         ("cephx_rotate_plan", lambda: ([{"class": "crash"}], ctx([]))),
+        (
+            "cephx_rotate_plan",
+            lambda: (
+                [{"name": "client.osd-lockbox." + U0, "class": "lockbox"}],
+                ctx([], lockbox_osds=_without(OSDS, 0, "host")),
+            ),
+        ),
         (
             "cephx_rotate_host_refusal",
             lambda: (
@@ -924,7 +1115,7 @@ def test_host_unknown_check():
         cephx_rotate_host_refusal("nope", {}, {})
 
 
-# The daemons (cluster reads)
+# The daemons and the OSD hosts (cluster reads)
 
 
 def orch_ps(**by_type):
@@ -992,6 +1183,147 @@ def test_daemons_listed_twice_across_types_stops():
 def test_daemons_unexpected_results_fail_closed(reg):
     with pytest.raises(AnsibleFilterError):
         cephx_daemons(reg)
+
+
+def osd_find(n, **found):
+    return {"item": n, "rc": 0, "stdout": json.dumps(found)}
+
+
+def dump(*osds):
+    return {"rc": 0, "stdout": json.dumps({"epoch": 1, "osds": list(osds)})}
+
+
+def test_osd_hosts():
+    find = {
+        "results": [
+            osd_find(0, osd_fsid=U0, host="node-0"),
+            osd_find(1, osd_fsid=U1, crush_location={"host": "node-1"}),
+            osd_find("2", osd_fsid=U2, host="node-0", crush_location={"host": "x"}),
+            osd_find(3, osd_fsid=U2, host="", crush_location={"host": "node-1"}),
+        ]
+    }
+    osds = [{"osd": 0, "up": 1}, {"osd": 1, "up": 0}, {"osd": 2, "up": 1}]
+    assert cephx_osd_hosts(find, dump(*osds)) == [
+        {"osd": 0, "osd_fsid": U0, "up": True, "host": "node-0"},
+        {"osd": 1, "osd_fsid": U1, "up": False, "host": "node-1"},
+        {"osd": 2, "osd_fsid": U2, "up": True, "host": "node-0"},
+        # Not in the OSD map: not up.
+        {"osd": 3, "osd_fsid": U2, "up": False, "host": "node-1"},
+    ]
+
+
+@pytest.mark.parametrize("value, up", [(0, False), (1, True)])
+def test_osd_up_values_accepted(value, up):
+    find = {"results": [osd_find(0, osd_fsid=U0, host="node-0")]}
+    assert cephx_osd_hosts(find, dump({"osd": 0, "up": value}))[0]["up"] is up
+
+
+@pytest.mark.parametrize("value", [True, False, 2, -1, "1", 1.0, None])
+def test_osd_up_values_refused(value):
+    # up is exactly the integer 0 or 1: a value of the right shape and the
+    # wrong type is refused, not coerced.
+    find = {"results": [osd_find(0, osd_fsid=U0, host="node-0")]}
+    with pytest.raises(AnsibleFilterError) as e:
+        cephx_osd_hosts(find, dump({"osd": 0, "up": value}))
+    assert str(e.value) == "ceph osd dump: up is not 0 or 1"
+
+
+def test_osd_hosts_nothing_asked():
+    # The lockbox keys not asked: no OSDs found, the OSD map not read.
+    assert cephx_osd_hosts(NO_ITEMS, {"skipped": True, "changed": False}) == []
+    # Asked, and the cluster has no OSDs: the OSD map is read all the same.
+    assert cephx_osd_hosts(NO_ITEMS, dump()) == []
+    with pytest.raises(AnsibleFilterError):
+        cephx_osd_hosts(NO_ITEMS, {"rc": 0, "stdout": "{}"})
+
+
+@pytest.mark.parametrize(
+    "found, dumped, message",
+    [
+        (
+            {"host": "node-0"},
+            dump({"osd": 0, "up": 1}),
+            "ceph osd find 0: the object has no osd_fsid",
+        ),
+        (
+            {"osd_fsid": None, "host": "node-0"},
+            dump(),
+            "ceph osd find 0: osd_fsid is not a str",
+        ),
+        (
+            {"osd_fsid": "", "host": "node-0"},
+            dump(),
+            "ceph osd find 0: an entry's osd_fsid is empty",
+        ),
+        ({"osd_fsid": U0}, dump(), "ceph osd find 0 did not name the host of osd.0"),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            dump({"up": 1}),
+            "ceph osd dump: an entry of osds has no osd",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            dump({"osd": 0}),
+            "ceph osd dump: an entry of osds has no up",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            dump({"osd": "0", "up": 1}),
+            "ceph osd dump: osd is not an int",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            dump("ab"),
+            "ceph osd dump: an entry of osds is not an object",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            dump({"osd": 0, "up": 0}, {"osd": 0, "up": 1}),
+            "ceph osd dump: an OSD is listed twice",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            {"rc": 0, "stdout": '{"x": 1}'},
+            "ceph osd dump: the object has no osds",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            {"rc": 0, "stdout": '{"osds": null}'},
+            "ceph osd dump: osds is not a list",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            {"rc": 0, "stdout": "[1]"},
+            "ceph osd dump: did not print a JSON object",
+        ),
+        (
+            {"osd_fsid": U0, "host": "node-0"},
+            {"skipped": True},
+            "ceph osd dump: the command was skipped",
+        ),
+    ],
+)
+def test_osd_hosts_unexpected_output_fails_closed(found, dumped, message):
+    find = {"results": [osd_find(0, **found)]}
+    with pytest.raises(AnsibleFilterError) as e:
+        cephx_osd_hosts(find, dumped)
+    assert str(e.value) == message
+
+
+@pytest.mark.parametrize("item", [-1, True, "x", "1.0", None, "1" * 5000])
+def test_osd_hosts_item_not_an_osd_id(item):
+    find = {"results": [osd_find(item, osd_fsid=U0, host="node-0")]}
+    with pytest.raises(AnsibleFilterError) as e:
+        cephx_osd_hosts(find, dump())
+    assert str(e.value) == "ceph osd find: an item is not an OSD id"
+
+
+def test_osd_hosts_dump_not_json_fails_closed():
+    find = {"results": [osd_find(0, osd_fsid=U0, host="node-0")]}
+    dumped = {"rc": 0, "stdout": "{AQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="}
+    with pytest.raises(AnsibleFilterError) as e:
+        cephx_osd_hosts(find, dumped)
+    assert str(e.value) == "ceph osd dump: did not print JSON"
 
 
 # The host status of the daemon hosts (stage 3)

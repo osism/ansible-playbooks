@@ -1,0 +1,131 @@
+---
+# Rotate the lockbox key of one encrypted OSD for the cephadm-rotate-keys
+# play: stage a pending key, write it into both copies on the OSD's host,
+# restart the OSD and make sure the key is committed. The old key keeps
+# working until the OSD's start with the new copies commits the pending key.
+#
+# Input:
+#   _rotate_keys_entity: {name, osd, host}: client.osd-lockbox.<osd_fsid>,
+#     the OSD's id and its host.
+#   _rotate_keys_input (min_age): as in the play.
+#
+# The OSD is restarted when its entity has a pending key, whether or not a
+# copy changed in this run: a pending key means the OSD has not started with
+# the new copies yet, also after a run that wrote them and stopped before the
+# restart. Once it is back with all PGs active+clean, a key still pending is
+# committed with ceph auth commit-pending (the OSD's start normally commits
+# it; the OSD needs its lockbox key only at its next start, which then uses
+# the new copies).
+#
+# Output: one entry appended to _rotate_keys_done, {name, class, action, osd,
+# host, written, restarted, commit}: the action of _set-entity-key.yml, the
+# copies written, whether the OSD was restarted, and who committed the key
+# (start | play | ''). No keys.
+
+- name: Note the entity in progress
+  ansible.builtin.set_fact:
+    _rotate_keys_current: "{{ _rotate_keys_entity.name }}"
+    _rotate_keys_current_action: ""
+    _rotate_keys_current_osd: "{{ _rotate_keys_entity }}"
+    _rotate_keys_current_written: null
+    _restart_osd_restarted: false
+
+- name: Stage the key of {{ _rotate_keys_entity.name }}
+  ansible.builtin.include_tasks: _set-entity-key.yml
+  vars:
+    _set_entity_key_name: "{{ _rotate_keys_entity.name }}"
+    _set_entity_key_mode: stage
+    _set_entity_key_min_age: "{{ _rotate_keys_input.min_age }}"
+
+- name: Note the staging of {{ _rotate_keys_entity.name }}
+  ansible.builtin.set_fact:
+    _rotate_keys_current_action: "{{ _set_entity_key_result.action }}"
+
+- name: Write the copies of osd.{{ _rotate_keys_entity.osd }}
+  ansible.builtin.include_tasks: _sync-lockbox.yml
+  vars:
+    _sync_lockbox_osd: "{{ _rotate_keys_entity.osd }}"
+    _sync_lockbox_host: "{{ _rotate_keys_entity.host }}"
+    _sync_lockbox_keyring: "{{ _set_entity_key_result.keyring }}"
+  # The include's arguments carry the keyring.
+  no_log: true
+
+- name: Note the copies of osd.{{ _rotate_keys_entity.osd }}
+  ansible.builtin.set_fact:
+    _rotate_keys_current_written: "{{ _sync_lockbox_written }}"
+
+- name: Restart osd.{{ _rotate_keys_entity.osd }}
+  ansible.builtin.include_tasks: _restart-osd.yml
+  vars:
+    _restart_osd_id: "{{ _rotate_keys_entity.osd }}"
+    _restart_osd_host: "{{ _rotate_keys_entity.host }}"
+  when: _rotate_keys_current_action in ['staged', 'already_staged']
+
+# The OSD's start uses the pending key, which commits it at the monitors'
+# next tick.
+- name: Wait for the commit of {{ _rotate_keys_entity.name }}
+  ansible.builtin.command:
+    cmd: "ceph auth get {{ _rotate_keys_entity.name }}"
+  register: _rotate_keys_lockbox_get
+  changed_when: false
+  # Judged by the next task, which can show stderr: stdout carries the key.
+  failed_when: false
+  no_log: true
+  until: >-
+    (_rotate_keys_lockbox_get.rc == 0 and 'pending key' not in _rotate_keys_lockbox_get.stdout)
+    or _rotate_keys_lockbox_get.attempts | default(1) | int > _rotate_keys_commit_retries | default(6) | int
+  retries: "{{ _rotate_keys_commit_retries | default(6) | int }}"
+  delay: "{{ _restart_osd_delay | default(5) | int }}"
+  when: _restart_osd_restarted | bool
+
+- name: Fail if it cannot read the keyring of {{ _rotate_keys_entity.name }}
+  ansible.builtin.fail:
+    msg: "{{ _refusal }}"
+  vars:
+    _refusal: "{{ _rotate_keys_lockbox_get | cephx_lockbox_get_refusal(_rotate_keys_entity) }}"
+  when: _refusal | length > 0
+
+- name: Inspect the keyring of {{ _rotate_keys_entity.name }}  # noqa osism-fqcn
+  cephx_keyring:
+    keyring: "{{ _rotate_keys_lockbox_get.stdout }}"
+  register: _rotate_keys_lockbox_now
+  changed_when: false
+  when: _rotate_keys_lockbox_get is not skipped
+  # The argument carries the key.
+  no_log: true
+
+# What was done, decided before the commit: the keyring read after the
+# restart is checked here (has_pending a bool), and its commit is the play's
+# only if the key is still pending.
+- name: Decide what was done for {{ _rotate_keys_entity.name }}
+  ansible.builtin.set_fact:
+    _rotate_keys_lockbox_done: >-
+      {{ _rotate_keys_entity
+         | cephx_lockbox_done(_rotate_keys_current_action, _sync_lockbox_written,
+                              _restart_osd_restarted | bool, _rotate_keys_lockbox_now) }}
+
+- name: Commit the key of {{ _rotate_keys_entity.name }}
+  ansible.builtin.command:
+    cmd: "ceph auth commit-pending {{ _rotate_keys_entity.name }}"
+  register: _rotate_keys_lockbox_commit
+  changed_when: true
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+  when: _rotate_keys_lockbox_done.commit == 'play'
+
+- name: Fail if it cannot commit the key of {{ _rotate_keys_entity.name }}
+  ansible.builtin.fail:
+    msg: >-
+      ceph auth commit-pending {{ _rotate_keys_entity.name }}
+      {{ _rotate_keys_lockbox_commit | cephx_failed('ceph auth commit-pending') }}.
+      osd.{{ _rotate_keys_entity.osd }} was restarted with the new copies.
+  when:
+    - _rotate_keys_lockbox_commit is not skipped
+    - _rotate_keys_lockbox_commit.rc != 0
+
+- name: Note what was done for {{ _rotate_keys_entity.name }}
+  ansible.builtin.set_fact:
+    _rotate_keys_done: "{{ _rotate_keys_done + [_rotate_keys_lockbox_done] }}"
+    _rotate_keys_current: ""
+    _rotate_keys_current_osd: {}
