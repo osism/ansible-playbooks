@@ -1,0 +1,8 @@
+summary:
+"client.glance: no new key: the active key is younger than 24 hours (ceph_rotate_keys_min_age; 0 rotates again); its files were written again with that key (see the next steps)"
+"  checkout: /tmp/pt/cfg/environments/kolla/files/overlays/glance/ceph.client.glance.keyring"
+"  monitors: /etc/ceph/ceph.client.glance.keyring on localhost"
+"Next steps, if the repository or the services do not have this key yet (whoever still holds the old key cannot open new connections), now and one directly after the other:"
+"1. Copy the keyring files listed under checkout above from the manager's checkout into your configuration repository (encrypt them first if your repository keeps keyrings encrypted), commit, push, then: osism apply configuration"
+"2. osism apply glance."
+"3. osism validate ceph-keys"
