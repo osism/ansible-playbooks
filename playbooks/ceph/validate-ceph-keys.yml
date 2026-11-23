@@ -1,0 +1,511 @@
+---
+# Check that the cephx keys are rotated completely and consistently. Takes no
+# input and changes nothing; it only writes its report:
+#
+#   osism validate ceph-keys
+#   (until python-osism knows it: osism apply validate-ceph-keys)
+#
+# Runs on the first manager, where `ceph` is the cephclient wrapper. Pending
+# keys and key types come from ceph auth export (ceph auth ls does not show
+# pending keys); the key in force next of the compared entities from ceph
+# auth get, fingerprinted by cephx_keyring. Checks:
+#
+#   pending-keys    No entity has a pending key: a staged rotation is not
+#                   finished. Each one is named with what commits it (the
+#                   service applies of the OpenStack keys, osism apply
+#                   cephclient for client.admin, the start of the OSD for a
+#                   lockbox key).
+#   old-key-type    Entities whose key in force next is of the old type aes
+#                   (40 characters). Reported; failing only with
+#                   ceph_validate_strict true, as in the other Ceph
+#                   validators, or when the monitors' auth_allowed_ciphers
+#                   excludes aes.
+#   monitor-copies  /etc/ceph/ceph.<entity>.keyring on every monitor host
+#                   (the entities of openstack_keys and client.admin that
+#                   exist on the cluster) holds the key in force next and no
+#                   pending key line. A missing file fails: copy-ceph-keys
+#                   reads the keyrings from here and would skip it. Files of
+#                   entities not on the cluster (deleted keys) are ignored.
+#   checkout        Each keyring file of copy-ceph-keys that exists in the
+#                   manager's checkout (configuration_directory) holds the
+#                   key in force next and is unmodified in git: staging writes
+#                   the new key into the checkout, so a match alone says
+#                   nothing about the repository, and the next osism apply
+#                   configuration would bring back what the repository holds.
+#                   The files are read on the Ansible controller, which
+#                   decrypts vault-encrypted ones (as osism defaults read
+#                   client.admin's keyring for cephclient). Fails without
+#                   configuration_directory (unset or null).
+#   running-guests  On each compute node (inventory group compute), every
+#                   QEMU process started after libvirt loaded the current
+#                   values of its Ceph secrets: the cutoff is the later
+#                   modification time of kolla's copy of the secret
+#                   (/etc/kolla/nova-libvirt/secrets/<uuid>.base64) and of the
+#                   nova_libvirt container's (/etc/libvirt/secrets), which it
+#                   gets when the container starts. With rbd_secret_uuid and
+#                   cinder_rbd_secret_uuid set (kolla's secrets, not part of
+#                   the ceph environment) only those secrets count, else every
+#                   secret in kolla's directory. The start times come from ps
+#                   on the host, not from libvirt, which a frozen guest can
+#                   hang. Before the times count, each secret's value has to
+#                   be the key in force (by fingerprint), in kolla's copy and
+#                   in the container's: a host that osism apply nova did not
+#                   reach still holds the old key, and its guests would pass
+#                   on the old file's time. Such a host fails, and its guests
+#                   are not compared. rbd_secret_uuid is client.nova's
+#                   secret, cinder_rbd_secret_uuid client.cinder's; without
+#                   them a secret has to hold either key. A guest started
+#                   before the cutoff holds the old key
+#                   and freezes at its next monitor session loss followed by a
+#                   new OSD connection: live-migrate it (or stop and start
+#                   it). A restart of the container without a key change also
+#                   moves the cutoff, so a guest can be reported that is fine;
+#                   never the other way round: a node whose container copies
+#                   cannot be read fails (the cutoff is unknown). Skipped
+#                   without compute hosts.
+#
+# The report (JSON, /opt/reports/validator/ceph-keys-validator-<timestamp>-report.json
+# on the manager) has, per check, a list of {entity, location, result, note}.
+# Comparisons show only entity, location and the result: no key, no part of
+# one. ceph's stderr is shown only with key-shaped tokens masked.
+#
+# A pending key committed early by a failed login (any login attempt for the
+# entity commits it) cannot be told from a normal commit: it shows as the
+# services not yet applied failing to connect.
+
+- name: Ceph validate keys
+  hosts: manager[0]
+  gather_facts: false
+
+  environment:
+    INTERACTIVE: "false"
+
+  vars_files:
+    - vars/cephx-keys.yml
+    - ../manager/vars/ceph-keys.yml
+
+  vars:
+    _keys_reports_directory: /opt/reports/validator
+    _keys_mon_hosts: "{{ groups[mon_group_name | default('ceph-mon')] | default([]) }}"
+    _keys_compute_hosts: "{{ groups['compute'] | default([]) }}"
+    _keys_secrets_dir: /etc/kolla/nova-libvirt/secrets
+    _keys_libvirt_container: nova_libvirt
+    _keys_secret_uuids: >-
+      {{ [rbd_secret_uuid | default(''), cinder_rbd_secret_uuid | default('')]
+         | select | list }}
+
+  tasks:
+    # ansible_date_time is cached between runs.
+    - name: Get the timestamp for the report file
+      ansible.builtin.command:
+        cmd: date --iso-8601=seconds
+      register: _keys_timestamp
+      changed_when: false
+
+    # ceph auth ls shows the active key only, never a pending one (Ceph
+    # v20.2.5 KeyServer::encode_secrets); auth export has both, as
+    # pending_key next to key (KeyRing::encode_formatted).
+    - name: Export the entities of the cluster
+      ansible.builtin.command:
+        cmd: ceph auth export -f json
+      register: _keys_auth_export
+      changed_when: false
+      # Judged by the next task, which masks stderr: stdout carries every key
+      # of the cluster.
+      failed_when: false
+      no_log: true
+
+    - name: Fail if the entities cannot be exported
+      ansible.builtin.fail:
+        msg: >-
+          ceph auth export
+          {{ _keys_auth_export | cephx_failed('ceph auth export') or 'failed to print JSON' }}.
+          Nothing was validated.
+      when: >-
+        _keys_auth_export | cephx_failed('ceph auth export') | length > 0
+        or _keys_auth_export.stdout | trim is not match('[{\[]')
+
+    # Per entity: whether it has a pending key, and whether its key in force
+    # next (the pending key if there is one, else the active key) is aes.
+    - name: Note the keys of the cluster
+      ansible.builtin.set_fact:
+        # Names and flags only, no key: without no_log, a failure to read
+        # the export shows the filter's message, which never carries its
+        # input.
+        _keys_cluster: "{{ _keys_auth_export.stdout | cephx_auth_export }}"
+
+    # Check 1: pending keys. A lockbox entity is named after its OSD's fsid.
+    - name: Read the OSD map for the pending lockbox keys
+      ansible.builtin.command:
+        cmd: ceph osd dump -f json
+      register: _keys_osd_dump
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+      when: >-
+        _keys_cluster | dict2items | selectattr('value.pending') | map(attribute='key')
+        | select('match', 'client[.]osd-lockbox[.]') | list | length > 0
+
+    - name: Fail if the OSD map cannot be read
+      ansible.builtin.fail:
+        msg: >-
+          ceph osd dump
+          {{ _keys_osd_dump | cephx_failed('ceph osd dump') or 'did not print JSON' }}.
+          Nothing was validated.
+      when:
+        - _keys_osd_dump is not skipped
+        - >-
+          _keys_osd_dump | cephx_failed('ceph osd dump') | length > 0
+          or (_keys_osd_dump.stdout | trim)[:1] != '{'
+
+    - name: Check for pending keys
+      ansible.builtin.set_fact:
+        _keys_check_pending: >-
+          {{ _keys_cluster | cephx_check_pending(_keys_osd_dump, _cephx_key_services,
+                                                 openstack_keys | default([])) }}
+
+    # Check 2: old key type. The monitors' auth_allowed_ciphers is in the
+    # monitor map (value 1: aes); a monitor map without it allows aes.
+    - name: Read the monitor map
+      ansible.builtin.command:
+        cmd: ceph mon dump -f json
+      register: _keys_mon_dump
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+
+    - name: Fail if the monitor map cannot be read
+      ansible.builtin.fail:
+        msg: >-
+          ceph mon dump
+          {{ _keys_mon_dump | cephx_failed('ceph mon dump') or 'did not print JSON' }}.
+          Nothing was validated.
+      when: >-
+        _keys_mon_dump | cephx_failed('ceph mon dump') | length > 0
+        or (_keys_mon_dump.stdout | trim)[:1] != '{'
+
+    - name: Check for keys of the old type
+      ansible.builtin.set_fact:
+        _keys_aes_allowed: "{{ _keys_mon_dump.stdout | cephx_aes_allowed }}"
+        _keys_check_old: "{{ _keys_cluster | cephx_check_old }}"
+
+    # Checks 3 and 4 compare files with the key in force next of the
+    # entities of openstack_keys, client.admin and ceph_custom_keys, by the
+    # fingerprint cephx_keyring gives for the keyring ceph auth get prints.
+    - name: Note the entities whose keyring files are compared
+      ansible.builtin.set_fact:
+        _keys_named: >-
+          {{ (openstack_keys | default([]) | map(attribute='name') | list + ['client.admin']
+              + ceph_custom_keys | default([]) | map(attribute='src')
+                | map('regex_replace', '^ceph[.]', '') | map('regex_replace', '[.]keyring$', '') | list) | unique }}
+        _keys_mon_entities: >-
+          {{ (openstack_keys | default([]) | map(attribute='name') | list + ['client.admin'])
+             | unique | select('in', _keys_cluster) | list }}
+
+    - name: Read the keyrings of these entities
+      ansible.builtin.command:
+        cmd: "ceph auth get {{ item }}"
+      loop: "{{ _keys_named | select('in', _keys_cluster) | list }}"
+      register: _keys_auth_get
+      changed_when: false
+      # Judged by the next task, which masks stderr: stdout is the keyring.
+      failed_when: false
+      no_log: true
+
+    # Reads rc and stderr (masked) only: stdout is the keyring.
+    - name: Fail if a keyring cannot be read
+      ansible.builtin.fail:
+        msg: "{{ _errs }} Nothing was validated."
+      vars:
+        _errs: "{{ _keys_auth_get | cephx_auth_get_failed }}"
+      when: _errs | length > 0
+
+    - name: Inspect the keyrings of these entities  # noqa osism-fqcn
+      cephx_keyring:
+        keyring: "{{ item.stdout }}"
+      loop: "{{ _keys_auth_get.results | default([]) }}"
+      register: _keys_auth_info
+      changed_when: false
+      # The items carry the keyrings.
+      no_log: true
+
+    - name: Note the fingerprints of the keys in force next
+      ansible.builtin.set_fact:
+        _keys_fp: >-
+          {%- set out = {} -%}
+          {%- for r in _keys_auth_info.results | default([]) -%}
+          {%- set _ = out.update({r.item.item: r.in_force_fp}) -%}
+          {%- endfor -%}
+          {{ out }}
+      # Read from results whose items carry the keyrings.
+      no_log: true
+
+    # Check 3: the copies on the monitor hosts. A host that cannot be reached
+    # fails the check, not the run.
+
+    - name: Look for the keyrings on the monitor hosts
+      become: true
+      ansible.builtin.stat:
+        path: "/etc/ceph/ceph.{{ item.1 }}.keyring"
+        get_checksum: false
+      delegate_to: "{{ item.0 }}"
+      loop: "{{ _keys_mon_hosts | product(_keys_mon_entities) | list }}"
+      loop_control:
+        label: "{{ item.0 }}: /etc/ceph/ceph.{{ item.1 }}.keyring"
+      register: _keys_mon_stat
+      ignore_unreachable: true
+
+    - name: Read the keyrings on the monitor hosts  # noqa osism-fqcn
+      become: true
+      cephx_keyring:
+        path: "/etc/ceph/ceph.{{ item.1 }}.keyring"
+      delegate_to: "{{ item.0 }}"
+      loop: >-
+        {{ _keys_mon_stat.results | rejectattr('unreachable', 'defined')
+           | selectattr('stat.exists', 'defined') | selectattr('stat.exists')
+           | map(attribute='item') | list }}
+      loop_control:
+        label: "{{ item.0 }}: /etc/ceph/ceph.{{ item.1 }}.keyring"
+      register: _keys_mon_read
+      changed_when: false
+      # Judged below; the module never returns a key.
+      failed_when: false
+      ignore_unreachable: true
+
+    - name: Compare the keyrings on the monitor hosts
+      ansible.builtin.set_fact:
+        _keys_check_mon: "{{ _keys_mon_stat | cephx_check_monitor(_keys_mon_read, _keys_fp) }}"
+
+    # Check 4: the keyring files of copy-ceph-keys in the manager's checkout,
+    # for the entities of openstack_keys, client.admin and ceph_custom_keys.
+    # Without configuration_directory nothing is read: the check fails.
+    - name: Find the keyring files of the checkout
+      ansible.builtin.include_tasks: tasks/_write-checkout-keyrings.yml
+      vars:
+        _write_checkout_keyrings: >-
+          {%- set out = [] -%}
+          {%- for n in _keys_named -%}
+          {%- set _ = out.append({'name': n}) -%}
+          {%- endfor -%}
+          {{ out }}
+        _write_checkout_keyrings_check_only: true
+      when: configuration_directory | default(none) is not none
+
+    - name: Look for the keyring files in the checkout
+      ansible.builtin.stat:
+        path: "{{ item.dest }}"
+        get_checksum: false
+      loop: "{{ _write_checkout_keyrings_checked | default([]) | selectattr('exists') | list }}"
+      loop_control:
+        label: "{{ item.dest }}"
+      register: _keys_checkout_stat
+
+    - name: Note the keyring files in the checkout
+      ansible.builtin.set_fact:
+        _keys_checkout_files: >-
+          {{ _keys_checkout_stat.results | selectattr('stat.exists') | map(attribute='item') | list }}
+
+    # Read on the Ansible controller, whose file lookup decrypts a
+    # vault-encrypted file. A file that cannot be read or decrypted there
+    # gives an empty keyring, which the module refuses.
+    - name: Read the keyring files in the checkout  # noqa osism-fqcn
+      cephx_keyring:
+        keyring: "{{ lookup('ansible.builtin.file', item.dest, rstrip=false, errors='ignore') | default('', true) }}"
+      loop: "{{ _keys_checkout_files }}"
+      register: _keys_checkout_read
+      changed_when: false
+      # Judged below.
+      failed_when: false
+      # The content is the key.
+      no_log: true
+
+    # Without optional locks git status does not refresh the index: the
+    # check writes nothing into the checkout.
+    - name: Check whether the keyring files are committed
+      ansible.builtin.command:
+        argv:
+          - git
+          - --no-optional-locks
+          - -C
+          - "{{ configuration_directory }}"
+          - status
+          - --porcelain
+          - --ignored
+          - --untracked-files=all
+          - --
+          - "{{ item.dest }}"
+      loop: "{{ _keys_checkout_files }}"
+      loop_control:
+        label: "{{ item.dest }}"
+      register: _keys_checkout_git
+      changed_when: false
+      failed_when: false
+
+    - name: Compare the keyring files in the checkout
+      ansible.builtin.set_fact:
+        _keys_check_checkout: >-
+          {{ _keys_checkout_files | cephx_check_checkout(_keys_checkout_read, _keys_checkout_git,
+                                                         _keys_cluster, _keys_fp,
+                                                         configuration_directory | default(none)) }}
+
+    # Check 5: running guests. Hosts that cannot be reached are noted and not
+    # contacted again.
+    - name: Find the libvirt secrets on the compute nodes
+      become: true
+      ansible.builtin.find:
+        paths: "{{ _keys_secrets_dir }}"
+        patterns: "*.base64"
+      delegate_to: "{{ item }}"
+      loop: "{{ _keys_compute_hosts }}"
+      register: _keys_secrets
+      ignore_unreachable: true
+
+    - name: Note the libvirt secrets of each compute node
+      ansible.builtin.set_fact:
+        _keys_compute: "{{ _keys_secrets | cephx_compute_secrets(_keys_secret_uuids) }}"
+
+    - name: Read when the nova_libvirt container loaded the secrets
+      become: true
+      ansible.builtin.command:
+        argv: "{{ ['docker', 'exec', _keys_libvirt_container, 'stat', '-c', '%Y %n']
+                  + item.files | map('regex_replace', '^', '/etc/libvirt/secrets/') | list }}"
+      delegate_to: "{{ item.host }}"
+      loop: "{{ _keys_compute | selectattr('reachable') | selectattr('files') | list }}"
+      loop_control:
+        label: "{{ item.host }}"
+      register: _keys_container_secrets
+      changed_when: false
+      failed_when: false
+      ignore_unreachable: true
+
+    # The secrets' values: read on the host and in the container, then only
+    # fingerprinted (cephx_keyring returns no key). Every task that carries
+    # a value has no_log.
+    - name: Read kolla's copies of the libvirt secrets
+      become: true
+      ansible.builtin.slurp:
+        src: "{{ _keys_secrets_dir }}/{{ item.1 }}"
+      delegate_to: "{{ item.0.host }}"
+      loop: "{{ _keys_compute | selectattr('reachable') | selectattr('files') | subelements('files') }}"
+      register: _keys_secret_host
+      failed_when: false
+      ignore_unreachable: true
+      no_log: true
+
+    - name: Read the nova_libvirt container's copies of the libvirt secrets
+      become: true
+      ansible.builtin.command:
+        argv: [docker, exec, "{{ _keys_libvirt_container }}", cat, "/etc/libvirt/secrets/{{ item.1 }}"]
+      delegate_to: "{{ item.0.host }}"
+      loop: "{{ _keys_compute | selectattr('reachable') | selectattr('files') | subelements('files') }}"
+      register: _keys_secret_container
+      changed_when: false
+      failed_when: false
+      ignore_unreachable: true
+      no_log: true
+
+    - name: Fingerprint the libvirt secrets  # noqa osism-fqcn
+      cephx_keyring:
+        keyring: "[client.libvirt-secret]\n\tkey = {{ item.value }}\n"
+      loop: >-
+        {%- set out = [] -%}
+        {%- for r in _keys_secret_host.results | default([]) -%}
+        {%- set ok = not (r.failed | default(false) or r.unreachable | default(false)) and r.content is defined -%}
+        {%- set _ = out.append({'host': r.item.0.host, 'file': r.item.1, 'copy': 'kolla', 'ok': ok,
+              'value': (r.content | b64decode | trim) if ok else ''}) -%}
+        {%- endfor -%}
+        {%- for r in _keys_secret_container.results | default([]) -%}
+        {%- set ok = r.rc | default(1) == 0 -%}
+        {%- set _ = out.append({'host': r.item.0.host, 'file': r.item.1, 'copy': 'container', 'ok': ok,
+              'value': (r.stdout | default('') | trim) if ok else ''}) -%}
+        {%- endfor -%}
+        {{ out }}
+      when: item.ok
+      register: _keys_secret_fps
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    # In UTC, so that the start times compare with the files' times. The
+    # arguments of QEMU processes name libvirt's secret objects: not shown.
+    - name: List the processes on the compute nodes
+      become: true
+      ansible.builtin.command:
+        argv: [ps, -eww, -o, "lstart=,args="]
+      environment:
+        TZ: UTC
+        LC_ALL: C
+      delegate_to: "{{ item.host }}"
+      loop: "{{ _keys_compute | selectattr('reachable') | selectattr('files') | list }}"
+      loop_control:
+        label: "{{ item.host }}"
+      register: _keys_ps
+      changed_when: false
+      failed_when: false
+      ignore_unreachable: true
+      no_log: true
+
+    # Reads the fingerprints of the secrets, never their values.
+    - name: Compare the start times of the guests with the secrets
+      ansible.builtin.set_fact:
+        _keys_check_guests: >-
+          {{ _keys_compute | cephx_check_guests(_keys_secret_fps, _keys_container_secrets, _keys_ps, _keys_fp,
+                                                secrets_dir=_keys_secrets_dir,
+                                                container=_keys_libvirt_container,
+                                                rbd_secret_uuid=rbd_secret_uuid | default(''),
+                                                cinder_rbd_secret_uuid=cinder_rbd_secret_uuid | default(''),
+                                                secret_uuids=_keys_secret_uuids) }}
+
+    - name: Collect the results
+      ansible.builtin.set_fact:
+        _keys_tests: >-
+          {{ _keys_check_pending
+             | cephx_validator_tests(old=_keys_check_old, monitor=_keys_check_mon,
+                                     checkout=_keys_check_checkout, guests=_keys_check_guests,
+                                     aes_allowed=_keys_aes_allowed | bool,
+                                     strict=ceph_validate_strict | default(false) | bool,
+                                     checkout_dir=configuration_directory | default(none),
+                                     compute_hosts=_keys_compute_hosts) }}
+
+    - name: Note the result
+      ansible.builtin.set_fact:
+        _keys_result: "{{ 'failed' if _keys_tests | selectattr('result', 'equalto', 'failed') | list else 'passed' }}"
+        _keys_report_file: "{{ _keys_reports_directory }}/ceph-keys-validator-{{ _keys_timestamp.stdout | trim }}-report.json"
+
+    - name: Create the report directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ _keys_reports_directory }}"
+        state: directory
+        owner: "{{ operator_user | default('dragon') }}"
+        group: "{{ operator_group | default(operator_user | default('dragon')) }}"
+        mode: "0755"
+
+    - name: Write the report file
+      ansible.builtin.copy:
+        content: >-
+          {{ {'validator': 'ceph-keys',
+              'validator_result': _keys_result,
+              'validator_reason': 'All tests passed validation.' if _keys_result == 'passed'
+                                  else 'Tests failed: ' ~ _keys_tests | selectattr('result', 'equalto', 'failed')
+                                       | map(attribute='name') | join(', ') ~ '. See test data for details.',
+              'validator_tests': _keys_tests} | to_nice_json }}
+        dest: "{{ _keys_report_file }}"
+        mode: "0640"
+
+    - name: Print the results
+      ansible.builtin.debug:
+        msg: >-
+          {{ _keys_tests | cephx_validator_lines
+             + ['Report: ' ~ _keys_report_file ~ ' on ' ~ inventory_hostname] }}
+
+    # The report records the verdict; the exit status carries it as well.
+    - name: Fail if the validation failed
+      ansible.builtin.fail:
+        msg: >-
+          Ceph keys validation failed: {{ _keys_tests | selectattr('result', 'equalto', 'failed')
+          | map(attribute='name') | join(', ') }}. See the report {{ _keys_report_file }}
+          on {{ inventory_hostname }}.
+      when: _keys_result == 'failed'

@@ -1,0 +1,16 @@
+---
+# Loaded by validate-ceph-keys (vars_files) and the task files it includes.
+
+# The services to apply once a staged key is in the repository, per entity
+# of osism's openstack_keys and client.admin. client.cinder is Nova's too, so
+# client.cinder and client.nova go together. An entity without an entry here
+# (a site's own, from openstack_keys_extra) is applied with the services that
+# use it.
+_cephx_key_services:
+  client.admin: [cephclient]
+  client.cinder: [cinder, nova]
+  client.cinder-backup: [cinder]
+  client.glance: [glance]
+  client.gnocchi: [gnocchi]
+  client.manila: [manila]
+  client.nova: [cinder, nova]
