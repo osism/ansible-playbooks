@@ -1,0 +1,71 @@
+---
+# Find where the keyrings of Ceph entities go in the manager's checkout of
+# the configuration repository: the files copy-ceph-keys writes. Included on
+# the manager.
+#
+# Input:
+#   _write_checkout_keyrings: a list of {name}.
+#
+#   _write_checkout_keyrings_check_only: must be true: write nothing and only
+#                             report where the keyrings would go. This file
+#                             does not write keyrings; without it, it fails.
+#
+# Output:
+#   _write_checkout_keyrings_checked: a list of {name, dest, exists,
+#                             writeable}, one per target whose directory
+#                             exists (exists: is a directory; writeable: by
+#                             the user that would write the files).
+#
+# The files are the ones copy-ceph-keys writes for ceph.<name>.keyring under
+# configuration_directory: its ceph_infrastructure_keys, ceph_kolla_keys and
+# ceph_custom_keys. A play that includes this file loads the first two as
+# copy-ceph-keys does, with vars_files: ../manager/vars/ceph-keys.yml, so an
+# override (an extra variable, as osism's configuration.yml files are) holds
+# for all of them alike. As there, only a target whose directory exists
+# counts; no directory is created.
+
+- name: Fail unless only checking
+  ansible.builtin.fail:
+    msg: >-
+      _write-checkout-keyrings.yml writes no keyrings: include it with
+      _write_checkout_keyrings_check_only: true.
+  when: not _write_checkout_keyrings_check_only | default(false) | bool
+
+- name: List the checkout paths of the keyrings
+  ansible.builtin.set_fact:
+    _write_checkout_keyrings_infrastructure: "{{ ceph_infrastructure_keys }}"
+    _write_checkout_keyrings_kolla: "{{ ceph_kolla_keys }}"
+    _write_checkout_keyrings_custom: "{{ ceph_custom_keys | default([]) }}"
+    # A second inclusion must not see the targets of the first.
+    _write_checkout_keyrings_targets: []
+
+- name: Select the targets of the keyrings
+  ansible.builtin.set_fact:
+    _write_checkout_keyrings_targets: >-
+      {{ _write_checkout_keyrings_targets + [
+           {'name': item.0.name, 'dest': item.1.dest}
+         ] }}
+  loop: >-
+    {{ _write_checkout_keyrings | product(_write_checkout_keyrings_infrastructure
+       + _write_checkout_keyrings_kolla + _write_checkout_keyrings_custom) | list }}
+  when: item.1.src == 'ceph.' ~ item.0.name ~ '.keyring'
+
+- name: Check if the target directories exist
+  ansible.builtin.stat:
+    path: "{{ item.dest | dirname }}"
+  loop: "{{ _write_checkout_keyrings_targets | default([]) }}"
+  loop_control:
+    label: "{{ item.dest | dirname }}"
+  register: _write_checkout_keyrings_dirs
+
+- name: Note where the keyrings would be written
+  ansible.builtin.set_fact:
+    _write_checkout_keyrings_checked: >-
+      {%- set out = [] -%}
+      {%- for t in _write_checkout_keyrings_dirs.results
+            if t.stat.exists | default(false) -%}
+      {%- set _ = out.append({'name': t.item.name, 'dest': t.item.dest,
+                              'exists': t.stat.isdir | default(false),
+                              'writeable': t.stat.writeable | default(false)}) -%}
+      {%- endfor -%}
+      {{ out }}
