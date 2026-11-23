@@ -206,46 +206,42 @@
       when: ceph_require_min_compat_client | default('') | length > 0
       changed_when: true
 
+    # client.admin's keyring on the monitors is managed by cephadm itself. It is
+    # written here only while client.admin has no pending key: a pending key
+    # means a rotation is in progress, and the keyring cephadm holds must not
+    # be overwritten with a key that is not yet the one in force.
+    - name: Read the client.admin keyring
+      ansible.builtin.command:
+        cmd: ceph auth get client.admin
+      register: _cephadm_pools_admin
+      changed_when: false
+      # stdout carries the key.
+      no_log: true
+
+    - name: Inspect the client.admin keyring  # noqa osism-fqcn
+      cephx_keyring:
+        keyring: "{{ _cephadm_pools_admin.stdout }}"
+      register: _cephadm_pools_admin_info
+      # Keeps the key out of the logs, whatever the module returns.
+      no_log: true
+
+    - name: Say when the client.admin keyring is left to cephadm
+      ansible.builtin.debug:
+        msg: >-
+          client.admin has a pending key (rotation in progress); its monitor
+          keyring is left to cephadm
+      when: _cephadm_pools_admin_info.has_pending
+
     # cephadm keeps the keyrings in the MON store. The copy-ceph-keys play
     # collects them from /etc/ceph on the first MON host, so they are written
-    # there explicitly instead of waiting for an orchestrator reconciliation.
-    # Looped over the key definitions themselves (not just their names) so the
-    # write task below can read each keyring's `mode` off the same structure
-    # rather than assuming a value.
-    - name: Read the keyrings
-      ansible.builtin.command:
-        cmd: "ceph auth get {{ item.name }}"
+    # to every MON host explicitly instead of waiting for an orchestrator
+    # reconciliation. The key definitions are passed whole (not just their
+    # names) so each keyring's `mode` comes off the same structure rather than
+    # being assumed.
+    - name: Write the keyrings to the monitor hosts
+      ansible.builtin.include_tasks: tasks/_write-mon-keyrings.yml
       vars:
-        _cephadm_key_defs: "{{ [{'name': 'client.admin', 'mode': '0600'}] + openstack_keys }}"
-      loop: "{{ _cephadm_key_defs }}"
-      loop_control:
-        label: "{{ item.name }}"
-      register: _cephadm_keyrings
-      changed_when: false
-      no_log: true
-
-- name: Write the keyrings to the monitor hosts
-  hosts: "{{ mon_group_name | default('ceph-mon') }}"
-  gather_facts: false
-  become: true
-
-  tasks:
-    - name: Create /etc/ceph
-      ansible.builtin.file:
-        path: /etc/ceph
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Write each keyring
-      ansible.builtin.copy:
-        content: "{{ item.stdout }}\n"
-        dest: "/etc/ceph/ceph.{{ item.item.name }}.keyring"
-        owner: root
-        group: root
-        mode: "{{ item.item.mode | default('0600') }}"
-      loop: "{{ hostvars[groups['manager'][0]]['_cephadm_keyrings']['results'] }}"
-      loop_control:
-        label: "{{ item.item.name }}"
-      no_log: true
+        _write_mon_keyrings_keys: >-
+          {{ ([] if _cephadm_pools_admin_info.has_pending
+              else [{'name': 'client.admin', 'mode': '0600'}])
+             + openstack_keys }}
