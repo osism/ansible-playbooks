@@ -1,0 +1,49 @@
+---
+# Rotate one group of keys of the cephadm-rotate-keys play that never leave
+# Ceph (crash, RGW, bootstrap), then redeploy their daemons. The new key is
+# active at once; a daemon gets it by its redeploy.
+#
+# Input:
+#   _rotate_keys_group: {names, class, daemons, one_at_a_time}: the entities
+#     to rotate, their class, their daemons ({daemon, host, entity}; none for
+#     bootstrap) and whether the daemons go one at a time.
+#   _rotate_keys_input (min_age): as in the play.
+#
+# Output: one entry per entity appended to _rotate_keys_done, {name, class,
+# action, checkout ([]), monitors (false), redeployed, kept}: the action of
+# _set-entity-key.yml and its daemons redeployed and kept. No keys.
+#
+# A run that stopped after a rotation and before the redeploy is completed by
+# running it again: the entity gets no new key (ceph_rotate_keys_min_age), and
+# its daemon, whose keyring differs from the monitors' key, is redeployed.
+
+- name: Note the entities in progress
+  ansible.builtin.set_fact:
+    _rotate_keys_current: "{{ _rotate_keys_group.names | join(', ') }}"
+    _rotate_keys_current_group: "{{ _rotate_keys_group }}"
+    _redeploy_daemons_redeployed: []
+
+- name: Rotate the keys
+  ansible.builtin.include_tasks: _set-entity-key.yml
+  vars:
+    _set_entity_key_name: "{{ _rotate_keys_name }}"
+    _set_entity_key_mode: rotate
+    _set_entity_key_min_age: "{{ _rotate_keys_input.min_age }}"
+  loop: "{{ _rotate_keys_group.names }}"
+  loop_control:
+    loop_var: _rotate_keys_name
+
+- name: Redeploy the daemons
+  ansible.builtin.include_tasks: _redeploy-daemons.yml
+  vars:
+    _redeploy_daemons: "{{ _rotate_keys_group.daemons }}"
+    _redeploy_daemons_one_at_a_time: "{{ _rotate_keys_group.one_at_a_time }}"
+  when: _rotate_keys_group.daemons | length > 0
+
+- name: Note what was done for {{ _rotate_keys_group.names | join(', ') }}
+  ansible.builtin.set_fact:
+    _rotate_keys_done: >-
+      {{ _rotate_keys_done + (_rotate_keys_group
+         | cephx_rotate_group_done(_redeploy_daemons_result | default([]), _set_entity_key_results)) }}
+    _rotate_keys_current: ""
+    _rotate_keys_current_group: {}

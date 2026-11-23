@@ -17,16 +17,26 @@
 #       client.<name>   an entry of openstack_keys; client.cinder and
 #                       client.nova only together
 #       client.admin
-#     Refused: the keywords crash, rgw, bootstrap and lockbox, and
-#     client.crash.*, client.rgw.*, client.bootstrap-*, client.osd-lockbox.*
-#     (the keys of cephadm's daemons and of encrypted OSDs are not handled
-#     by this play), mon., mgr.*, osd.*, mds.* (cephadm's upgrade rotates
-#     those), tenant keys (Manila: rotated through Manila's access rules)
-#     and any other name.
+#       crash           client.crash.<host> of every crash daemon (ceph orch ps)
+#       rgw             client.rgw.<id> of every RGW daemon (ceph orch ps)
+#       bootstrap       every client.bootstrap-* entity
+#       client.crash.*, client.rgw.*: the key of a crash or RGW daemon
+#       client.bootstrap-*
+#     Refused: the keyword lockbox and client.osd-lockbox.* (the lockbox
+#     keys of encrypted OSDs are not handled by this play), mon., mgr.*,
+#     osd.*, mds.* (cephadm's upgrade rotates those), tenant keys (Manila:
+#     rotated through Manila's access rules) and any other name.
 #   ceph_rotate_keys_min_age: hours (a whole number), default 24. No new
 #     key is made for an entity whose active key is younger; its files are
 #     written again with the key in force. An entity with a pending key is
 #     never skipped: its rotation is in progress. 0 disables the check.
+#
+# The keys of crash, RGW and bootstrap never leave Ceph: they are rotated
+# (the new key is active at once), and the daemons that use them are
+# redeployed, which gives them the new key: the crash daemons all at once,
+# the RGW daemons one at a time (each key rotated right before its daemon is
+# redeployed, the next one only once the daemon runs in a new container).
+# A daemon already running with the monitors' key is not redeployed.
 #
 # The OpenStack keys and client.admin are staged: Ceph gives the entity a
 # pending key next to the active one, and the old key keeps working until the
@@ -41,7 +51,7 @@
 # keys, monitor files and the checkout as they were. A run that fails later
 # says what it did; running the same command again (without
 # ceph_rotate_keys_min_age=0) continues it. That does not hold when a host
-# cannot be reached once keys change (a monitor host):
+# cannot be reached once keys change (a daemon or monitor host):
 # Ansible runs no rescue for it, so the run stops with Ansible's
 # UNREACHABLE and without that message (osism validate ceph-keys shows
 # what is left). Running the same command again stops at the checks while
@@ -63,6 +73,9 @@
     # Keywords that name the entities of their class.
     _rotate_keys_keywords:
       openstack: the OpenStack keys
+      crash: the keys of the crash daemons
+      rgw: the keys of the RGW daemons
+      bootstrap: the client.bootstrap-* keys
 
   tasks:
     - name: Fail without ceph_rotate_keys
@@ -101,6 +114,9 @@
       ansible.builtin.set_fact:
         _rotate_keys_input: "{{ {'min_age': ceph_rotate_keys_min_age | cephx_rotate_min_age} }}"
 
+    # ceph auth export, not ceph auth ls: only export shows a pending key
+    # (pending_key next to key; Ceph v20.2.5 KeyRing::encode_formatted),
+    # which the guards below need.
     - name: Export the entities of the cluster
       ansible.builtin.command:
         cmd: ceph auth export -f json
@@ -118,18 +134,43 @@
         _refusal: "{{ 'auth_export' | cephx_rotate_read_refusal(_rotate_keys_auth_export) }}"
       when: _refusal | length > 0
 
-    # Names only.
+    # Names only: the entities, and those with a pending key.
     - name: Note the entities of the cluster
       ansible.builtin.set_fact:
         _rotate_keys_existing: "{{ _entities | list }}"
+        _rotate_keys_pending: "{{ _entities | dict2items | selectattr('value.pending') | map(attribute='key') | list }}"
       vars:
         _entities: "{{ _rotate_keys_auth_export.stdout | cephx_auth_export }}"
 
+    # The crash and RGW daemons, for their keywords and entities: a daemon
+    # crash.<host> uses client.crash.<host>, rgw.<id> uses client.rgw.<id>.
+    - name: List the crash and RGW daemons
+      ansible.builtin.command:
+        cmd: "ceph orch ps --daemon-type {{ item }} --format json"
+      loop: "{{ ['crash', 'rgw'] | select('in', _rotate_keys_tokens | cephx_rotate_classes_asked) | list }}"
+      register: _rotate_keys_orch_ps
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+
+    - name: Fail if the daemons cannot be listed
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ 'orch_ps' | cephx_rotate_read_refusal(_rotate_keys_orch_ps) }}"
+      when: _refusal | length > 0
+
+    - name: Note the crash and RGW daemons
+      ansible.builtin.set_fact:
+        _rotate_keys_daemons: "{{ _rotate_keys_orch_ps | cephx_daemons }}"
+
     # Classes by name: client.admin; the entity name prefixes of the daemon
     # and lockbox classes; the entries of openstack_keys; the daemons' own keys
-    # (refused); anything else (refused). A keyword other than openstack
-    # stays a single entry, refused below. The context noted here (names
-    # only) serves the checks and the plan.
+    # (refused); anything else (refused). The keywords crash and rgw name the
+    # entities of the daemons, bootstrap the client.bootstrap-* entities of
+    # the cluster; lockbox stays a single entry, refused below. The context
+    # noted here (names only) serves the checks and the plan.
     - name: Classify the entities
       ansible.builtin.set_fact:
         _rotate_keys_ctx: "{{ _ctx }}"
@@ -140,18 +181,25 @@
           tokens: "{{ _rotate_keys_tokens }}"
           openstack_keys: "{{ openstack_keys | cephx_rotate_openstack_names }}"
           existing: "{{ _rotate_keys_existing }}"
+          pending: "{{ _rotate_keys_pending }}"
+          daemons: "{{ _rotate_keys_daemons }}"
           keywords: "{{ _rotate_keys_keywords }}"
           configuration_directory: "{{ configuration_directory | default(none) }}"
 
     # Refused, the first that applies, in this order:
     # - the keys of Ceph daemons, and unknown names;
-    # - the classes this play recognises but does not handle (crash, rgw,
-    #   bootstrap, lockbox);
+    # - the classes this play recognises but does not handle (lockbox);
     # - an entity named more than once;
     # - client.cinder without client.nova: client.cinder is Nova's key too
     #   (the volumes it attaches), and both groups end with the live
     #   migration of every guest;
-    # - entities missing from the cluster.
+    # - crash and RGW keys without a daemon: a key in use is in use by its
+    #   daemon, one without is left from a daemon removed;
+    # - entities missing from the cluster;
+    # - crash, RGW and bootstrap keys with a pending key: this play rotates
+    #   them, never stages them, so the pending key was staged by hand.
+    #   Rotating would discard it, so the operator decides, before any key
+    #   changes (_set-entity-key.yml refuses it too, as a backstop).
     - name: Fail on the entities named
       ansible.builtin.fail:
         msg: "{{ _refusal }}"
@@ -159,14 +207,31 @@
         _refusal: "{{ _rotate_keys_classified | cephx_rotate_class_refusal(_rotate_keys_ctx) }}"
       when: _refusal | length > 0
 
-    # The plan (cephx_rotate_plan): the entities in order, each staged.
-    # Nothing done yet.
+    # The plan (cephx_rotate_plan): the entities in order; the keys to
+    # stage (the OpenStack keys and client.admin); and the keys to rotate in
+    # groups: the crash keys together (their daemons all at once), each RGW
+    # key on its own (one daemon after the other), the bootstrap keys
+    # together (no daemons). Nothing done yet.
     - name: Note the plan
       ansible.builtin.set_fact:
         _rotate_keys_plan: "{{ _plan.entities }}"
+        _rotate_keys_plan_staged: "{{ _plan.staged }}"
+        _rotate_keys_groups: "{{ _plan.groups }}"
         _rotate_keys_done: []
       vars:
         _plan: "{{ _rotate_keys_classified | cephx_rotate_plan(_rotate_keys_ctx) }}"
+
+    - name: Say which keywords name no entities
+      ansible.builtin.debug:
+        msg: "{{ item }}: {{ _what[item] }}, nothing to rotate"
+      vars:
+        _what:
+          crash: no crash daemons (ceph orch ps)
+          rgw: no RGW daemons (ceph orch ps)
+          bootstrap: no client.bootstrap-* entities on the cluster
+      loop: >-
+        {{ ['crash', 'rgw', 'bootstrap'] | select('in', _rotate_keys_tokens)
+           | reject('in', _rotate_keys_classified | map(attribute='keyword') | list) | list }}
 
     - name: Say which entities the keyword openstack skipped
       ansible.builtin.debug:
@@ -204,19 +269,67 @@
         _refusal: "{{ 'monitors' | cephx_rotate_host_refusal(_rotate_keys_mon_dirs, _rotate_keys_ctx) }}"
       when: _refusal | length > 0
 
+    # The redeploys read the daemons' keyring files on their hosts. A host
+    # that cannot be reached must stop the run now, not after a rotation.
+    - name: Read the fsid of the cluster
+      ansible.builtin.command:
+        cmd: ceph fsid
+      register: _rotate_keys_fsid
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+      when: _rotate_keys_groups | map(attribute='daemons') | flatten | length > 0
+
+    - name: Fail if the fsid cannot be read
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _refusal: "{{ 'fsid' | cephx_rotate_host_refusal(_rotate_keys_fsid, _rotate_keys_ctx) }}"
+      when: _refusal | length > 0
+
+    - name: Check that every daemon host can be reached
+      become: true
+      ansible.builtin.stat:
+        path: "/var/lib/ceph/{{ _rotate_keys_fsid.stdout | trim }}"
+        get_checksum: false
+      delegate_to: "{{ item }}"
+      loop: "{{ _rotate_keys_groups | map(attribute='daemons') | flatten | map(attribute='host') | unique | list }}"
+
+    # cephadm redeploys a daemon only on a host it can manage: on a host it
+    # marks offline or in maintenance the new container never comes, and the
+    # run would fail after the key was rotated. Status "" is online.
+    - name: List the hosts of the orchestrator
+      ansible.builtin.command:
+        cmd: ceph orch host ls --format json
+      register: _rotate_keys_orch_hosts
+      changed_when: false
+      # Judged by the next task, which masks stderr.
+      failed_when: false
+      no_log: true
+      when: _rotate_keys_groups | map(attribute='daemons') | flatten | length > 0
+
+    - name: Fail if the hosts cannot be listed or a daemon host is not online
+      ansible.builtin.fail:
+        msg: "{{ _refusal }}"
+      vars:
+        _daemons: "{{ _rotate_keys_groups | map(attribute='daemons') | flatten }}"
+        _refusal: "{{ 'host_status' | cephx_rotate_host_refusal({'hosts': _rotate_keys_orch_hosts, 'daemons': _daemons}, _rotate_keys_ctx) }}"
+      when: _refusal | length > 0
+
     - name: Fail without configuration_directory
       ansible.builtin.fail:
         msg: "{{ _refusal }}"
       vars:
-        _refusal: "{{ 'configuration_directory' | cephx_rotate_host_refusal({'staged': _rotate_keys_plan, 'defined': configuration_directory | default(none) is not none}, _rotate_keys_ctx) }}"
+        _refusal: "{{ 'configuration_directory' | cephx_rotate_host_refusal({'staged': _rotate_keys_plan_staged, 'defined': configuration_directory | default(none) is not none}, _rotate_keys_ctx) }}"
       when: _refusal | length > 0
 
     - name: Check where the keyrings go in the checkout
       ansible.builtin.include_tasks: tasks/_write-checkout-keyrings.yml
       vars:
-        _write_checkout_keyrings: "{{ _rotate_keys_plan }}"
+        _write_checkout_keyrings: "{{ _rotate_keys_plan_staged }}"
         _write_checkout_keyrings_check_only: true
-      when: _rotate_keys_plan | length > 0
+      when: _rotate_keys_plan_staged | length > 0
 
     # A staged key without a file to commit could only be distributed by
     # hand.
@@ -224,7 +337,7 @@
       ansible.builtin.fail:
         msg: "{{ _refusal }}"
       vars:
-        _refusal: "{{ 'checkout_places' | cephx_rotate_host_refusal({'staged': _rotate_keys_plan, 'checked': _write_checkout_keyrings_checked | default([])}, _rotate_keys_ctx) }}"
+        _refusal: "{{ 'checkout_places' | cephx_rotate_host_refusal({'staged': _rotate_keys_plan_staged, 'checked': _write_checkout_keyrings_checked | default([])}, _rotate_keys_ctx) }}"
       when: _refusal | length > 0
 
     - name: Fail if the checkout cannot be written
@@ -234,12 +347,21 @@
         _refusal: "{{ 'checkout_writable' | cephx_rotate_host_refusal(_write_checkout_keyrings_checked | default([]), _rotate_keys_ctx) }}"
       when: _refusal | length > 0
 
-    # From here on, keys change.
-    - name: Stage and distribute the keys
+    # From here on, keys change. The keys that never leave Ceph come first,
+    # the staged keys of the repository last, so that their next steps follow
+    # at once: a staged key is not left lying around.
+    - name: Rotate and stage the keys, distribute them
       block:
+        - name: Rotate the keys and redeploy their daemons
+          ansible.builtin.include_tasks: tasks/_rotate-keys-rotate.yml
+          loop: "{{ _rotate_keys_groups }}"
+          loop_control:
+            loop_var: _rotate_keys_group
+            label: "{{ _rotate_keys_group.names | join(', ') }}"
+
         - name: Stage and distribute each key
           ansible.builtin.include_tasks: tasks/_rotate-keys-stage.yml
-          loop: "{{ _rotate_keys_plan }}"
+          loop: "{{ _rotate_keys_plan_staged }}"
           loop_control:
             loop_var: _rotate_keys_entity
             label: "{{ _rotate_keys_entity.name }}"
@@ -251,6 +373,9 @@
             msg: >-
               {{ _rotate_keys_done | default([]) | cephx_rotate_failure({
                    'name': _rotate_keys_current | default(''),
+                   'group': _rotate_keys_current_group | default({}),
+                   'results': _set_entity_key_results | default([]),
+                   'redeployed': _redeploy_daemons_redeployed | default([]),
                    'action': _rotate_keys_current_action | default('')},
                  {'min_age': _rotate_keys_input.min_age}) }}
 
@@ -259,6 +384,8 @@
     # a failed run, by a login attempt in between) may still be missing
     # from the repository or the services, and for client.cinder and
     # client.nova the guests may still need their migration.
+    # The keys of crash, RGW and bootstrap never leave Ceph: no next steps
+    # but the check.
     - name: Print the summary and the next steps
       ansible.builtin.debug:
         msg: >-

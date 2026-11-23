@@ -1,0 +1,6 @@
+summary:
+"client.rgw.default.node-0.abc: rotated"
+"  redeployed: rgw.default.node-0.abc"
+"client.rgw.default.node-1.xyz: rotated"
+"  redeployed: rgw.default.node-1.xyz"
+"client.rgw.default.node-0.abc, client.rgw.default.node-1.xyz: nothing else to do (these keys never leave Ceph). Check: osism validate ceph-keys"

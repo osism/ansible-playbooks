@@ -1,0 +1,194 @@
+---
+# Redeploy the cephadm daemons that are not known to run with the monitors'
+# key, and leave the others alone. Included on the manager, where `ceph` is
+# the cephclient wrapper.
+#
+# cephadm daemons cannot use pending keys, and `ceph orch daemon rotate-key`
+# is disabled in Tentacle: after `ceph auth rotate`, a daemon gets its new key
+# by a redeploy, which writes the keyring from the monitors (auth
+# get-or-create) and starts a new container.
+#
+# Input:
+#   _redeploy_daemons: list of {daemon, host, entity}: the daemon as
+#     `ceph orch ps` names it (crash.<host>, rgw.<id>), the host it runs on
+#     (an inventory host) and the cephx entity it uses (client.<daemon>).
+#   _redeploy_daemons_one_at_a_time: true: redeploy one daemon, wait until it
+#     runs in a new container, then the next. false (default): redeploy all,
+#     then wait for all.
+#
+# A daemon reads its keyring only at start, so it is skipped only if all of
+# these hold: its keyring on its host (/var/lib/ceph/<fsid>/<daemon>/keyring)
+# carries the key the monitors hold (compared by fingerprint, never printed);
+# `ceph orch ps --refresh` shows it running; and its container started after
+# the keyring file was last modified. Anything else (also a redeploy that wrote
+# the file and failed before the new container came up) is redeployed.
+#
+# Every wait is bounded at 10 minutes (_redeploy_daemons_retries tries,
+# _redeploy_daemons_delay seconds apart; internal, for tests).
+#
+# Output:
+#   _redeploy_daemons_result: list of {daemon, entity, action}, action
+#     redeployed or kept, in the order of the input.
+#   _redeploy_daemons_redeployed: the daemons of this call that run in a new
+#     container, appended as each one comes back (also on failure).
+
+- name: Note the daemons to check
+  ansible.builtin.set_fact:
+    _redeploy_daemons_types: "{{ _redeploy_daemons | map(attribute='daemon') | map('regex_replace', '[.].*$', '') | unique | list }}"
+    _redeploy_daemons_entities: "{{ _redeploy_daemons | map(attribute='entity') | unique | list }}"
+    _redeploy_daemons_redeployed: []
+    _redeploy_daemons_result: []
+
+- name: Read the fsid of the cluster
+  ansible.builtin.command:
+    cmd: ceph fsid
+  register: _redeploy_daemons_fsid
+  changed_when: false
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+
+- name: Fail if the fsid cannot be read
+  ansible.builtin.fail:
+    msg: "{{ _refusal }}"
+  vars:
+    _refusal: "{{ 'fsid' | cephx_redeploy_read_refusal(_redeploy_daemons_fsid) }}"
+  when: _refusal | length > 0
+
+# The monitors' key of each entity, as a fingerprint.
+- name: Read the keyrings the monitors hold
+  ansible.builtin.command:
+    cmd: "ceph auth get {{ item }}"
+  loop: "{{ _redeploy_daemons_entities }}"
+  register: _redeploy_daemons_auth
+  changed_when: false
+  # Judged by the next task, which can show stderr: stdout carries the key.
+  failed_when: false
+  no_log: true
+
+- name: Fail if the monitors' keyrings cannot be read
+  ansible.builtin.fail:
+    msg: "{{ _refusal }}"
+  vars:
+    _refusal: "{{ 'auth_get' | cephx_redeploy_read_refusal(_redeploy_daemons_auth) }}"
+  when: _refusal | length > 0
+
+- name: Inspect the keyrings the monitors hold  # noqa osism-fqcn
+  cephx_keyring:
+    keyring: >-
+      {{ (_redeploy_daemons_auth.results | selectattr('item', 'equalto', item) | first).stdout }}
+  loop: "{{ _redeploy_daemons_entities }}"
+  register: _redeploy_daemons_mon_keys
+  changed_when: false
+  # The argument carries the key.
+  no_log: true
+
+- name: Read the keyring files on the daemons' hosts
+  become: true
+  ansible.builtin.stat:
+    path: "/var/lib/ceph/{{ _redeploy_daemons_fsid.stdout | trim }}/{{ item.daemon }}/keyring"
+    get_checksum: false
+  delegate_to: "{{ item.host }}"
+  loop: "{{ _redeploy_daemons }}"
+  loop_control:
+    label: "{{ item.daemon }}"
+  register: _redeploy_daemons_files
+
+# Fingerprints only; no_log in case a failure echoes the file.
+- name: Inspect the keyring files on the daemons' hosts  # noqa osism-fqcn
+  become: true
+  cephx_keyring:
+    path: "/var/lib/ceph/{{ _redeploy_daemons_fsid.stdout | trim }}/{{ item.daemon }}/keyring"
+  delegate_to: "{{ item.host }}"
+  loop: "{{ _redeploy_daemons }}"
+  loop_control:
+    label: "{{ item.daemon }}"
+  register: _redeploy_daemons_file_keys
+  changed_when: false
+  # A file that cannot be read or parsed does not match: the daemon is
+  # redeployed. failed_when: false also clears `failed`, so the planner
+  # goes by the missing fingerprint instead.
+  failed_when: false
+  when: (_redeploy_daemons_files.results | selectattr('item.daemon', 'equalto', item.daemon) | first).stat.exists
+  no_log: true
+
+# --refresh only asks cephadm to refresh its cache; the answer is the cache
+# as it was. The answer that counts is one refreshed after this call.
+- name: Ask cephadm to refresh its list of daemons
+  ansible.builtin.command:
+    cmd: "ceph orch ps --daemon-type {{ item }} --refresh --format json"
+  loop: "{{ _redeploy_daemons_types }}"
+  register: _redeploy_daemons_kick
+  changed_when: false
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+
+- name: Fail if cephadm cannot list the daemons
+  ansible.builtin.fail:
+    msg: "{{ _refusal }}"
+  vars:
+    _refusal: "{{ 'orch_ps' | cephx_redeploy_read_refusal(_redeploy_daemons_kick) }}"
+  when: _refusal | length > 0
+
+# Every daemon refreshed after the kick: each one's refresh is newer than
+# the newest refresh the kick's answer showed. A daemon missing from an
+# answer (it can vanish from cephadm's list for a moment while it is
+# redeployed), an answer that failed and one that is not JSON are "not
+# yet". An answer that cannot be judged (JSON of another shape, a daemon
+# listed twice) ends the wait, and the next task stops on it (outside
+# no_log, so that its message is shown).
+- name: Wait for cephadm's refreshed list of daemons
+  ansible.builtin.command:
+    cmd: "ceph orch ps --daemon-type {{ item }} --refresh --format json"
+  loop: "{{ _redeploy_daemons_types }}"
+  register: _redeploy_daemons_ps
+  changed_when: false
+  # Judged below; no_log keeps an unmasked stderr out of the output.
+  failed_when: false
+  no_log: true
+  until: >-
+    _redeploy_daemons_ps | cephx_redeploy_pending(item, _redeploy_daemons, _redeploy_daemons_kick) | length == 0
+    or _redeploy_daemons_ps.attempts | default(1) | int > _redeploy_daemons_retries | default(60) | int
+  retries: "{{ _redeploy_daemons_retries | default(60) | int }}"
+  delay: "{{ _redeploy_daemons_delay | default(10) | int }}"
+
+- name: Fail if cephadm did not refresh its list of daemons
+  ansible.builtin.fail:
+    msg: >-
+      ceph orch ps --refresh did not list {{ _stale | join(', ') }} as refreshed
+      within {{ (_redeploy_daemons_retries | default(60) | int) * (_redeploy_daemons_delay | default(10) | int) }}
+      seconds (a daemon missing from the list, or a host cephadm cannot
+      reach: see ceph orch host ls and ceph health detail).
+  vars:
+    _stale: "{{ _redeploy_daemons_ps | cephx_redeploy_stale(_redeploy_daemons, _redeploy_daemons_kick) }}"
+  when: _stale | length > 0
+
+# Why each daemon is redeployed ('' to keep it): see the top of this file.
+- name: Decide which daemons to redeploy
+  ansible.builtin.set_fact:
+    _redeploy_daemons_plan: >-
+      {{ _redeploy_daemons | cephx_redeploy_plan(_redeploy_daemons_ps, _redeploy_daemons_files,
+         _redeploy_daemons_file_keys, _redeploy_daemons_mon_keys) }}
+
+- name: Say which daemons are redeployed and why
+  ansible.builtin.debug:
+    msg: >-
+      {{ _redeploy_daemons_plan | rejectattr('why', 'equalto', '')
+         | map(attribute='daemon') | zip(_redeploy_daemons_plan | rejectattr('why', 'equalto', '') | map(attribute='why'))
+         | map('join', ': ') | list
+         + (_redeploy_daemons_plan | selectattr('why', 'equalto', '') | map(attribute='daemon')
+            | map('regex_replace', '$', ": running with the monitors' key, kept") | list) }}
+
+- name: Redeploy the daemons
+  ansible.builtin.include_tasks: _redeploy-daemons-batch.yml
+  vars:
+    _todo: "{{ _redeploy_daemons_plan | rejectattr('why', 'equalto', '') | list }}"
+  loop: "{{ _todo | batch(1 if _redeploy_daemons_one_at_a_time | default(false) | bool else (_todo | length or 1)) | list }}"
+  loop_control:
+    loop_var: _redeploy_daemons_batch
+    label: "{{ _redeploy_daemons_batch | map(attribute='daemon') | join(', ') }}"
+
+- name: Note the result of the redeploys
+  ansible.builtin.set_fact:
+    _redeploy_daemons_result: "{{ _redeploy_daemons_plan | cephx_redeploy_result }}"

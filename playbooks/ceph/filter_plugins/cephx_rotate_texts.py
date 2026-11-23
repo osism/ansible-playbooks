@@ -3,8 +3,10 @@ of the rescue (cephx_rotate_failure) and the summary with the next steps
 (cephx_rotate_summary).
 
 Both read the entries of _rotate_keys_done, one per entity handled, as the
-task file writes them:
-  {name, class, action, checkout, monitors}, the class openstack or admin
+task files write them:
+  openstack, admin       {name, class, action, checkout, monitors}
+  crash, rgw, bootstrap  {name, class, action, checkout, monitors,
+                          redeployed, kept}
 
 The plays build these entries with their own filters, so they are read as
 they are: a missing field or an unknown class or action is a bug in the
@@ -36,6 +38,7 @@ def _load_common():
 
 _common = _load_common()
 _guarded = _common._guarded
+ROTATED_CLASSES = _common.ROTATED_CLASSES
 STAGED_CLASSES = _common.STAGED_CLASSES
 
 GUESTS = ("client.cinder", "client.nova")
@@ -45,6 +48,7 @@ USED_RARELY = ("client.glance", "client.cinder-backup")
 ACTIONS = {
     "staged": "staged",
     "already_staged": "already staged",
+    "rotated": "rotated",
     "skipped_recent": "no new key",
 }
 
@@ -58,14 +62,17 @@ def _join(items):
 AGAIN = (
     "Run the same command again: an entity staged in this run keeps its "
     "pending key (or, once committed, gets no new key before "
-    "ceph_rotate_keys_min_age), and its files are written again."
+    "ceph_rotate_keys_min_age), and its files are written again; an entity "
+    "rotated in this run gets no new key before ceph_rotate_keys_min_age, and "
+    "each of its daemons that does not run with its key is redeployed."
 )
 AGAIN_MIN_AGE_0 = (
     "Run the command again, but without -e ceph_rotate_keys_min_age=0: with "
-    "it, every entity committed in this run would get a new key again. "
-    "Without it (the default, 24 hours): an entity staged in this run keeps "
-    "its pending key (or, once committed, gets no new key), and its files are "
-    "written again."
+    "it, every entity rotated or committed in this run would get a new key "
+    "again. Without it (the default, 24 hours): an entity staged in this run "
+    "keeps its pending key (or, once committed, gets no new key), and its "
+    "files are written again; an entity rotated in this run gets no new key, "
+    "and each of its daemons that does not run with its key is redeployed."
 )
 
 
@@ -78,7 +85,30 @@ def _done_failure(d):
             ACTIONS[d["action"]],
             " and the monitor hosts" if d["monitors"] else "",
         )
+    if cls in ROTATED_CLASSES:
+        out = "%s: %s" % (d["name"], ACTIONS[d["action"]])
+        if d["redeployed"]:
+            out += "; redeployed: " + _join(d["redeployed"])
+        if d["kept"]:
+            out += "; running with this key, not redeployed: " + _join(d["kept"])
+        return out + "."
     raise AnsibleFilterError("cephx_rotate_failure: an entry of an unknown class")
+
+
+def _group_failure(name, group, current):
+    """The group of keys in progress: the results of its rotations so far
+    and, if it has daemons, which of them were redeployed."""
+    acts = [r for r in current["results"] if r["name"] in group["names"]]
+    if acts:
+        done = ", ".join("%s: %s" % (r["name"], ACTIONS[r["action"]]) for r in acts)
+    else:
+        done = "no key rotated"
+    if group["daemons"]:
+        done += "; redeployed: %s of %s" % (
+            _join(current["redeployed"]) or "none",
+            _join(x["daemon"] for x in group["daemons"]),
+        )
+    return "%s: not finished (%s)." % (name, done)
 
 
 def _entity_failure(name, current):
@@ -94,15 +124,21 @@ def cephx_rotate_failure(done, current, ctx):
     """The failure message after a stop while keys change: what was done,
     what was in progress, and how the next run continues.
 
-    current: what was in progress, as the task file notes it:
+    current: what was in progress, as the task files note it:
       name        _rotate_keys_current ('' between entities)
+      group       _rotate_keys_current_group ({} outside a group)
+      results     _set_entity_key_results
+      redeployed  _redeploy_daemons_redeployed
       action      _rotate_keys_current_action
     ctx: min_age (the int of the input checks).
     """
     name = current["name"]
+    group = current["group"]
     parts = ["The run stopped at %s (see the error above)." % (name or "an entity")]
     parts += [_done_failure(d) for d in done]
-    if name:
+    if group:
+        parts.append(_group_failure(name, group, current))
+    elif name:
         parts.append(_entity_failure(name, current))
     again = AGAIN_MIN_AGE_0 if ctx["min_age"] == 0 else AGAIN
     parts.append(again)
@@ -188,21 +224,35 @@ ADMIN_IN_FORCE = (
     "fails with the old key: osism apply cephclient installs the keyring from "
     "the checkout."
 )
+ROTATED_DONE = (
+    ": nothing else to do (these keys never leave Ceph). Check: osism "
+    "validate ceph-keys"
+)
 
 
 def _per_entity(done, ctx):
     younger = YOUNGER % ctx["min_age"]
-    # The actions _set-entity-key.yml gives the staged classes.
+    # The actions _set-entity-key.yml gives: the staged classes are staged,
+    # the rotated classes rotated at once.
     staged = dict(
         staged=STAGED,
         already_staged=ALREADY_STAGED,
         skipped_recent=younger
         + "; its files were written again with that key (see the next steps)",
     )
+    rotated = {"rotated": "rotated", "skipped_recent": younger}
     out = []
     for d in done:
         cls, action = d["class"], d["action"]
-        if cls in STAGED_CLASSES:
+        if cls in ROTATED_CLASSES:
+            out.append("%s: %s" % (d["name"], rotated[action]))
+            if d["redeployed"]:
+                out.append("  redeployed: " + _join(d["redeployed"]))
+            if d["kept"]:
+                out.append(
+                    "  running with this key, not redeployed: " + _join(d["kept"])
+                )
+        elif cls in STAGED_CLASSES:
             out.append("%s: %s" % (d["name"], staged[action]))
             out += ["  checkout: %s" % p for p in d["checkout"]]
             if d["monitors"]:
@@ -236,6 +286,7 @@ def _step_apply(handled, services, staged):
 
 
 def _next_steps(done, ctx):
+    rotated = [d["name"] for d in done if d["class"] in ROTATED_CLASSES]
     done_staged = [d for d in done if d["class"] in STAGED_CLASSES]
     handled = [d["name"] for d in done_staged]
     staged = [
@@ -277,6 +328,8 @@ def _next_steps(done, ctx):
             out.append(ADMIN_STAGED)
         elif "client.admin" in handled:
             out.append(ADMIN_IN_FORCE)
+    if rotated:
+        out.append(_join(rotated) + ROTATED_DONE)
     return out
 
 
