@@ -6,7 +6,7 @@ import subprocess
 from ansible.module_utils.basic import AnsibleModule
 from yaml import safe_load as yaml_safe_load
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 ---
 module: osquery
 short_description: Get data from osquery
@@ -19,25 +19,23 @@ options:
             - Query to run
         type: str
 author: "Christian Berendt (@berendt)"
-'''
+"""
 
-EXAMPLES = '''
+EXAMPLES = """
 - hosts: all
   tasks:
     - name: Get all processes
       osquery:
         query: "SELECT * FROM processes"
       register: result
-'''
+"""
 
 
 def main():
-    module = AnsibleModule(
-        argument_spec=yaml_safe_load(DOCUMENTATION)['options']
-    )
+    module = AnsibleModule(argument_spec=yaml_safe_load(DOCUMENTATION)["options"])
 
-    query = module.params.get('query')
-    cmd = ['/usr/bin/osqueryi', '--json', query]
+    query = module.params.get("query")
+    cmd = ["/usr/bin/osqueryi", "--json", query]
 
     try:
         result = subprocess.check_output(cmd, universal_newlines=True).strip()
@@ -47,5 +45,5 @@ def main():
     module.exit_json(changed=False, resultset=json.loads(result))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

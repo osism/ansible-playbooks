@@ -76,16 +76,34 @@
         secret: SECRET_ANSIBLE_PLAYBOOKS
         pass-to-parent: true
 
+- job:
+    name: ansible-playbooks-unit-tests
+    description: Run the Python unit tests in tests/unit.
+    run: zuul/unit-tests.yml
+
 - project:
     merge-mode: squash-merge
     default-branch: main
     check:
       jobs:
         - ansible-lint
+        - ansible-playbooks-unit-tests
+        - flake8
+        - python-black
+        - yamllint
+    gate:
+      jobs:
+        - ansible-lint
+        - ansible-playbooks-unit-tests
+        - flake8
+        - python-black
         - yamllint
     periodic-daily:
       jobs:
         - ansible-lint
+        - ansible-playbooks-unit-tests
+        - flake8
+        - python-black
         - yamllint
     post:
       jobs:
