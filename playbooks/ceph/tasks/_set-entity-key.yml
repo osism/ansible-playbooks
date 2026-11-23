@@ -1,0 +1,232 @@
+---
+# Stage or rotate the cephx key of one existing Ceph entity. Included on the
+# manager, where `ceph` is the cephclient wrapper.
+#
+# Input:
+#   _set_entity_key_name:    the entity, for example client.glance. It must
+#                            exist: nothing here creates an entity.
+#   _set_entity_key_mode:    stage  ceph auth get-or-create-pending: Ceph gives
+#                                   the entity a second, pending key; the
+#                                   active key keeps working until the pending
+#                                   one is promoted. Repeating it returns the
+#                                   same pending key.
+#                            rotate ceph auth rotate: the active key is
+#                                   replaced at once. Fails for an entity that
+#                                   has a pending key (staged by hand, since
+#                                   this play stages only in stage mode):
+#                                   commit or clear it, then retry.
+#   _set_entity_key_min_age: hours. No new key is made for an entity whose
+#                            active key is younger than this (the creation time
+#                            is encoded in the key). 0 disables the guard.
+#                            In stage mode an entity with a pending key is never
+#                            skipped: its rotation is in progress
+#                            (already_staged).
+#
+# Output (_set_entity_key_result):
+#   name, action (staged | already_staged | rotated | skipped_recent), and
+#   keyring: the normalised keyring of the key in force next (the pending key
+#   if there is one, else the active key), which for skipped_recent is the
+#   active keyring so that distribution can still complete. The keyring carries
+#   the key: never print it.
+#
+# Each call also appends {name, action}, without the keyring, to
+# _set_entity_key_results.
+#
+# Every task that carries a key has no_log: true. A command is judged by a
+# separate task, so that a failure can show rc and stderr; stderr only through
+# the cephx_mask filter, since a failing command may echo a key.
+
+- name: Read the keyring of {{ _set_entity_key_name }}
+  ansible.builtin.command:
+    cmd: "ceph auth get {{ _set_entity_key_name }}"
+  register: _set_entity_key_get
+  changed_when: false
+  # Judged by the next task, which can show stderr: stdout carries the key.
+  failed_when: false
+  no_log: true
+
+# Also the existence check: a missing entity fails here (ENOENT) before
+# anything changes, so no command below can create an entity.
+- name: Fail if it cannot read the keyring of {{ _set_entity_key_name }}
+  ansible.builtin.fail:
+    msg: >-
+      ceph auth get {{ _set_entity_key_name }}
+      {{ _set_entity_key_get | cephx_failed('ceph auth get')
+         or 'did not return the keyring of the entity' }}.
+      The key of {{ _set_entity_key_name }} was not changed.
+  when: >-
+    _set_entity_key_get.rc != 0
+    or (_set_entity_key_get.stdout_lines | first | default('')) != '[' ~ _set_entity_key_name ~ ']'
+
+- name: Inspect the keyring of {{ _set_entity_key_name }}  # noqa osism-fqcn
+  cephx_keyring:
+    keyring: "{{ _set_entity_key_get.stdout }}"
+    want_normalised: true
+  register: _set_entity_key_current
+  changed_when: false
+  # The result carries the key.
+  no_log: true
+
+# A pending key is never skipped; otherwise the active key's age decides.
+- name: Decide what to do for {{ _set_entity_key_name }}
+  ansible.builtin.set_fact:
+    _set_entity_key_pending: "{{ _set_entity_key_current.has_pending | bool }}"
+    _set_entity_key_recent: >-
+      {{ not _set_entity_key_current.has_pending | bool
+         and _set_entity_key_min_age | int > 0
+         and (now().timestamp() | int) - _set_entity_key_current.key_created | int
+             < _set_entity_key_min_age | int * 3600 }}
+
+# Rotating would discard the pending key of a rotation in progress; the
+# operator decides, whatever the age of the active key.
+- name: Fail if a rotation finds a pending key on {{ _set_entity_key_name }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ _set_entity_key_name }} has a pending key; run
+      ceph auth commit-pending {{ _set_entity_key_name }} or
+      ceph auth clear-pending {{ _set_entity_key_name }}, then retry.
+      The key of {{ _set_entity_key_name }} was not changed.
+  when:
+    - _set_entity_key_mode == 'rotate'
+    - _set_entity_key_pending
+
+- name: Stage a pending key for {{ _set_entity_key_name }}
+  ansible.builtin.command:
+    cmd: "ceph auth get-or-create-pending {{ _set_entity_key_name }}"
+  register: _set_entity_key_made
+  changed_when: true
+  # Judged by the next task, which can show stderr: stdout carries the key.
+  failed_when: false
+  when:
+    - _set_entity_key_mode == 'stage'
+    - not _set_entity_key_pending
+    - not _set_entity_key_recent
+  no_log: true
+
+- name: Rotate the key of {{ _set_entity_key_name }}
+  ansible.builtin.command:
+    cmd: "ceph auth rotate {{ _set_entity_key_name }}"
+  register: _set_entity_key_rotated
+  changed_when: true
+  # Judged by the next task, which can show stderr: stdout carries the key.
+  failed_when: false
+  when:
+    - _set_entity_key_mode == 'rotate'
+    - not _set_entity_key_pending
+    - not _set_entity_key_recent
+  no_log: true
+
+- name: Note what the key command returned for {{ _set_entity_key_name }}
+  ansible.builtin.set_fact:
+    _set_entity_key_cmd: >-
+      {{ _set_entity_key_made if _set_entity_key_made is not skipped
+         else _set_entity_key_rotated if _set_entity_key_rotated is not skipped
+         else {} }}
+  no_log: true
+
+# A failed or odd command can print something that is not a keyring.
+- name: Fail if the key command returned no keyring for {{ _set_entity_key_name }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ 'ceph auth get-or-create-pending' if _set_entity_key_mode == 'stage' else 'ceph auth rotate' }}
+      {{ _set_entity_key_name }}
+      {{ _set_entity_key_cmd | cephx_failed('the key command')
+         or 'printed something that is not the keyring of the entity' }}.
+      Check `ceph auth get {{ _set_entity_key_name }}`: the key may have been
+      changed anyway.
+  when:
+    - _set_entity_key_cmd | length > 0
+    - >-
+      _set_entity_key_cmd.rc != 0
+      or (_set_entity_key_cmd.stdout_lines | first | default('')) != '[' ~ _set_entity_key_name ~ ']'
+
+- name: Inspect the new keyring of {{ _set_entity_key_name }}  # noqa osism-fqcn
+  cephx_keyring:
+    keyring: "{{ _set_entity_key_cmd.stdout }}"
+    want_normalised: true
+  register: _set_entity_key_new
+  changed_when: false
+  when: _set_entity_key_cmd | length > 0
+  # The result carries the key.
+  no_log: true
+
+# What the monitors printed, against what was asked.
+- name: Fail if the key command did not do what was asked for {{ _set_entity_key_name }}
+  ansible.builtin.fail:
+    msg: >-
+      {{ 'The staging of' if _set_entity_key_mode == 'stage' else 'The rotation of' }}
+      {{ _set_entity_key_name }} did not leave
+      {{ 'a pending key' if _set_entity_key_mode == 'stage' else 'a new active key' }}.
+      Check `ceph auth get {{ _set_entity_key_name }}`.
+  when:
+    - _set_entity_key_cmd | length > 0
+    - >-
+      (_set_entity_key_mode == 'stage' and not _set_entity_key_new.has_pending | bool)
+      or (_set_entity_key_mode == 'rotate'
+          and (_set_entity_key_new.key_fp == _set_entity_key_current.key_fp
+               or _set_entity_key_new.has_pending | bool))
+
+# The keyring handed on is always a fresh read, never the command's output:
+# ceph auth get-or-create-pending prints only the key and the pending key
+# (no caps), while an already staged entity is read with ceph auth get, and
+# the keyring files written from this must not differ by path.
+- name: Read the new keyring of {{ _set_entity_key_name }}
+  ansible.builtin.command:
+    cmd: "ceph auth get {{ _set_entity_key_name }}"
+  register: _set_entity_key_after
+  changed_when: false
+  # Judged by the next task, which can show stderr: stdout carries the key.
+  failed_when: false
+  when: _set_entity_key_cmd | length > 0
+  no_log: true
+
+- name: Fail if it cannot read the new keyring of {{ _set_entity_key_name }}
+  ansible.builtin.fail:
+    msg: >-
+      ceph auth get {{ _set_entity_key_name }}
+      {{ _set_entity_key_after | cephx_failed('ceph auth get')
+         or 'did not return the keyring of the entity' }},
+      after the key was changed. Check it before distributing anything.
+  when:
+    - _set_entity_key_cmd | length > 0
+    - >-
+      _set_entity_key_after.rc != 0
+      or (_set_entity_key_after.stdout_lines | first | default('')) != '[' ~ _set_entity_key_name ~ ']'
+
+- name: Inspect the read-back keyring of {{ _set_entity_key_name }}  # noqa osism-fqcn
+  cephx_keyring:
+    keyring: "{{ _set_entity_key_after.stdout }}"
+    want_normalised: true
+  register: _set_entity_key_final
+  changed_when: false
+  when: _set_entity_key_cmd | length > 0
+  # The result carries the key.
+  no_log: true
+
+# The monitors must hold what the command printed.
+- name: Fail if the monitors hold another key than the command returned for {{ _set_entity_key_name }}
+  ansible.builtin.fail:
+    msg: >-
+      The key of {{ _set_entity_key_name }} read back differs from the one
+      the command returned. Check `ceph auth get {{ _set_entity_key_name }}`.
+  when:
+    - _set_entity_key_cmd | length > 0
+    - _set_entity_key_final.in_force_fp != _set_entity_key_new.in_force_fp
+
+- name: Note the result for {{ _set_entity_key_name }}
+  ansible.builtin.set_fact:
+    _set_entity_key_result:
+      name: "{{ _set_entity_key_name }}"
+      action: "{{ _action }}"
+      # Double-quoted, so that YAML turns \n into a newline (Jinja does not).
+      keyring: "{{ (_set_entity_key_final if _set_entity_key_cmd | length > 0 else _set_entity_key_current).normalised_lines | join('\n') ~ '\n' }}"
+    _set_entity_key_results: >-
+      {{ _set_entity_key_results | default([])
+         + [{'name': _set_entity_key_name, 'action': _action}] }}
+  vars:
+    _action: >-
+      {{ 'already_staged' if _set_entity_key_pending | bool
+         else 'skipped_recent' if _set_entity_key_recent | bool
+         else 'staged' if _set_entity_key_mode == 'stage'
+         else 'rotated' }}
+  no_log: true
