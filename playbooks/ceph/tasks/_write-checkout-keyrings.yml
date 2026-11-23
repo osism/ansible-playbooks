@@ -1,35 +1,36 @@
 ---
-# Find where the keyrings of Ceph entities go in the manager's checkout of
-# the configuration repository: the files copy-ceph-keys writes. Included on
+# Write the keyrings of staged Ceph entities into the manager's checkout of the
+# configuration repository, where the operator copies them into their
+# repository and commits them, exactly as after copy-ceph-keys. Included on
 # the manager.
 #
 # Input:
-#   _write_checkout_keyrings: a list of {name}.
+#   _write_checkout_keyrings: a list of {name, keyring}, for example
+#                             _set_entity_key_result.name and .keyring. The
+#                             keyring carries the key: never print it.
 #
-#   _write_checkout_keyrings_check_only: must be true: write nothing and only
-#                             report where the keyrings would go. This file
-#                             does not write keyrings; without it, it fails.
+#   _write_checkout_keyrings_check_only: default false. When true, write
+#                             nothing and only report where the keyrings would
+#                             go; the items need a name, no keyring. For the
+#                             guards of a play, before it changes a key.
 #
 # Output:
-#   _write_checkout_keyrings_checked: a list of {name, dest, exists,
-#                             writeable}, one per target whose directory
-#                             exists (exists: is a directory; writeable: by
-#                             the user that would write the files).
+#   _write_checkout_keyrings_written: the paths of the keyring files that are
+#                             now in place (no keys).
+#   _write_checkout_keyrings_checked: check-only mode: a list of {name, dest,
+#                             exists, writeable}, one per target whose
+#                             directory exists (exists: is a directory;
+#                             writeable: by the user that writes the files).
 #
 # The files are the ones copy-ceph-keys writes for ceph.<name>.keyring under
 # configuration_directory: its ceph_infrastructure_keys, ceph_kolla_keys and
 # ceph_custom_keys. A play that includes this file loads the first two as
 # copy-ceph-keys does, with vars_files: ../manager/vars/ceph-keys.yml, so an
 # override (an extra variable, as osism's configuration.yml files are) holds
-# for all of them alike. As there, only a target whose directory exists
-# counts; no directory is created.
-
-- name: Fail unless only checking
-  ansible.builtin.fail:
-    msg: >-
-      _write-checkout-keyrings.yml writes no keyrings: include it with
-      _write_checkout_keyrings_check_only: true.
-  when: not _write_checkout_keyrings_check_only | default(false) | bool
+# for all of them alike. As there, a file is written only where its directory
+# exists; no directory is created.
+# Owner and group are dragon, mode 0640; client.admin belongs to the operator
+# user, mode 0600, as cephadm-bootstrap writes it.
 
 - name: List the checkout paths of the keyrings
   ansible.builtin.set_fact:
@@ -39,16 +40,18 @@
     # A second inclusion must not see the targets of the first.
     _write_checkout_keyrings_targets: []
 
-- name: Select the targets of the keyrings
+- name: Select the targets of the staged keyrings
   ansible.builtin.set_fact:
     _write_checkout_keyrings_targets: >-
       {{ _write_checkout_keyrings_targets + [
-           {'name': item.0.name, 'dest': item.1.dest}
+           {'name': item.0.name, 'dest': item.1.dest, 'keyring': item.0.keyring | default('')}
          ] }}
   loop: >-
     {{ _write_checkout_keyrings | product(_write_checkout_keyrings_infrastructure
        + _write_checkout_keyrings_kolla + _write_checkout_keyrings_custom) | list }}
   when: item.1.src == 'ceph.' ~ item.0.name ~ '.keyring'
+  # The items carry the keyring.
+  no_log: true
 
 - name: Check if the target directories exist
   ansible.builtin.stat:
@@ -57,6 +60,8 @@
   loop_control:
     label: "{{ item.dest | dirname }}"
   register: _write_checkout_keyrings_dirs
+  # The items carry the keyring.
+  no_log: true
 
 - name: Note where the keyrings would be written
   ansible.builtin.set_fact:
@@ -69,3 +74,37 @@
                               'writeable': t.stat.writeable | default(false)}) -%}
       {%- endfor -%}
       {{ out }}
+  when: _write_checkout_keyrings_check_only | default(false) | bool
+
+- name: Write the keyrings to the configuration directory
+  ansible.builtin.copy:
+    content: "{{ item.0.keyring | trim ~ '\n' }}"
+    dest: "{{ item.0.dest }}"
+    owner: "{{ (operator_user | default('dragon')) if item.0.name == 'client.admin' else 'dragon' }}"
+    group: "{{ (operator_group | default('dragon')) if item.0.name == 'client.admin' else 'dragon' }}"
+    mode: "{{ '0600' if item.0.name == 'client.admin' else '0640' }}"
+  when:
+    - not _write_checkout_keyrings_check_only | default(false) | bool
+    - item.1.stat.exists and item.1.stat.isdir
+  loop: >-
+    {{ _write_checkout_keyrings_targets | default([])
+       | zip(_write_checkout_keyrings_dirs.results) | list }}
+  loop_control:
+    label: "{{ item.0.dest }}"
+  register: _write_checkout_keyrings_copied
+  # The content is the key.
+  no_log: true
+
+- name: Collect the paths written
+  ansible.builtin.set_fact:
+    _write_checkout_keyrings_written: >-
+      {{ _write_checkout_keyrings_copied.results
+         | rejectattr('skipped', 'defined')
+         | map(attribute='item.0.dest') | list }}
+  when: not _write_checkout_keyrings_check_only | default(false) | bool
+
+# no_log hides the loop labels above, so say which paths were written.
+- name: Report the paths written
+  ansible.builtin.debug:
+    msg: "{{ _write_checkout_keyrings_written | default([]) }}"
+  when: not _write_checkout_keyrings_check_only | default(false) | bool
