@@ -1,0 +1,6 @@
+summary:
+"client.crash.node-0: rotated"
+"  redeployed: crash.node-0"
+"client.crash.node-1: rotated"
+"  redeployed: crash.node-1"
+"client.crash.node-0, client.crash.node-1: nothing else to do (these keys never leave Ceph). Check: osism validate ceph-keys"

@@ -11,7 +11,9 @@ from cephx_common import (
     _a,
     _check_fields,
     _cmd,
+    _fsid,
     _guarded,
+    _keyring_of,
     _loop,
     _loop_failures,
     _osd_map,
@@ -208,12 +210,14 @@ def test_plugins_share_one_common_module():
     # helpers have one home.
     import sys
 
+    import cephx_redeploy
     import cephx_rotate
     import cephx_rotate_texts
     import cephx_validate
 
     common = sys.modules["_cephx_common"]
     for plugin in (
+        cephx_redeploy,
         cephx_rotate,
         cephx_rotate_texts,
         cephx_validate,
@@ -357,7 +361,8 @@ def test_records_messages_never_carry_values():
         assert err.value.__context__ is None
 
 
-# The shared reads: _read, _loop_failures, _osd_map, _check_fields
+# The shared reads: _read, _fsid, _keyring_of, _loop_failures, _osd_map,
+# _check_fields
 
 
 def test_read():
@@ -377,6 +382,31 @@ def test_read():
     with pytest.raises(AnsibleFilterError) as err:
         _read({"skipped": True}, "ceph x", check)
     assert str(err.value) == "ceph x: the command was skipped"
+
+
+@pytest.mark.parametrize(
+    "stdout, reason",
+    [
+        ("01234567-89ab-cdef-0123-456789abcdef\n", ""),
+        ("", "did not print an fsid"),
+        ("01234567-89AB-CDEF-0123-456789ABCDEF", "did not print an fsid"),
+    ],
+)
+def test_fsid(stdout, reason):
+    assert _fsid(stdout) == reason
+
+
+@pytest.mark.parametrize(
+    "stdout, reason",
+    [
+        ("[client.a]\n\tkey = x\n", ""),
+        ("[client.b]\n", "did not return the keyring of the entity"),
+        ("", "did not return the keyring of the entity"),
+        (" [client.a]\n", "did not return the keyring of the entity"),
+    ],
+)
+def test_keyring_of(stdout, reason):
+    assert _keyring_of("client.a")(stdout) == reason
 
 
 def test_loop_failures():
@@ -472,6 +502,7 @@ def test_guarded_keeps_filter_errors():
 def test_every_filter_is_guarded():
     import sys
 
+    import cephx_redeploy
     import cephx_rotate
     import cephx_rotate_texts
     import cephx_validate
@@ -479,6 +510,7 @@ def test_every_filter_is_guarded():
     common = sys.modules["_cephx_common"]
     for plugin in (
         common,
+        cephx_redeploy,
         cephx_rotate,
         cephx_rotate_texts,
         cephx_validate,

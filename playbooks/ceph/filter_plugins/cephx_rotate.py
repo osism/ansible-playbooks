@@ -3,7 +3,7 @@
 cephx_rotate_tokens reads ceph_rotate_keys, cephx_rotate_min_age reads
 ceph_rotate_keys_min_age. The checks come in three stages, as the play runs
 them: the input (cephx_rotate_input_refusal), before any Ceph command; the
-cluster read (cephx_rotate_read_refusal, after `ceph auth export`) and the
+cluster reads (cephx_rotate_read_refusal, one call after each read) and the
 classification (cephx_rotate_class_refusal), before the plan is printed;
 the hosts and the checkout (cephx_rotate_host_refusal, one call per check),
 after it. Each returns the first refusal of its stage, in the play's order
@@ -15,11 +15,14 @@ The play builds ctx once, before the classification:
   openstack_keys  the names of openstack_keys, in their order
                   (cephx_rotate_openstack_names)
   existing        the entities of the cluster (ceph auth export)
+  pending         those of them with a pending key
+  daemons         the crash and RGW daemons, {daemon, host, entity, class}
   keywords        what each keyword names, for the messages
   configuration_directory  the manager's checkout
 
-What happens once keys change is in cephx_rotate_texts (the summary and
-the failure message).
+The parser cephx_daemons gives the play the crash and RGW daemons. What
+happens once keys change is in cephx_redeploy (the redeploys) and
+cephx_rotate_texts (the summary and the failure message).
 
 The input is checked as cephx_common says; the operator's values by the
 input refusal. The registered results read here carry no keys, except the
@@ -53,14 +56,19 @@ def _load_common():
 
 _common = _load_common()
 _guarded = _common._guarded
+ROTATED_CLASSES = _common.ROTATED_CLASSES
+STAGED_CLASSES = _common.STAGED_CLASSES
+_cmd = _common._cmd
+_fsid = _common._fsid
 _is = _common._is
 _loop = _common._loop
 _openstack_key_names = _common._openstack_key_names
 _read = _common._read
+_records = _common._records
 _state = _common._state
 
 UNCHANGED = "Nothing was changed."
-KEYWORDS = ("openstack",)
+KEYWORDS = ("openstack", "crash", "rgw", "bootstrap")
 # The classes of the entities other than the OpenStack keys and
 # client.admin, in this order, with the prefix of their entity names.
 PREFIXES = {
@@ -69,9 +77,10 @@ PREFIXES = {
     "bootstrap": "client.bootstrap-",
     "lockbox": "client.osd-lockbox.",
 }
-# The classes this play recognises and refuses: the keywords crash, rgw,
-# bootstrap and lockbox each stay one entry of their class.
-NOT_HANDLED = ("crash", "rgw", "bootstrap", "lockbox")
+# The classes this play recognises and refuses: the keyword lockbox stays
+# one entry of its class.
+NOT_HANDLED = ("lockbox",)
+DAEMON_CLASSES = ("crash", "rgw")
 NAME = re.compile(r"[A-Za-z0-9._-]+")
 # Up to 9 digits: hours, never near int()'s limit on digits.
 DIGITS = re.compile(r"[0-9]{1,9}")
@@ -171,7 +180,17 @@ def cephx_rotate_min_age(value):
     return hours
 
 
-# Stage 2: the cluster read
+def cephx_rotate_classes_asked(tokens):
+    """The classes crash, rgw, bootstrap and lockbox (in this order) that
+    the entries name, by keyword or by entity name."""
+    return [
+        c
+        for c, prefix in PREFIXES.items()
+        if c in tokens or any(t.startswith(prefix) for t in tokens)
+    ]
+
+
+# Stage 2: the cluster reads
 
 
 def _unchanged(*refusals):
@@ -186,22 +205,77 @@ def _starts(first, why="did not print JSON"):
     return lambda stdout: "" if stdout.strip().startswith(first) else why
 
 
+def _read_one(cmd, result, check):
+    if _state(result) == "skipped":
+        return ""
+    return _unchanged(_read(result, cmd, check))
+
+
 def _read_auth_export(result):
     check = _starts(("{", "["), "failed to print JSON")
     return _unchanged(_read(result, "ceph auth export", check))
 
 
+def _read_loop(registered, what, cmd, first):
+    """The refusal for the results of a loop over cmd (formatted with each
+    item): those that failed or printed no JSON."""
+    return _unchanged(
+        *(_read(r, cmd % r["item"], _starts(first)) for r in _loop(registered, what))
+    )
+
+
 READS = {
     "auth_export": _read_auth_export,
+    "orch_ps": lambda r: _read_loop(
+        r, "ceph orch ps", "ceph orch ps --daemon-type %s", "["
+    ),
 }
 
 
 def cephx_rotate_read_refusal(name, result):
     """The refusal after the cluster read `name` (a key of READS): the
-    command failed or printed no JSON."""
+    command failed or printed no JSON. '' when it was skipped."""
     if name not in READS:
         raise AnsibleFilterError("cephx_rotate_read_refusal: no read %s" % name)
     return READS[name](result)
+
+
+# Stage 2: what the reads found
+
+
+def _nonempty(entry, fields, what):
+    for f in fields:
+        if not entry[f]:
+            raise AnsibleFilterError("%s: an entry's %s is empty" % (what, f))
+
+
+def cephx_daemons(orch_ps):
+    """The daemons `ceph orch ps --daemon-type <class>` listed (the loop's
+    registered result): {daemon, host, entity, class}, the entity being
+    client.<daemon>."""
+    out, seen = [], set()
+    for r in _loop(orch_ps, "ceph orch ps"):
+        cls = r["item"]
+        what = "ceph orch ps --daemon-type %s" % cls
+        listed = _records(
+            _cmd(r, what)["stdout"], what, list, {"daemon_name": str, "hostname": str}
+        )
+        for d in listed:
+            _nonempty(d, ("daemon_name", "hostname"), what)
+            if d["daemon_name"] in seen:
+                raise AnsibleFilterError(
+                    "%s: %s is listed twice" % (what, d["daemon_name"])
+                )
+            seen.add(d["daemon_name"])
+            out.append(
+                {
+                    "daemon": d["daemon_name"],
+                    "host": d["hostname"],
+                    "entity": "client." + d["daemon_name"],
+                    "class": cls,
+                }
+            )
+    return out
 
 
 # Stage 2: the classification
@@ -237,15 +311,23 @@ def _class_of(name, openstack):
 
 
 def _keyword_names(keyword, ctx, openstack):
-    # openstack, the one keyword handled
-    return [n for n in openstack if n in ctx["existing"]]
+    existing = ctx["existing"]
+    if keyword == "openstack":
+        return [n for n in openstack if n in existing]
+    if keyword in DAEMON_CLASSES:
+        return list(
+            dict.fromkeys(d["entity"] for d in ctx["daemons"] if d["class"] == keyword)
+        )
+    return [n for n in existing if n.startswith(PREFIXES["bootstrap"])]
 
 
 def cephx_rotate_classify(tokens, ctx):
     """Each entity named, with its class and the keyword that named it ('' for
-    a name given as such). The keyword openstack stands for the entries of
-    openstack_keys that exist. The keyword of a class not handled (crash,
-    rgw, bootstrap, lockbox) stays one entry of its class, refused."""
+    a name given as such). A keyword stands for the entities of its class:
+    openstack for the entries of openstack_keys that exist, crash and rgw for
+    the keys of the daemons, bootstrap for the client.bootstrap-* entities.
+    The keyword of a class not handled (lockbox) stays one entry of its
+    class, refused."""
     openstack = _openstack_names(ctx)
     out = []
     for t in tokens:
@@ -287,9 +369,10 @@ def _refuse_unknown(classified, ctx):
     names = _names_of(classified, "unknown")
     if names:
         return (
-            "%s: not a key this play rotates. It takes the keyword openstack, the"
-            " entries of openstack_keys (%s) and client.admin. Tenant keys"
-            " (Manila) are rotated through Manila's access rules. %s"
+            "%s: not a key this play rotates. It takes the keywords openstack,"
+            " crash, rgw and bootstrap, the entries of openstack_keys (%s),"
+            " client.admin, client.crash.*, client.rgw.* and client.bootstrap-*."
+            " Tenant keys (Manila) are rotated through Manila's access rules. %s"
             % (", ".join(names), ", ".join(ctx["openstack_keys"]), UNCHANGED)
         )
     return ""
@@ -338,6 +421,25 @@ def _refuse_cinder_alone(classified, ctx):
     return ""
 
 
+def _refuse_daemon_keys_unused(classified, ctx):
+    existing = ctx["existing"]
+    used = [d["entity"] for d in ctx["daemons"]]
+    names = [
+        "%s: no %s daemon uses it"
+        % (c["name"], "crash" if c["class"] == "crash" else "RGW")
+        for c in classified
+        if c["class"] in DAEMON_CLASSES
+        and c["name"] in existing
+        and c["name"] not in used
+    ]
+    if names:
+        return (
+            "%s (ceph orch ps). A key no daemon uses is deleted (ceph auth del"
+            " <name>), not rotated. %s" % ("; ".join(names), UNCHANGED)
+        )
+    return ""
+
+
 def _refuse_missing(classified, ctx):
     existing = ctx["existing"]
     names = [c["name"] for c in classified if c["name"] not in existing]
@@ -350,6 +452,25 @@ def _refuse_missing(classified, ctx):
     return ""
 
 
+def _refuse_pending(classified, ctx):
+    pending = ctx["pending"]
+    names = [n for n in _names_of(classified, *ROTATED_CLASSES) if n in pending]
+    if names:
+        return (
+            "%s: %s (ceph auth export), staged outside this play, which rotates"
+            " the keys of crash, RGW and bootstrap without staging. Rotating"
+            " would discard it. Decide for each: ceph auth commit-pending <name>"
+            " puts the pending key in force, ceph auth clear-pending <name> drops"
+            " it; then run the command again. %s"
+            % (
+                ", ".join(names),
+                "has a pending key" if len(names) == 1 else "have pending keys",
+                UNCHANGED,
+            )
+        )
+    return ""
+
+
 # In the play's order: the first that applies is the refusal.
 CLASS_CHECKS = (
     _refuse_ceph_daemons,
@@ -357,7 +478,9 @@ CLASS_CHECKS = (
     _refuse_not_handled,
     _refuse_twice,
     _refuse_cinder_alone,
+    _refuse_daemon_keys_unused,
     _refuse_missing,
+    _refuse_pending,
 )
 
 
@@ -374,10 +497,43 @@ def cephx_rotate_class_refusal(classified, ctx):
 
 
 def cephx_rotate_plan(classified, ctx):
-    """The plan: entities ({name, class}, in order), each staged (the
-    OpenStack keys and client.admin)."""
+    """The plan: entities ({name, class}, in order); staged (the OpenStack
+    keys and client.admin); groups to rotate ({names, class, one_at_a_time,
+    daemons}: the crash keys together, each RGW key on its own, the
+    bootstrap keys together)."""
     entities = [{"name": c["name"], "class": c["class"]} for c in classified]
-    return {"entities": entities}
+    daemons = ctx["daemons"]
+    groups = []
+    crash = [e["name"] for e in entities if e["class"] == "crash"]
+    if crash:
+        groups.append(
+            {
+                "names": crash,
+                "class": "crash",
+                "one_at_a_time": False,
+                "daemons": [d for d in daemons if d["entity"] in crash],
+            }
+        )
+    for e in entities:
+        if e["class"] == "rgw":
+            groups.append(
+                {
+                    "names": [e["name"]],
+                    "class": "rgw",
+                    "one_at_a_time": True,
+                    "daemons": [d for d in daemons if d["entity"] == e["name"]],
+                }
+            )
+    boot = [e["name"] for e in entities if e["class"] == "bootstrap"]
+    if boot:
+        groups.append(
+            {"names": boot, "class": "bootstrap", "one_at_a_time": False, "daemons": []}
+        )
+    return {
+        "entities": entities,
+        "staged": [e for e in entities if e["class"] in STAGED_CLASSES],
+        "groups": groups,
+    }
 
 
 # Stage 3: the hosts and the checkout, after the printed plan
@@ -422,6 +578,10 @@ def _host_monitors(result, ctx):
     return ""
 
 
+def _host_fsid(result, ctx):
+    return _read_one("ceph fsid", result, _fsid)
+
+
 def _host_configuration_directory(result, ctx):
     """{staged, defined}: configuration_directory is needed for the staged
     keys; defined is false when it is unset or null."""
@@ -461,11 +621,48 @@ def _host_checkout_writable(result, ctx):
     return ""
 
 
+def _host_status(result, ctx):
+    """`ceph orch host ls` ({hosts: its result, daemons: those to
+    redeploy}): it failed or printed no JSON, or a daemon host is offline or
+    in maintenance (any case; status "" is online). '' when it was skipped."""
+    if _state(result["hosts"]) == "skipped":
+        return ""
+    what = "ceph orch host ls"
+    refusal = _read(result["hosts"], what, _starts("["))
+    if refusal:
+        return _unchanged(refusal)
+    fields = {"hostname": str, "status": str}
+    entries = _records(result["hosts"]["stdout"], what, list, fields)
+    names = [h["hostname"] for h in entries]
+    if len(set(names)) != len(names):
+        raise AnsibleFilterError("%s: a host is listed twice" % what)
+    errs = []
+    for h in entries:
+        status = h["status"].lower()
+        if status not in ("offline", "maintenance"):
+            continue
+        on = [d["daemon"] for d in result["daemons"] if d["host"] == h["hostname"]]
+        if not on:
+            continue
+        errs.append(
+            "%s is %s (ceph orch host ls): cephadm cannot redeploy %s there. Run"
+            " the command again when the host is online."
+            % (
+                h["hostname"],
+                "offline" if status == "offline" else "in maintenance",
+                ", ".join(on),
+            )
+        )
+    return _unchanged(*errs)
+
+
 HOST_CHECKS = {
     "monitors": _host_monitors,
+    "fsid": _host_fsid,
     "configuration_directory": _host_configuration_directory,
     "checkout_places": _host_checkout_places,
     "checkout_writable": _host_checkout_writable,
+    "host_status": _host_status,
 }
 
 
@@ -485,6 +682,7 @@ class FilterModule:
                 cephx_rotate_tokens,
                 cephx_rotate_input_refusal,
                 cephx_rotate_min_age,
+                cephx_rotate_classes_asked,
                 cephx_rotate_openstack_names,
                 cephx_rotate_read_refusal,
                 cephx_rotate_classify,
@@ -492,5 +690,6 @@ class FilterModule:
                 cephx_rotate_class_refusal,
                 cephx_rotate_plan,
                 cephx_rotate_host_refusal,
+                cephx_daemons,
             )
         }

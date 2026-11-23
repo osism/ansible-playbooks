@@ -39,14 +39,17 @@ HOURS = (
 AGAIN = (
     "Run the same command again: an entity staged in this run keeps its "
     "pending key (or, once committed, gets no new key before "
-    "ceph_rotate_keys_min_age), and its files are written again."
+    "ceph_rotate_keys_min_age), and its files are written again; an entity "
+    "rotated in this run gets no new key before ceph_rotate_keys_min_age, and "
+    "each of its daemons that does not run with its key is redeployed."
 )
 AGAIN_MIN_AGE_0 = (
     "Run the command again, but without -e ceph_rotate_keys_min_age=0: with "
-    "it, every entity committed in this run would get a new key again. "
-    "Without it (the default, 24 hours): an entity staged in this run keeps "
-    "its pending key (or, once committed, gets no new key), and its files are "
-    "written again."
+    "it, every entity rotated or committed in this run would get a new key "
+    "again. Without it (the default, 24 hours): an entity staged in this run "
+    "keeps its pending key (or, once committed, gets no new key), and its "
+    "files are written again; an entity rotated in this run gets no new key, "
+    "and each of its daemons that does not run with its key is redeployed."
 )
 
 
@@ -80,6 +83,22 @@ def staged(name, action="staged"):
     }
 
 
+def rotated(name, cls, action="rotated", redeployed=(), kept=()):
+    return {
+        "name": name,
+        "class": cls,
+        "action": action,
+        "checkout": [],
+        "monitors": False,
+        "redeployed": list(redeployed),
+        "kept": list(kept),
+    }
+
+
+def crash(n, action="rotated"):
+    return rotated("client.crash.node-%d" % n, "crash", action, ["crash.node-%d" % n])
+
+
 def sctx(min_age=24):
     return {
         "min_age": min_age,
@@ -94,11 +113,19 @@ def fctx(min_age=24):
 
 
 def current(**kw):
-    c = {"name": "", "action": ""}
+    c = {
+        "name": "",
+        "group": {},
+        "results": [],
+        "redeployed": [],
+        "action": "",
+    }
     c.update(kw)
     return c
 
 
+RGW0 = "client.rgw.default.node-0.abc"
+RGW1 = "client.rgw.default.node-1.xyz"
 OK_KW = [
     "client.cinder-backup",
     "client.cinder",
@@ -124,11 +151,47 @@ SUMMARIES = {
     ),
     "ad": ([staged("client.admin")], 24),
     "ok-kw": ([staged(n) for n in OK_KW], 24),
+    "crash": ([crash(0), crash(1)], 24),
+    "rgw": (
+        [
+            rotated(RGW0, "rgw", redeployed=["rgw.default.node-0.abc"]),
+            rotated(RGW1, "rgw", redeployed=["rgw.default.node-1.xyz"]),
+        ],
+        24,
+    ),
+    "skip": (
+        [
+            crash(0, "skipped_recent"),
+            crash(1, "skipped_recent"),
+            rotated(RGW0, "rgw", "skipped_recent", kept=["rgw.default.node-0.abc"]),
+            rotated(
+                RGW1, "rgw", "skipped_recent", redeployed=["rgw.default.node-1.xyz"]
+            ),
+        ],
+        1000,
+    ),
+    "hang2": (
+        [
+            rotated(
+                RGW0, "rgw", "skipped_recent", redeployed=["rgw.default.node-0.abc"]
+            ),
+            rotated(RGW1, "rgw", redeployed=["rgw.default.node-1.xyz"]),
+        ],
+        24,
+    ),
     "mix": (
         [
             staged("client.cinder", "skipped_recent"),
             staged("client.nova", "skipped_recent"),
             staged("client.gnocchi"),
+        ],
+        24,
+    ),
+    "mixr": (
+        [
+            rotated("client.bootstrap-osd", "bootstrap"),
+            rotated("client.bootstrap-rgw", "bootstrap"),
+            staged("client.glance"),
         ],
         24,
     ),
@@ -141,12 +204,65 @@ def test_summary_matches_the_run(case):
     assert cephx_rotate_summary(done, sctx(min_age)) == fixture(case)["summary"]
 
 
+def _crash_group():
+    return {
+        "names": ["client.crash.node-0", "client.crash.node-1"],
+        "class": "crash",
+        "daemons": [
+            {
+                "daemon": "crash.node-0",
+                "host": "localhost",
+                "entity": "client.crash.node-0",
+            },
+            {
+                "daemon": "crash.node-1",
+                "host": "localhost",
+                "entity": "client.crash.node-1",
+            },
+        ],
+        "one_at_a_time": False,
+    }
+
+
+def _crash_current():
+    return current(
+        name="client.crash.node-0, client.crash.node-1",
+        group=_crash_group(),
+        results=[
+            {"name": "client.crash.node-0", "action": "rotated"},
+            {"name": "client.crash.node-1", "action": "rotated"},
+        ],
+    )
+
+
 FAILURES = {
+    "hang": (
+        [],
+        current(
+            name=RGW0,
+            group={
+                "names": [RGW0],
+                "class": "rgw",
+                "daemons": [
+                    {
+                        "daemon": "rgw.default.node-0.abc",
+                        "host": "localhost",
+                        "entity": RGW0,
+                    }
+                ],
+                "one_at_a_time": True,
+            },
+            results=[{"name": RGW0, "action": "rotated"}],
+        ),
+        fctx(),
+    ),
     "mf": (
         [staged("client.cinder")],
         current(name="client.nova"),
         fctx(),
     ),
+    "rdf": ([], _crash_current(), fctx()),
+    "rdz": ([], _crash_current(), fctx(min_age=0)),
 }
 
 
@@ -178,27 +294,54 @@ def test_failure_whole_text_staged_then_in_progress():
     )
 
 
+def test_failure_whole_text_group():
+    # T-1, example rdf.
+    done, cur, ctx = FAILURES["rdf"]
+    assert plain(cephx_rotate_failure(done, cur, ctx)) == (
+        "The run stopped at client.crash.node-0, client.crash.node-1 (see the"
+        " error above). client.crash.node-0, client.crash.node-1: not finished"
+        " (client.crash.node-0: rotated, client.crash.node-1: rotated;"
+        " redeployed: none of crash.node-0, crash.node-1). " + AGAIN
+    )
+
+
 def test_failure_whole_text_min_age_zero():
-    done, cur, ctx = FAILURES["mf"]
-    assert plain(cephx_rotate_failure(done, cur, fctx(min_age=0))) == (
-        "The run stopped at client.nova (see the error above)."
-        " client.cinder: staged, written to the checkout and the monitor hosts."
-        " client.nova: not finished (its key may have been staged). " + AGAIN_MIN_AGE_0
+    done, cur, ctx = FAILURES["rdz"]
+    assert plain(cephx_rotate_failure(done, cur, ctx)) == (
+        "The run stopped at client.crash.node-0, client.crash.node-1 (see the"
+        " error above). client.crash.node-0, client.crash.node-1: not finished"
+        " (client.crash.node-0: rotated, client.crash.node-1: rotated;"
+        " redeployed: none of crash.node-0, crash.node-1). " + AGAIN_MIN_AGE_0
+    )
+
+
+def test_failure_whole_text_rgw_one_at_a_time():
+    done, cur, ctx = FAILURES["hang"]
+    assert plain(cephx_rotate_failure(done, cur, ctx)) == (
+        "The run stopped at " + RGW0 + " (see the error above). " + RGW0 + ":"
+        " not finished (" + RGW0 + ": rotated; redeployed: none of"
+        " rgw.default.node-0.abc). " + AGAIN
     )
 
 
 def test_failure_records_of_each_class():
-    # T-1b: a staged entry whose key was not renewed says "no new key".
+    # T-1b: a staged entry whose key was not renewed says "no new key", as
+    # the other classes do.
     done = [
         staged("client.glance", "skipped_recent"),
         dict(staged("client.admin", "already_staged")),
+        rotated(RGW0, "rgw", "skipped_recent", ["a", "b"], ["c"]),
+        rotated("client.bootstrap-osd", "bootstrap"),
     ]
     out = cephx_rotate_failure(done, current(), fctx())
     assert plain(out) == (
         "The run stopped at an entity (see the error above)."
         " client.glance: no new key, written to the checkout and the monitor"
         " hosts."
-        " client.admin: already staged, written to the checkout. " + AGAIN
+        " client.admin: already staged, written to the checkout."
+        " " + RGW0 + ": no new key; redeployed: a, b; running with this key,"
+        " not redeployed: c."
+        " client.bootstrap-osd: rotated. " + AGAIN
     )
 
 
@@ -214,6 +357,41 @@ def test_failure_current_with_action():
     assert plain(out) == (
         "The run stopped at client.glance (see the error above). client.glance:"
         " not finished (already staged, its files not all written). " + AGAIN
+    )
+
+
+def test_failure_group_without_actions_or_daemons():
+    g = {"names": ["client.bootstrap-osd"], "class": "bootstrap", "daemons": []}
+    out = cephx_rotate_failure(
+        [],
+        current(
+            name="client.bootstrap-osd",
+            group=g,
+            results=[{"name": "x", "action": "rotated"}],
+        ),
+        fctx(),
+    )
+    assert plain(out) == (
+        "The run stopped at client.bootstrap-osd (see the error above)."
+        " client.bootstrap-osd: not finished (no key rotated). " + AGAIN
+    )
+
+
+def test_failure_group_actions_and_redeployed():
+    g = _crash_group()
+    cur = _crash_current()
+    cur["results"] = [
+        {"name": "client.crash.node-1", "action": "skipped_recent"},
+        {"name": "client.other", "action": "rotated"},
+    ]
+    cur["redeployed"] = ["crash.node-1"]
+    cur["group"] = g
+    out = cephx_rotate_failure([], cur, fctx())
+    assert plain(out) == (
+        "The run stopped at client.crash.node-0, client.crash.node-1 (see the"
+        " error above). client.crash.node-0, client.crash.node-1: not finished"
+        " (client.crash.node-1: no new key; redeployed: crash.node-1 of"
+        " crash.node-0, crash.node-1). " + AGAIN
     )
 
 
@@ -336,6 +514,9 @@ def test_summary_unknown_class_raises():
     [
         staged("client.glance", "renamed"),
         staged("client.glance", "rotated"),
+        crash(0, "renamed"),
+        crash(0, "staged"),
+        crash(0, "already_staged"),
     ],
 )
 def test_summary_unknown_action_raises(d):
@@ -346,14 +527,24 @@ def test_summary_unknown_action_raises(d):
     assert str(e.value) == "cephx_rotate_summary: unexpected input (KeyError)"
 
 
+def test_summary_kept_after_redeployed():
+    d = rotated(RGW0, "rgw", redeployed=["a"], kept=["b", "c"])
+    assert cephx_rotate_summary([d], sctx()) == [
+        RGW0 + ": rotated",
+        "  redeployed: a",
+        "  running with this key, not redeployed: b, c",
+        RGW0 + ": nothing else to do (these keys never leave Ceph). Check: osism"
+        " validate ceph-keys",
+    ]
+
+
 def test_summary_min_age_as_a_number():
     # T-8: the play hands min_age over as an int (checked by the input
     # checks), so "0024" reads 24.
-    out = cephx_rotate_summary([staged("client.glance", "skipped_recent")], sctx(24))
+    out = cephx_rotate_summary([crash(0, "skipped_recent")], sctx(24))
     assert out[0] == (
-        "client.glance: no new key: the active key is younger than 24 hours"
-        " (ceph_rotate_keys_min_age; 0 rotates again); its files were written"
-        " again with that key (see the next steps)"
+        "client.crash.node-0: no new key: the active key is younger than 24"
+        " hours (ceph_rotate_keys_min_age; 0 rotates again)"
     )
 
 

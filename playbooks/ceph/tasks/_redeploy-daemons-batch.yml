@@ -1,0 +1,67 @@
+---
+# One batch of _redeploy-daemons.yml: redeploy each daemon of the batch, then
+# wait until each runs in a container other than the one before (bounded).
+#
+# Input:
+#   _redeploy_daemons_batch: list of {daemon, container_id}, container_id as
+#     `ceph orch ps` showed it before the redeploy ('' if none).
+
+- name: Redeploy {{ _redeploy_daemons_batch | map(attribute='daemon') | join(', ') }}
+  ansible.builtin.command:
+    cmd: "ceph orch daemon redeploy {{ item.daemon }}"
+  loop: "{{ _redeploy_daemons_batch }}"
+  loop_control:
+    label: "{{ item.daemon }}"
+  register: _redeploy_daemons_cmd
+  changed_when: true
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+
+- name: Fail if cephadm refused a redeploy
+  ansible.builtin.fail:
+    msg: "{{ _refusal }}"
+  vars:
+    _refusal: "{{ _redeploy_daemons_cmd | cephx_redeploy_refusal }}"
+  when: _refusal | length > 0
+
+# cephadm runs the redeploy in its own time; a container ID other than the
+# one before, running, is the new container. A daemon missing from an
+# answer, an answer that failed and one that is not JSON are "not yet".
+# An answer that cannot be judged (JSON of another shape, the daemon
+# listed twice) ends the wait; the next task stops on it (outside no_log,
+# so that its message is shown).
+- name: Wait for a new running container of {{ _redeploy_daemons_batch | map(attribute='daemon') | join(', ') }}
+  ansible.builtin.command:
+    cmd: "ceph orch ps --daemon-type {{ item.daemon.split('.') | first }} --refresh --format json"
+  loop: "{{ _redeploy_daemons_batch }}"
+  loop_control:
+    label: "{{ item.daemon }}"
+  register: _redeploy_daemons_wait
+  changed_when: false
+  # Judged below; no_log keeps an unmasked stderr out of the output.
+  failed_when: false
+  no_log: true
+  until: >-
+    _redeploy_daemons_wait | cephx_redeploy_up(item)
+    or _redeploy_daemons_wait.attempts | default(1) | int > _redeploy_daemons_retries | default(60) | int
+  retries: "{{ _redeploy_daemons_retries | default(60) | int }}"
+  delay: "{{ _redeploy_daemons_delay | default(10) | int }}"
+
+- name: Note the daemons that run in a new container
+  ansible.builtin.set_fact:
+    _redeploy_daemons_redeployed: >-
+      {{ _redeploy_daemons_redeployed + (_redeploy_daemons_wait | cephx_redeploy_up_daemons) }}
+
+- name: Fail if a daemon did not come back
+  ansible.builtin.fail:
+    msg: >-
+      {{ _down | join(', ') }}: not running in a new container
+      {{ (_redeploy_daemons_retries | default(60) | int) * (_redeploy_daemons_delay | default(10) | int) }}
+      seconds after its redeploy (ceph orch ps --refresh). See ceph orch ps,
+      and cephadm logs --name <daemon> on its host.
+  vars:
+    _down: >-
+      {{ _redeploy_daemons_batch | map(attribute='daemon')
+         | reject('in', _redeploy_daemons_redeployed) | list }}
+  when: _down | length > 0

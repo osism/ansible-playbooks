@@ -1,0 +1,10 @@
+summary:
+"client.crash.node-0: no new key: the active key is younger than 1000 hours (ceph_rotate_keys_min_age; 0 rotates again)"
+"  redeployed: crash.node-0"
+"client.crash.node-1: no new key: the active key is younger than 1000 hours (ceph_rotate_keys_min_age; 0 rotates again)"
+"  redeployed: crash.node-1"
+"client.rgw.default.node-0.abc: no new key: the active key is younger than 1000 hours (ceph_rotate_keys_min_age; 0 rotates again)"
+"  running with this key, not redeployed: rgw.default.node-0.abc"
+"client.rgw.default.node-1.xyz: no new key: the active key is younger than 1000 hours (ceph_rotate_keys_min_age; 0 rotates again)"
+"  redeployed: rgw.default.node-1.xyz"
+"client.crash.node-0, client.crash.node-1, client.rgw.default.node-0.abc, client.rgw.default.node-1.xyz: nothing else to do (these keys never leave Ceph). Check: osism validate ceph-keys"
