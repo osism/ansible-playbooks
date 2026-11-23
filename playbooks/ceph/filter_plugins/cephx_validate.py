@@ -130,7 +130,7 @@ def _pending_note(name, osds, services, openstack_names):
             return "staged lockbox key, but no OSD in the OSD map has the fsid it is named after"
         return "staged lockbox key of osd.%d: its next start commits it" % osds[fsid]
     return (
-        "a pending key: find out what uses this entity, then ceph auth commit-pending "
+        "not staged by cephadm-rotate-keys: find out what uses this entity, then ceph auth commit-pending "
         + name
         + " or ceph auth clear-pending "
         + name

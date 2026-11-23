@@ -1,0 +1,9 @@
+summary:
+"client.admin: staged"
+"  checkout: /tmp/pt/cfg/environments/infrastructure/files/ceph/ceph.client.admin.keyring"
+"Next steps, now and one directly after the other (staged keys are not left lying around):"
+"1. Copy the keyring files listed under checkout above from the manager's checkout into your configuration repository (encrypt them first if your repository keeps keyrings encrypted), commit, push, then: osism apply configuration"
+"2. osism apply cephclient. The first use of a new key commits it."
+"3. osism validate ceph-keys"
+"Do not use the staged keyring by hand (no test login with it): its first use commits it, and so does any failed login for the entity with a wrong key. From the commit on, the old key stops working, and whoever still holds it cannot open new connections until it is applied."
+"client.admin: until its commit and cephadm's next refresh, ceph and cephadm shell on the monitors cannot read their admin keyring (cephadm writes it with the pending key line), and the check reports monitor-copies failed for client.admin; run it again about ten minutes after osism apply cephclient. The manager's ceph keeps working with the old key until the commit. If the commit comes early and the manager's ceph fails: osism apply cephclient installs the staged keyring from the checkout."

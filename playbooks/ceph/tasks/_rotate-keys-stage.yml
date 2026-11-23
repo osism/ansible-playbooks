@@ -1,0 +1,61 @@
+---
+# Stage one entity of the cephadm-rotate-keys play and distribute the key in
+# force next: into the manager's checkout of the configuration repository,
+# and for the OpenStack keys also to /etc/ceph on every monitor host (where
+# copy-ceph-keys and cephadm-pools keep them). client.admin's keyring on the
+# monitors belongs to cephadm and is not written here.
+#
+# Input:
+#   _rotate_keys_entity:  {name, class}, class openstack or admin.
+#   _rotate_keys_input (min_age), openstack_keys: as in the play.
+#
+# Output: one entry appended to _rotate_keys_done, {name, class, action,
+# checkout, monitors}: the action of _set-entity-key.yml, the checkout paths written
+# and whether the monitor hosts were written. No keys.
+#
+# A staged entity is distributed again by every run (already_staged, or
+# skipped_recent once committed), so a run that stopped between the staging
+# and the distribution is completed by running it again.
+
+- name: Note the entity in progress
+  ansible.builtin.set_fact:
+    _rotate_keys_current: "{{ _rotate_keys_entity.name }}"
+    _rotate_keys_current_action: ""
+
+- name: Stage the key of {{ _rotate_keys_entity.name }}
+  ansible.builtin.include_tasks: _set-entity-key.yml
+  vars:
+    _set_entity_key_name: "{{ _rotate_keys_entity.name }}"
+    _set_entity_key_mode: stage
+    _set_entity_key_min_age: "{{ _rotate_keys_input.min_age }}"
+
+- name: Note the staging of {{ _rotate_keys_entity.name }}
+  ansible.builtin.set_fact:
+    _rotate_keys_current_action: "{{ _set_entity_key_result.action }}"
+
+- name: Write to the checkout the keyring of {{ _rotate_keys_entity.name }}
+  ansible.builtin.include_tasks: _write-checkout-keyrings.yml
+  vars:
+    _write_checkout_keyrings:
+      - name: "{{ _set_entity_key_result.name }}"
+        keyring: "{{ _set_entity_key_result.keyring }}"
+  # The include's arguments carry the keyring.
+  no_log: true
+
+- name: Write to the monitor hosts the keyring of {{ _rotate_keys_entity.name }}
+  ansible.builtin.include_tasks: _write-mon-keyrings.yml
+  vars:
+    _write_mon_keyrings_keys: >-
+      {{ openstack_keys | selectattr('name', 'equalto', _rotate_keys_entity.name) | list }}
+  when: _rotate_keys_entity.class == 'openstack'
+
+- name: Note what was done for {{ _rotate_keys_entity.name }}
+  ansible.builtin.set_fact:
+    _rotate_keys_done: >-
+      {{ _rotate_keys_done + [{
+           'name': _rotate_keys_entity.name,
+           'class': _rotate_keys_entity['class'],
+           'action': _rotate_keys_current_action,
+           'checkout': _write_checkout_keyrings_written,
+           'monitors': _rotate_keys_entity.class == 'openstack'}] }}
+    _rotate_keys_current: ""

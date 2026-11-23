@@ -1,0 +1,10 @@
+summary:
+"client.glance: staged"
+"  checkout: /tmp/pt/cfg/environments/kolla/files/overlays/glance/ceph.client.glance.keyring"
+"  monitors: /etc/ceph/ceph.client.glance.keyring on localhost"
+"Next steps, now and one directly after the other (staged keys are not left lying around):"
+"1. Copy the keyring files listed under checkout above from the manager's checkout into your configuration repository (encrypt them first if your repository keeps keyrings encrypted), commit, push, then: osism apply configuration"
+"2. osism apply glance. The first use of a new key commits it."
+"3. osism validate ceph-keys"
+"client.glance and client.cinder-backup may connect to Ceph only when used: if the check still reports a pending key for one of them after its apply, upload or download an image (client.glance) or create a backup (client.cinder-backup), then check again."
+"Do not use the staged keyring by hand (no test login with it): its first use commits it, and so does any failed login for the entity with a wrong key. From the commit on, the old key stops working, and whoever still holds it cannot open new connections until it is applied."

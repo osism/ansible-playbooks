@@ -165,7 +165,7 @@ def test_pending_unknown_entity():
         )
     )
     assert n["client.crash.node-0"] == (
-        "a pending key: find out what uses this entity, then"
+        "not staged by cephadm-rotate-keys: find out what uses this entity, then"
         " ceph auth commit-pending client.crash.node-0 or ceph auth clear-pending"
         " client.crash.node-0"
     )

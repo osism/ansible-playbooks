@@ -5,11 +5,12 @@ cephx_failed describes a command that failed, for the plays' own messages.
 cephx_auth_export reads `ceph auth export -f json` down to names and flags,
 nothing that carries a key.
 
-The helpers (the names starting with _) are the one home of what the
-other plugins (cephx_validate) use. Ansible loads each filter plugin file
-under a name of its own, so a sibling cannot be imported by its name: each
-of them loads this file by its path (its _load_common), once, under the
-one module name _cephx_common.
+The helpers (the names starting with _) and the constant STAGED_CLASSES
+are the one home of what the other plugins (cephx_rotate,
+cephx_rotate_texts, cephx_validate) share. Ansible loads each filter
+plugin file under a name of its own, so a sibling cannot be imported by
+its name: each of them loads this file by its path (its _load_common),
+once, under the one module name _cephx_common.
 
 The input boundary, the same in every cephx plugin: the operator's values
 are checked once, by the play's input check; the results of the commands
@@ -53,6 +54,10 @@ def cephx_mask(text):
     if not isinstance(text, str):
         text = str(text)
     return _KEY.sub("<key>", text)
+
+
+# The classes whose keys are staged.
+STAGED_CLASSES = ("openstack", "admin")
 
 
 # The input boundary

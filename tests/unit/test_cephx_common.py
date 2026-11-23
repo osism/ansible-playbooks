@@ -208,10 +208,16 @@ def test_plugins_share_one_common_module():
     # helpers have one home.
     import sys
 
+    import cephx_rotate
+    import cephx_rotate_texts
     import cephx_validate
 
     common = sys.modules["_cephx_common"]
-    for plugin in (cephx_validate,):
+    for plugin in (
+        cephx_rotate,
+        cephx_rotate_texts,
+        cephx_validate,
+    ):
         assert plugin._common is common
         assert plugin._guarded is common._guarded
     assert common.FilterModule().filters().keys() == FilterModule().filters().keys()
@@ -466,11 +472,15 @@ def test_guarded_keeps_filter_errors():
 def test_every_filter_is_guarded():
     import sys
 
+    import cephx_rotate
+    import cephx_rotate_texts
     import cephx_validate
 
     common = sys.modules["_cephx_common"]
     for plugin in (
         common,
+        cephx_rotate,
+        cephx_rotate_texts,
         cephx_validate,
     ):
         for name, f in plugin.FilterModule().filters().items():
