@@ -7,7 +7,6 @@ import boto3
 from botocore.exceptions import ClientError
 
 def test_list_buckets():
-    global client
     global test_failure
     buckets = []
     try:
@@ -34,7 +33,6 @@ def test_list_buckets():
                 }
 
 def test_create_bucket(bucket_name):
-    global client
     global test_failure
     try:
         client.create_bucket(Bucket = bucket_name)
@@ -52,7 +50,6 @@ def test_create_bucket(bucket_name):
                 }
 
 def test_list_bucket_content(bucket_name):
-    global client
     global test_failure
     bucket_objects = []
     try:
@@ -73,7 +70,6 @@ def test_list_bucket_content(bucket_name):
                 }
 
 def test_create_object(bucket_name, obj_key, obj_data):
-    global client
     global test_failure
     try:
         object = client.Object(bucket_name, obj_key)
@@ -95,7 +91,6 @@ def test_create_object(bucket_name, obj_key, obj_data):
                 }
 
 def test_delete_object(bucket_name, obj_key):
-    global client
     global test_failure
     try:
         client.Object(bucket_name, obj_key).delete()
@@ -113,7 +108,6 @@ def test_delete_object(bucket_name, obj_key):
                 }
 
 def test_delete_bucket(bucket_name):
-    global client
     global test_failure
     try:
         bucket = client.Bucket(bucket_name)
@@ -135,7 +129,6 @@ def test_delete_bucket(bucket_name):
                 }
 
 def test_read_object(bucket_name, obj_key, obj_data):
-    global client
     global test_failure
     try:
         object = client.Object(bucket_name, obj_key)
