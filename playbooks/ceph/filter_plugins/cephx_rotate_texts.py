@@ -7,6 +7,8 @@ task files write them:
   openstack, admin       {name, class, action, checkout, monitors}
   crash, rgw, bootstrap  {name, class, action, checkout, monitors,
                           redeployed, kept}
+  lockbox                {name, class, action, osd, host, written,
+                          restarted, commit}
 
 The plays build these entries with their own filters, so they are read as
 they are: a missing field or an unknown class or action is a bug in the
@@ -60,19 +62,30 @@ def _join(items):
 # The failure message of the rescue
 
 AGAIN = (
-    "Run the same command again: an entity staged in this run keeps its "
+    "run the same command again: an entity staged in this run keeps its "
     "pending key (or, once committed, gets no new key before "
     "ceph_rotate_keys_min_age), and its files are written again; an entity "
     "rotated in this run gets no new key before ceph_rotate_keys_min_age, and "
     "each of its daemons that does not run with its key is redeployed."
 )
 AGAIN_MIN_AGE_0 = (
-    "Run the command again, but without -e ceph_rotate_keys_min_age=0: with "
+    "run the command again, but without -e ceph_rotate_keys_min_age=0: with "
     "it, every entity rotated or committed in this run would get a new key "
     "again. Without it (the default, 24 hours): an entity staged in this run "
     "keeps its pending key (or, once committed, gets no new key), and its "
     "files are written again; an entity rotated in this run gets no new key, "
     "and each of its daemons that does not run with its key is redeployed."
+)
+LOCKBOX_AGAIN = (
+    "A lockbox key staged in this run keeps its pending key, both copies are "
+    "written again, and its OSD is restarted while the key is pending."
+)
+# After a stop on two ceph.cephx_lockbox_secret tags of an LV: the next run
+# refuses the OSD's key until they are fixed.
+FIX_TAGS = (
+    "First leave one ceph.cephx_lockbox_secret tag on each of %s (osd.%s), "
+    "with the key in force next (see the error above): until then, a run "
+    "refuses the lockbox key of osd.%s. Then "
 )
 
 
@@ -84,6 +97,21 @@ def _done_failure(d):
             d["name"],
             ACTIONS[d["action"]],
             " and the monitor hosts" if d["monitors"] else "",
+        )
+    if cls == "lockbox":
+        if not d["restarted"]:
+            rs = "not restarted (no pending key)"
+        elif d["commit"] == "start":
+            rs = "restarted, key committed by its start"
+        else:
+            rs = "restarted, key committed by this play"
+        return "%s (osd.%s on %s): %s, %s, %s." % (
+            d["name"],
+            d["osd"],
+            d["host"],
+            ACTIONS[d["action"]],
+            "copies written" if d["written"] else "copies match",
+            rs,
         )
     if cls in ROTATED_CLASSES:
         out = "%s: %s" % (d["name"], ACTIONS[d["action"]])
@@ -111,6 +139,29 @@ def _group_failure(name, group, current):
     return "%s: not finished (%s)." % (name, done)
 
 
+def _osd_failure(osd, current):
+    """The lockbox entity in progress."""
+    if current["action"]:
+        act = ACTIONS[current["action"]]
+    else:
+        act = "its key may have been staged"
+    w = current["written"]
+    copies = (
+        "copies not all written"
+        if w is None
+        else "copies written" if w else "copies match"
+    )
+    rs = "osd.%s restarted" % osd["osd"] if current["restarted"] else "not restarted"
+    return "%s (osd.%s on %s): not finished (%s, %s, %s)." % (
+        osd["name"],
+        osd["osd"],
+        osd["host"],
+        act,
+        copies,
+        rs,
+    )
+
+
 def _entity_failure(name, current):
     """A staged entity in progress."""
     if current["action"]:
@@ -129,19 +180,33 @@ def cephx_rotate_failure(done, current, ctx):
       group       _rotate_keys_current_group ({} outside a group)
       results     _set_entity_key_results
       redeployed  _redeploy_daemons_redeployed
+      osd         _rotate_keys_current_osd ({} outside a lockbox entity)
       action      _rotate_keys_current_action
-    ctx: min_age (the int of the input checks).
+      written     _rotate_keys_current_written (None: not all written)
+      restarted   _restart_osd_restarted
+      doubled     the LVs of the OSD in progress with two
+                  ceph.cephx_lockbox_secret tags (_sync-lockbox.yml)
+    ctx: min_age (the int of the input checks), lockbox (the lockbox plan).
     """
     name = current["name"]
     group = current["group"]
+    osd = current["osd"]
     parts = ["The run stopped at %s (see the error above)." % (name or "an entity")]
     parts += [_done_failure(d) for d in done]
     if group:
         parts.append(_group_failure(name, group, current))
+    elif osd:
+        parts.append(_osd_failure(osd, current))
     elif name:
         parts.append(_entity_failure(name, current))
     again = AGAIN_MIN_AGE_0 if ctx["min_age"] == 0 else AGAIN
+    if osd and current["doubled"]:
+        again = FIX_TAGS % (_join(current["doubled"]), osd["osd"], osd["osd"]) + again
+    else:
+        again = again[0].upper() + again[1:]
     parts.append(again)
+    if ctx["lockbox"]:
+        parts.append(LOCKBOX_AGAIN)
     return " ".join(parts)
 
 
@@ -232,11 +297,12 @@ ROTATED_DONE = (
 
 def _per_entity(done, ctx):
     younger = YOUNGER % ctx["min_age"]
-    # The actions _set-entity-key.yml gives: the staged classes are staged,
-    # the rotated classes rotated at once.
+    # The actions _set-entity-key.yml gives: the staged classes and lockbox
+    # are staged, the rotated classes rotated at once.
+    stage = {"staged": STAGED, "already_staged": ALREADY_STAGED}
+    lockbox = dict(stage, skipped_recent=younger)
     staged = dict(
-        staged=STAGED,
-        already_staged=ALREADY_STAGED,
+        stage,
         skipped_recent=younger
         + "; its files were written again with that key (see the next steps)",
     )
@@ -244,7 +310,25 @@ def _per_entity(done, ctx):
     out = []
     for d in done:
         cls, action = d["class"], d["action"]
-        if cls in ROTATED_CLASSES:
+        if cls == "lockbox":
+            out.append(
+                "%s (osd.%s on %s): %s"
+                % (d["name"], d["osd"], d["host"], lockbox[action])
+            )
+            if not d["restarted"]:
+                rs = "not restarted (no pending key)"
+            elif d["commit"] == "start":
+                rs = "restarted, the OSD's start committed the key"
+            else:
+                rs = (
+                    "restarted; the key was still pending after the restart, "
+                    "committed by this play (ceph auth commit-pending)"
+                )
+            copies = "copies written" if d["written"] else "copies match"
+            out.append("  %s, %s" % (copies, rs))
+            if d["written"]:
+                out.append("  written: " + _join(d["written"]))
+        elif cls in ROTATED_CLASSES:
             out.append("%s: %s" % (d["name"], rotated[action]))
             if d["redeployed"]:
                 out.append("  redeployed: " + _join(d["redeployed"]))
@@ -286,7 +370,7 @@ def _step_apply(handled, services, staged):
 
 
 def _next_steps(done, ctx):
-    rotated = [d["name"] for d in done if d["class"] in ROTATED_CLASSES]
+    rotated = [d["name"] for d in done if d["class"] in ROTATED_CLASSES + ("lockbox",)]
     done_staged = [d for d in done if d["class"] in STAGED_CLASSES]
     handled = [d["name"] for d in done_staged]
     staged = [

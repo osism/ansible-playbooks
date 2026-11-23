@@ -1,0 +1,6 @@
+summary:
+"client.osd-lockbox.aaaaaaaa-0000-4000-8000-000000000000 (osd.0 on localhost): no new key: the active key is younger than 24 hours (ceph_rotate_keys_min_age; 0 rotates again)"
+"  copies match, not restarted (no pending key)"
+"client.osd-lockbox.bbbbbbbb-1111-4111-8111-111111111111 (osd.1 on localhost): already staged (pending key of an earlier run, the same key)"
+"  copies match, restarted, the OSD's start committed the key"
+"client.osd-lockbox.aaaaaaaa-0000-4000-8000-000000000000, client.osd-lockbox.bbbbbbbb-1111-4111-8111-111111111111: nothing else to do (these keys never leave Ceph). Check: osism validate ceph-keys"

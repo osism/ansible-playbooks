@@ -1,0 +1,184 @@
+---
+# Restart one OSD and wait until it is back with all PGs active+clean.
+# Included on the manager, where `ceph` is the cephclient wrapper.
+#
+# The OSD is restarted through its systemd unit on its host
+# (ceph-<fsid>@osd.<id>.service): `ceph orch daemon restart osd.<id>` is
+# accepted by cephadm and then not executed on OSISM clusters, whose OSDs
+# belong to an unmanaged service. That drops cephadm's own safety check, so
+# `ceph osd ok-to-stop <id>` comes first: retried while it refuses (EBUSY,
+# or EAGAIN while PG states are unknown), and if it still refuses at the end
+# of the wait the run fails with the OSD left running.
+#
+# Input:
+#   _restart_osd_id:   the OSD's id, for example 3.
+#   _restart_osd_host: the inventory host it runs on (ceph osd find).
+#
+# All PGs have to be active+clean before the restart as well as after it:
+# the next OSD is never restarted while the previous one's PGs recover. An
+# OSD that is not up once ok-to-stop agrees is not restarted: the run fails.
+# Then it waits until the OSD is up with an up_from epoch newer than before,
+# and then until all PGs are active+clean. Every wait is bounded at 10 minutes
+# (_restart_osd_retries tries, _restart_osd_delay seconds apart; internal,
+# for tests).
+#
+# Output:
+#   _restart_osd_restarted: true once systemd restarted the unit (also when
+#     a wait after it fails).
+
+- name: Note as not restarted osd.{{ _restart_osd_id }}
+  ansible.builtin.set_fact:
+    _restart_osd_restarted: false
+
+- name: Read the fsid of the cluster
+  ansible.builtin.command:
+    cmd: ceph fsid
+  register: _restart_osd_fsid
+  changed_when: false
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+
+- name: Fail if the fsid cannot be read
+  ansible.builtin.fail:
+    msg: >-
+      ceph fsid
+      {{ _restart_osd_fsid | cephx_failed('ceph fsid') or 'did not print an fsid' }}.
+      osd.{{ _restart_osd_id }} was not restarted.
+  when: >-
+    _restart_osd_fsid.rc != 0
+    or _restart_osd_fsid.stdout | trim is not match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
+
+# ok-to-stop only asks whether the PGs stay available; a restart while PGs
+# are degraded (for example still recovering from the previous OSD's restart,
+# after a run whose wait timed out) would add to it.
+- name: Wait until all PGs are active+clean before the restart of osd.{{ _restart_osd_id }}
+  ansible.builtin.include_tasks: _wait-pgs-clean.yml
+  vars:
+    _wait_pgs_clean_failure: >-
+      Not all PGs active+clean before the restart of osd.{{ _restart_osd_id }}:
+      osd.{{ _restart_osd_id }} was not restarted and keeps running
+
+- name: Ask ceph osd ok-to-stop for osd.{{ _restart_osd_id }}
+  ansible.builtin.command:
+    cmd: "ceph osd ok-to-stop {{ _restart_osd_id }}"
+  register: _restart_osd_ok
+  changed_when: false
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+  # EBUSY (16): PGs would become unavailable; EAGAIN (11): PG states unknown.
+  until: >-
+    _restart_osd_ok.rc not in [11, 16]
+    or _restart_osd_ok.attempts | default(1) | int > _restart_osd_retries | default(60) | int
+  retries: "{{ _restart_osd_retries | default(60) | int }}"
+  delay: "{{ _restart_osd_delay | default(10) | int }}"
+
+- name: Fail if it is not ok to stop osd.{{ _restart_osd_id }}
+  ansible.builtin.fail:
+    msg: >-
+      osd.{{ _restart_osd_id }}: ceph osd ok-to-stop {{ _restart_osd_id }}
+      {{ ('refused for ' ~ ((_restart_osd_retries | default(60) | int) * (_restart_osd_delay | default(10) | int))
+          ~ ' seconds, the last try ') if _restart_osd_ok.rc in [11, 16] else ''
+      }}{{ _restart_osd_ok | cephx_failed('ceph osd ok-to-stop') }}.
+      osd.{{ _restart_osd_id }} was not restarted and keeps running. Check
+      ceph health detail and ceph pg stat (other OSDs down, PGs not
+      active+clean).
+  when: _restart_osd_ok.rc != 0
+
+# Read after ok-to-stop: ok-to-stop does not object to a down OSD, and the
+# OSD may have gone down since the play's guards read the OSD map (a long
+# run) or while ok-to-stop was retried. A down OSD is not started: it may
+# be stopped on purpose or sit on a failing disk. up is exactly 0 or 1
+# (cephx_osd_state): JSON's true is not 1.
+- name: Read the state of osd.{{ _restart_osd_id }}
+  ansible.builtin.command:
+    cmd: ceph osd dump -f json
+  register: _restart_osd_dump
+  changed_when: false
+  # Judged by the next task, which masks stderr.
+  failed_when: false
+  no_log: true
+
+- name: Fail if the OSD map cannot be read
+  ansible.builtin.fail:
+    msg: >-
+      ceph osd dump
+      {{ _restart_osd_dump | cephx_failed('ceph osd dump')
+         or 'did not list osd.' ~ _restart_osd_id }}.
+      osd.{{ _restart_osd_id }} was not restarted.
+  when: >-
+    _restart_osd_dump.rc != 0
+    or (_restart_osd_dump.stdout | trim)[:1] != '{'
+    or _restart_osd_dump | cephx_osd_state(_restart_osd_id) | length == 0
+
+- name: Note the state of osd.{{ _restart_osd_id }}
+  ansible.builtin.set_fact:
+    _restart_osd_state: "{{ _restart_osd_dump | cephx_osd_state(_restart_osd_id) }}"
+
+- name: Fail unless up before the restart of osd.{{ _restart_osd_id }}
+  ansible.builtin.fail:
+    msg: >-
+      osd.{{ _restart_osd_id }} is not up (ceph osd dump), so it was not
+      restarted. Its lockbox key stays pending, and both copies on
+      {{ _restart_osd_host }} carry it: run the command again when
+      osd.{{ _restart_osd_id }} is up, which restarts it and completes the
+      rotation.
+  when: not _restart_osd_state.up
+
+- name: Restart osd.{{ _restart_osd_id }}
+  become: true
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - restart
+      - "ceph-{{ _restart_osd_fsid.stdout | trim }}@osd.{{ _restart_osd_id }}.service"
+  delegate_to: "{{ _restart_osd_host }}"
+  register: _restart_osd_cmd
+  changed_when: true
+  # Judged by the next task.
+  failed_when: false
+
+- name: Fail if systemd did not restart osd.{{ _restart_osd_id }}
+  ansible.builtin.fail:
+    msg: >-
+      systemctl restart ceph-{{ _restart_osd_fsid.stdout | trim }}@osd.{{ _restart_osd_id }}.service
+      on {{ _restart_osd_host }} {{ _restart_osd_cmd | cephx_failed('systemctl restart') }}.
+      See journalctl -u ceph-{{ _restart_osd_fsid.stdout | trim }}@osd.{{ _restart_osd_id }}
+      on {{ _restart_osd_host }}.
+  when: _restart_osd_cmd.rc != 0
+
+- name: Note as restarted osd.{{ _restart_osd_id }}
+  ansible.builtin.set_fact:
+    _restart_osd_restarted: true
+
+# A restarted OSD comes back up with a newer up_from epoch. An answer
+# cephx_osd_back cannot judge ends the wait; the next task stops on it.
+- name: Wait for a newer up_from of osd.{{ _restart_osd_id }}
+  ansible.builtin.command:
+    cmd: ceph osd dump -f json
+  register: _restart_osd_wait
+  changed_when: false
+  # Judged below; no_log keeps an unmasked stderr out of the output.
+  failed_when: false
+  no_log: true
+  until: >-
+    _restart_osd_wait | cephx_osd_back_until(_restart_osd_id, _restart_osd_state.up_from)
+    or _restart_osd_wait.attempts | default(1) | int > _restart_osd_retries | default(60) | int
+  retries: "{{ _restart_osd_retries | default(60) | int }}"
+  delay: "{{ _restart_osd_delay | default(10) | int }}"
+
+- name: Fail unless back up after the restart of osd.{{ _restart_osd_id }}
+  ansible.builtin.fail:
+    msg: >-
+      osd.{{ _restart_osd_id }} was restarted and is not back up
+      {{ (_restart_osd_retries | default(60) | int) * (_restart_osd_delay | default(10) | int) }}
+      seconds later (ceph osd dump: no up_from newer than {{ _restart_osd_state.up_from }}).
+      See journalctl -u ceph-{{ _restart_osd_fsid.stdout | trim }}@osd.{{ _restart_osd_id }}
+      on {{ _restart_osd_host }}.
+  when: not _restart_osd_wait | cephx_osd_back(_restart_osd_id, _restart_osd_state.up_from)
+
+- name: Wait until all PGs are active+clean after the restart of osd.{{ _restart_osd_id }}
+  ansible.builtin.include_tasks: _wait-pgs-clean.yml
+  vars:
+    _wait_pgs_clean_failure: osd.{{ _restart_osd_id }} is back up, but not all PGs active+clean

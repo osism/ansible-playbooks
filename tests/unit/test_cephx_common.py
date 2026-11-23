@@ -23,6 +23,8 @@ from cephx_common import (
     cephx_auth_export,
     cephx_failed,
     cephx_mask,
+    cephx_pg_states,
+    cephx_pgs_clean,
 )
 
 
@@ -37,6 +39,8 @@ def test_filters_registered():
     filters = FilterModule().filters()
     assert filters["cephx_mask"].__wrapped__ is cephx_mask
     assert filters["cephx_auth_export"].__wrapped__ is cephx_auth_export
+    assert filters["cephx_pgs_clean"].__wrapped__ is cephx_pgs_clean
+    assert filters["cephx_pg_states"].__wrapped__ is cephx_pg_states
     assert filters["cephx_failed"].__wrapped__ is cephx_failed
 
 
@@ -205,11 +209,45 @@ def test_auth_export_garbage_message_has_no_input():
         assert k not in str(e.value)
 
 
+def pg_stat(states, num_pgs=33):
+    return json.dumps(
+        {
+            "pg_ready": True,
+            "pg_summary": {
+                "num_pg_by_state": [{"name": n, "num": c} for n, c in states],
+                "num_pgs": num_pgs,
+            },
+        }
+    )
+
+
+def test_pgs_clean_all():
+    assert cephx_pgs_clean(pg_stat([("active+clean", 33)])) is True
+    assert cephx_pgs_clean(pg_stat([("active+clean", 0)], 0)) is True
+
+
+def test_pgs_clean_undersized():
+    stdout = pg_stat([("active+clean", 0), ("active+undersized", 33)])
+    assert cephx_pgs_clean(stdout) is False
+    assert cephx_pgs_clean(pg_stat([("active+clean", 32)])) is False
+    for unreadable in ("", "Error", "[]", "{}", '{"pg_summary": {}}', "{", None):
+        assert cephx_pgs_clean(unreadable) is False
+
+
+def test_pg_states_text():
+    stdout = pg_stat([("active+clean", 0), ("active+undersized", 33)])
+    assert cephx_pg_states(stdout) == "0 active+clean, 33 active+undersized"
+    assert cephx_pg_states(pg_stat([("active+clean", 33)])) == "33 active+clean"
+    for unreadable in ("", "Error", "[]", "{}", '{"pg_summary": []}', "{", None):
+        assert cephx_pg_states(unreadable) == ""
+
+
 def test_plugins_share_one_common_module():
     # Every plugin loads cephx_common.py by its path under one name: the
     # helpers have one home.
     import sys
 
+    import cephx_lockbox
     import cephx_redeploy
     import cephx_rotate
     import cephx_rotate_texts
@@ -217,6 +255,7 @@ def test_plugins_share_one_common_module():
 
     common = sys.modules["_cephx_common"]
     for plugin in (
+        cephx_lockbox,
         cephx_redeploy,
         cephx_rotate,
         cephx_rotate_texts,
@@ -502,6 +541,7 @@ def test_guarded_keeps_filter_errors():
 def test_every_filter_is_guarded():
     import sys
 
+    import cephx_lockbox
     import cephx_redeploy
     import cephx_rotate
     import cephx_rotate_texts
@@ -510,6 +550,7 @@ def test_every_filter_is_guarded():
     common = sys.modules["_cephx_common"]
     for plugin in (
         common,
+        cephx_lockbox,
         cephx_redeploy,
         cephx_rotate,
         cephx_rotate_texts,

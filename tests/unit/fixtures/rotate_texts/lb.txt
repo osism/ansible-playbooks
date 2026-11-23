@@ -1,0 +1,8 @@
+summary:
+"client.osd-lockbox.aaaaaaaa-0000-4000-8000-000000000000 (osd.0 on localhost): staged"
+"  copies written, restarted, the OSD's start committed the key"
+"  written: ceph-0/osd-block-0, ceph-0db/osd-db-0, lockbox.keyring"
+"client.osd-lockbox.bbbbbbbb-1111-4111-8111-111111111111 (osd.1 on localhost): staged"
+"  copies written, restarted, the OSD's start committed the key"
+"  written: ceph-1/osd-block-1, lockbox.keyring"
+"client.osd-lockbox.aaaaaaaa-0000-4000-8000-000000000000, client.osd-lockbox.bbbbbbbb-1111-4111-8111-111111111111: nothing else to do (these keys never leave Ceph). Check: osism validate ceph-keys"

@@ -3,15 +3,16 @@
 cephx_mask masks key-shaped tokens in command output before it is shown.
 cephx_failed describes a command that failed, for the plays' own messages.
 cephx_auth_export reads `ceph auth export -f json` down to names and flags,
-nothing that carries a key.
+nothing that carries a key. cephx_pgs_clean and cephx_pg_states read
+`ceph pg stat -f json`.
 
 The helpers (the names starting with _) and the constants (FSID,
-STAGED_CLASSES, ROTATED_CLASSES) are the one home of what the other
-plugins (cephx_rotate, cephx_redeploy, cephx_rotate_texts, cephx_validate)
-share. Ansible loads each filter plugin file under a name of its own, so a
-sibling cannot be imported by its name: each of them loads this file by
-its path (its _load_common), once, under the one module name
-_cephx_common.
+STAGED_CLASSES, ROTATED_CLASSES) are the one home of what the other plugins
+(cephx_rotate, cephx_redeploy, cephx_lockbox, cephx_rotate_texts,
+cephx_validate) share. Ansible loads each filter plugin file under a name
+of its own, so a sibling cannot be imported by its name: each of them
+loads this file by its path (its _load_common), once, under the one module
+name _cephx_common.
 
 The input boundary, the same in every cephx plugin: the operator's values
 are checked once, by the play's input check; the results of the commands
@@ -285,7 +286,28 @@ def _osd_map(result, fields):
     return dump["osds"]
 
 
-# The filter of `ceph auth export`
+def _osds_up(osd_dump):
+    """Whether each OSD of `ceph osd dump` is up: {osd: bool}. up is
+    exactly 0 or 1."""
+    what = "ceph osd dump"
+    up = {}
+    for e in _osd_map(osd_dump, {}):
+        for field in ("osd", "up"):
+            if field not in e:
+                raise AnsibleFilterError(
+                    "%s: an entry of osds has no %s" % (what, field)
+                )
+        if not _is(e["osd"], int):
+            raise AnsibleFilterError("%s: osd is not an int" % what)
+        if not _is(e["up"], int) or e["up"] not in (0, 1):
+            raise AnsibleFilterError("%s: up is not 0 or 1" % what)
+        if e["osd"] in up:
+            raise AnsibleFilterError("%s: an OSD is listed twice" % what)
+        up[e["osd"]] = e["up"] == 1
+    return up
+
+
+# The filters of `ceph auth export` and `ceph pg stat`
 
 
 def _auth_export_entries(stdout):
@@ -323,6 +345,49 @@ def cephx_auth_export(stdout):
     return out
 
 
+def _pg_summary(stdout):
+    if not isinstance(stdout, str) or not stdout.strip().startswith("{"):
+        return {}
+    try:
+        parsed = json.loads(stdout)
+    except ValueError:
+        return {}
+    summary = parsed.get("pg_summary", {}) if isinstance(parsed, dict) else {}
+    return summary if isinstance(summary, dict) else {}
+
+
+def _pg_by_state(summary):
+    states = summary.get("num_pg_by_state", [])
+    if not isinstance(states, list):
+        return []
+    return [s for s in states if isinstance(s, dict)]
+
+
+def cephx_pgs_clean(stdout):
+    """Whether `ceph pg stat -f json` says every PG is active+clean."""
+    summary = _pg_summary(stdout)
+    if "num_pgs" not in summary:
+        return False
+    try:
+        clean = sum(
+            int(s.get("num", 0))
+            for s in _pg_by_state(summary)
+            if s.get("name") == "active+clean"
+        )
+        return clean == int(summary["num_pgs"])
+    except (TypeError, ValueError):
+        return False
+
+
+def cephx_pg_states(stdout):
+    """The PG states of `ceph pg stat -f json` as "N state, M state"; ''
+    when unreadable."""
+    return ", ".join(
+        "%s %s" % (s.get("num", ""), s.get("name", ""))
+        for s in _pg_by_state(_pg_summary(stdout))
+    )
+
+
 class FilterModule:
     def filters(self):
         return {
@@ -331,5 +396,7 @@ class FilterModule:
                 cephx_mask,
                 cephx_failed,
                 cephx_auth_export,
+                cephx_pgs_clean,
+                cephx_pg_states,
             )
         }

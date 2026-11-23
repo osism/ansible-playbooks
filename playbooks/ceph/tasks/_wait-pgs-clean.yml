@@ -1,0 +1,35 @@
+---
+# Wait until all PGs are active+clean, bounded at 10 minutes
+# (_restart_osd_retries tries, _restart_osd_delay seconds apart, as in
+# _restart-osd.yml), and fail with the given message if they do not get
+# there. Included on the manager, where `ceph` is the cephclient wrapper.
+#
+# Input:
+#   _wait_pgs_clean_failure: what the failure says before the PG states, for
+#     example "osd.3 is back up, but not all PGs active+clean".
+
+- name: Wait until all PGs are active+clean
+  block:
+    - name: Read the PG states until all are active+clean
+      ansible.builtin.command:
+        cmd: ceph pg stat -f json
+      register: _wait_pgs_clean
+      changed_when: false
+      # Judged below; no_log keeps an unmasked stderr out of the output.
+      failed_when: false
+      no_log: true
+      until: >-
+        (_wait_pgs_clean.rc == 0 and _wait_pgs_clean.stdout | cephx_pgs_clean)
+        or _wait_pgs_clean.attempts | default(1) | int > _restart_osd_retries | default(60) | int
+      retries: "{{ _restart_osd_retries | default(60) | int }}"
+      delay: "{{ _restart_osd_delay | default(10) | int }}"
+
+    - name: Fail if the PGs did not get active+clean
+      ansible.builtin.fail:
+        msg: >-
+          {{ _wait_pgs_clean_failure }} ({{ _states or 'ceph pg stat did not answer' }},
+          after {{ (_restart_osd_retries | default(60) | int) * (_restart_osd_delay | default(10) | int) }}
+          seconds). See ceph health detail.
+      vars:
+        _states: "{{ _wait_pgs_clean.stdout | cephx_pg_states if _wait_pgs_clean.rc == 0 else '' }}"
+      when: not (_wait_pgs_clean.rc == 0 and _wait_pgs_clean.stdout | cephx_pgs_clean)

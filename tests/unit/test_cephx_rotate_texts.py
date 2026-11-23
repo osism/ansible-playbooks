@@ -18,6 +18,8 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 OV = "/tmp/pt/cfg/environments/kolla/files/overlays"
 INF = "/tmp/pt/cfg/environments/infrastructure/files/ceph"
+L0 = "client.osd-lockbox.aaaaaaaa-0000-4000-8000-000000000000"
+L1 = "client.osd-lockbox.bbbbbbbb-1111-4111-8111-111111111111"
 CHECKOUT = {
     "client.glance": [OV + "/glance/ceph.client.glance.keyring"],
     "client.cinder": [
@@ -31,6 +33,10 @@ CHECKOUT = {
         OV + "/cinder/cinder-backup/ceph.client.cinder-backup.keyring"
     ],
     "client.admin": [INF + "/ceph.client.admin.keyring"],
+}
+WRITTEN = {
+    0: ["ceph-0/osd-block-0", "ceph-0db/osd-db-0", "lockbox.keyring"],
+    1: ["ceph-1/osd-block-1", "lockbox.keyring"],
 }
 HOURS = (
     "no new key: the active key is younger than 24 hours "
@@ -50,6 +56,10 @@ AGAIN_MIN_AGE_0 = (
     "keeps its pending key (or, once committed, gets no new key), and its "
     "files are written again; an entity rotated in this run gets no new key, "
     "and each of its daemons that does not run with its key is redeployed."
+)
+LOCKBOX_AGAIN = (
+    "A lockbox key staged in this run keeps its pending key, both copies are "
+    "written again, and its OSD is restarted while the key is pending."
 )
 
 
@@ -99,6 +109,19 @@ def crash(n, action="rotated"):
     return rotated("client.crash.node-%d" % n, "crash", action, ["crash.node-%d" % n])
 
 
+def lockbox(osd, action="staged", written=True, restarted=True, commit="start"):
+    return {
+        "name": (L0, L1)[osd],
+        "class": "lockbox",
+        "action": action,
+        "osd": osd,
+        "host": "localhost",
+        "written": WRITTEN[osd] if written else [],
+        "restarted": restarted,
+        "commit": commit,
+    }
+
+
 def sctx(min_age=24):
     return {
         "min_age": min_age,
@@ -108,8 +131,8 @@ def sctx(min_age=24):
     }
 
 
-def fctx(min_age=24):
-    return {"min_age": min_age}
+def fctx(min_age=24, lockbox=()):
+    return {"min_age": min_age, "lockbox": list(lockbox)}
 
 
 def current(**kw):
@@ -118,7 +141,11 @@ def current(**kw):
         "group": {},
         "results": [],
         "redeployed": [],
+        "osd": {},
         "action": "",
+        "written": None,
+        "restarted": False,
+        "doubled": [],
     }
     c.update(kw)
     return c
@@ -179,6 +206,22 @@ SUMMARIES = {
         ],
         24,
     ),
+    "lb": ([lockbox(0), lockbox(1)], 24),
+    "lb2": (
+        [
+            lockbox(0, "skipped_recent", False, False, ""),
+            lockbox(1, "skipped_recent", False, False, ""),
+        ],
+        24,
+    ),
+    "lbc": ([lockbox(1, "skipped_recent", True, False, "")], 24),
+    "lbg2": (
+        [
+            lockbox(0, "skipped_recent", False, False, ""),
+            lockbox(1, "already_staged", False, True, "start"),
+        ],
+        24,
+    ),
     "mix": (
         [
             staged("client.cinder", "skipped_recent"),
@@ -195,6 +238,7 @@ SUMMARIES = {
         ],
         24,
     ),
+    "lb-none": ([], 24),
 }
 
 
@@ -235,6 +279,12 @@ def _crash_current():
     )
 
 
+def _osd(n):
+    return {"name": (L0, L1)[n], "osd": n, "host": "localhost"}
+
+
+PLAN_LOCKBOX = [_osd(0), _osd(1)]
+
 FAILURES = {
     "hang": (
         [],
@@ -263,6 +313,25 @@ FAILURES = {
     ),
     "rdf": ([], _crash_current(), fctx()),
     "rdz": ([], _crash_current(), fctx(min_age=0)),
+    "lbg": (
+        [lockbox(0)],
+        current(
+            name=L1, osd=_osd(1), action="staged", written=WRITTEN[1], restarted=False
+        ),
+        fctx(lockbox=PLAN_LOCKBOX),
+    ),
+    "lbp": (
+        [],
+        current(
+            name=L0, osd=_osd(0), action="staged", written=WRITTEN[0], restarted=True
+        ),
+        fctx(lockbox=PLAN_LOCKBOX),
+    ),
+    "lbn": (
+        [],
+        current(name=L0, osd=_osd(0), action="staged", written=None),
+        fctx(lockbox=PLAN_LOCKBOX),
+    ),
 }
 
 
@@ -315,6 +384,35 @@ def test_failure_whole_text_min_age_zero():
     )
 
 
+def test_failure_whole_text_osd_in_progress():
+    # T-1, example lbp.
+    done, cur, ctx = FAILURES["lbp"]
+    assert plain(cephx_rotate_failure(done, cur, ctx)) == (
+        "The run stopped at " + L0 + " (see the error above). " + L0 + " (osd.0"
+        " on localhost): not finished (staged, copies written, osd.0"
+        " restarted). " + AGAIN + " " + LOCKBOX_AGAIN
+    )
+
+
+def test_failure_whole_text_lockbox_done_then_osd():
+    done, cur, ctx = FAILURES["lbg"]
+    assert plain(cephx_rotate_failure(done, cur, ctx)) == (
+        "The run stopped at " + L1 + " (see the error above). " + L0 + " (osd.0"
+        " on localhost): staged, copies written, restarted, key committed by its"
+        " start. " + L1 + " (osd.1 on localhost): not finished (staged, copies"
+        " written, not restarted). " + AGAIN + " " + LOCKBOX_AGAIN
+    )
+
+
+def test_failure_whole_text_copies_not_all_written():
+    done, cur, ctx = FAILURES["lbn"]
+    assert plain(cephx_rotate_failure(done, cur, ctx)) == (
+        "The run stopped at " + L0 + " (see the error above). " + L0 + " (osd.0"
+        " on localhost): not finished (staged, copies not all written, not"
+        " restarted). " + AGAIN + " " + LOCKBOX_AGAIN
+    )
+
+
 def test_failure_whole_text_rgw_one_at_a_time():
     done, cur, ctx = FAILURES["hang"]
     assert plain(cephx_rotate_failure(done, cur, ctx)) == (
@@ -330,6 +428,8 @@ def test_failure_records_of_each_class():
     done = [
         staged("client.glance", "skipped_recent"),
         dict(staged("client.admin", "already_staged")),
+        lockbox(0, "skipped_recent", False, False, ""),
+        lockbox(1, commit="play"),
         rotated(RGW0, "rgw", "skipped_recent", ["a", "b"], ["c"]),
         rotated("client.bootstrap-osd", "bootstrap"),
     ]
@@ -339,6 +439,10 @@ def test_failure_records_of_each_class():
         " client.glance: no new key, written to the checkout and the monitor"
         " hosts."
         " client.admin: already staged, written to the checkout."
+        " " + L0 + " (osd.0 on localhost): no new key, copies match,"
+        " not restarted (no pending key)."
+        " " + L1 + " (osd.1 on localhost): staged, copies written,"
+        " restarted, key committed by this play."
         " " + RGW0 + ": no new key; redeployed: a, b; running with this key,"
         " not redeployed: c."
         " client.bootstrap-osd: rotated. " + AGAIN
@@ -346,8 +450,13 @@ def test_failure_records_of_each_class():
 
 
 def test_failure_between_entities():
-    out = cephx_rotate_failure([], current(), fctx())
-    assert plain(out) == "The run stopped at an entity (see the error above). " + AGAIN
+    out = cephx_rotate_failure([], current(), fctx(lockbox=PLAN_LOCKBOX))
+    assert plain(out) == (
+        "The run stopped at an entity (see the error above). "
+        + AGAIN
+        + " "
+        + LOCKBOX_AGAIN
+    )
 
 
 def test_failure_current_with_action():
@@ -393,6 +502,63 @@ def test_failure_group_actions_and_redeployed():
         " (client.crash.node-1: no new key; redeployed: crash.node-1 of"
         " crash.node-0, crash.node-1). " + AGAIN
     )
+
+
+def test_failure_osd_copies_match_and_no_action():
+    out = cephx_rotate_failure(
+        [], current(name=L0, osd=_osd(0), written=[], restarted=True), fctx()
+    )
+    assert plain(out) == (
+        "The run stopped at " + L0 + " (see the error above). " + L0 + " (osd.0"
+        " on localhost): not finished (its key may have been staged, copies"
+        " match, osd.0 restarted). " + AGAIN
+    )
+
+
+def test_failure_two_lockbox_tags_fix_first():
+    # A stop on two ceph.cephx_lockbox_secret tags: the next run refuses the
+    # OSD's key until its LVs are fixed, so the advice says that first.
+    cur = current(
+        name=L0,
+        osd=_osd(0),
+        action="staged",
+        doubled=["ceph-0/osd-block-0", "ceph-0db/osd-db-0"],
+    )
+    out = cephx_rotate_failure([], cur, fctx(lockbox=PLAN_LOCKBOX))
+    assert plain(out) == (
+        "The run stopped at " + L0 + " (see the error above). " + L0 + " (osd.0"
+        " on localhost): not finished (staged, copies not all written, not"
+        " restarted). First leave one ceph.cephx_lockbox_secret tag on each of"
+        " ceph-0/osd-block-0, ceph-0db/osd-db-0 (osd.0), with the key in force"
+        " next (see the error above): until then, a run refuses the lockbox key"
+        " of osd.0. Then run the same command again: an entity staged in this"
+        " run keeps its pending key (or, once committed, gets no new key before"
+        " ceph_rotate_keys_min_age), and its files are written again; an entity"
+        " rotated in this run gets no new key before ceph_rotate_keys_min_age,"
+        " and each of its daemons that does not run with its key is"
+        " redeployed. " + LOCKBOX_AGAIN
+    )
+
+
+def test_failure_two_lockbox_tags_min_age_zero():
+    cur = current(name=L0, osd=_osd(0), action="staged", doubled=["ceph-0/a"])
+    out = cephx_rotate_failure([], cur, fctx(min_age=0, lockbox=PLAN_LOCKBOX))
+    assert plain(out).endswith(
+        "a run refuses the lockbox key of osd.0. Then run the command again,"
+        " but without -e ceph_rotate_keys_min_age=0: with it, every entity"
+        " rotated or committed in this run would get a new key again. Without"
+        " it (the default, 24 hours): an entity staged in this run keeps its"
+        " pending key (or, once committed, gets no new key), and its files are"
+        " written again; an entity rotated in this run gets no new key, and"
+        " each of its daemons that does not run with its key is redeployed. "
+        + LOCKBOX_AGAIN
+    )
+
+
+def test_failure_doubled_outside_a_lockbox_entity_is_not_read():
+    # Between entities (no OSD in progress) the tags are not the reason.
+    out = cephx_rotate_failure([], current(doubled=["ceph-0/a"]), fctx())
+    assert "First leave" not in out
 
 
 def test_failure_unknown_class_raises():
@@ -501,6 +667,18 @@ def test_summary_monitors_joined():
     assert out[2] == "  monitors: /etc/ceph/ceph.client.glance.keyring on mon-0, mon-1"
 
 
+def test_summary_lockbox_committed_by_the_play():
+    out = cephx_rotate_summary([lockbox(0, commit="play")], sctx())
+    assert out == [
+        L0 + " (osd.0 on localhost): staged",
+        "  copies written, restarted; the key was still pending after the"
+        " restart, committed by this play (ceph auth commit-pending)",
+        "  written: ceph-0/osd-block-0, ceph-0db/osd-db-0, lockbox.keyring",
+        L0 + ": nothing else to do (these keys never leave Ceph). Check: osism"
+        " validate ceph-keys",
+    ]
+
+
 def test_summary_unknown_class_raises():
     # Q-T8: an unknown class is a bug in the play, not a staged key.
     d = dict(staged("client.glance"), **{"class": "other"})
@@ -517,6 +695,8 @@ def test_summary_unknown_class_raises():
         crash(0, "renamed"),
         crash(0, "staged"),
         crash(0, "already_staged"),
+        lockbox(0, "renamed"),
+        lockbox(0, "rotated"),
     ],
 )
 def test_summary_unknown_action_raises(d):
